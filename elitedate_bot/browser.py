@@ -22,7 +22,11 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
         options = Options()
 
     if settings.headless:
-        options.add_argument("--headless=new")
+        # Legacy --headless (not --headless=new): --single-process is only
+        # reliably honored in this mode and cuts memory drastically by
+        # running the renderer inside the browser process instead of a
+        # separate one that can get OOM-killed ("tab crashed").
+        options.add_argument("--headless")
 
     # Raspberry Pi essentials: /dev/shm is tiny by default and Chrome will crash
     # without --disable-dev-shm-usage; --no-sandbox is required when running as
@@ -30,7 +34,25 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
+    options.add_argument("--disable-software-rasterizer")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-background-networking")
+    options.add_argument("--disable-default-apps")
+    options.add_argument("--disable-sync")
+    options.add_argument("--disable-translate")
+    options.add_argument("--mute-audio")
+    options.add_argument("--no-zygote")
+    options.add_argument("--single-process")
+    options.add_argument("--renderer-process-limit=1")
+    options.add_argument("--disable-setuid-sandbox")
+    options.add_argument("--disable-features=VizDisplayCompositor")
     options.add_argument(f"--window-size={settings.window_size}")
+
+    # Skip loading images: cuts per-page memory a lot and this bot only reads
+    # text (messages, sender names), never needs rendered images.
+    options.add_experimental_option(
+        "prefs", {"profile.managed_default_content_settings.images": 2}
+    )
 
     if settings.user_agent:
         options.add_argument(f"--user-agent={settings.user_agent}")

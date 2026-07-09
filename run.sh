@@ -45,6 +45,68 @@ done
 [ -e "$CFG/.seen_email_ids" ] || : > "$CFG/.seen_email_ids"
 ln -sf "$CFG/.seen_email_ids" /app/.seen_email_ids
 
+# Seen-elitedate-messages cache: same persistence treatment.
+mkdir -p "$CFG/elitedate"
+[ -e "$CFG/elitedate/.seen_messages.json" ] || echo "[]" > "$CFG/elitedate/.seen_messages.json"
+ln -sf "$CFG/elitedate/.seen_messages.json" /app/elitedate_bot/.seen_messages.json
+
+# ---------------------------------------------------------------------------
+# elitedate_bot (Selenium against Elite Date)
+# ---------------------------------------------------------------------------
+# BROWSER_BINARY/WEBDRIVER_PATH in .env are typically set for local Windows
+# dev (desktop Chrome). Force the in-image Chromium/chromedriver here so the
+# container never picks up a Windows path. Real env vars win over .env in
+# pydantic-settings, so this override is safe regardless of .env contents.
+export BROWSER=chrome
+export BROWSER_BINARY=/usr/bin/chromium
+export WEBDRIVER_PATH=/usr/bin/chromedriver
+export HEADLESS=true
+
+# Poor-man's supervisor: restarts elitedate_bot on crash (Selenium/Chrome
+# dying is expected occasionally), but gives up after too many restarts in a
+# short window instead of respawning a permanently-broken process forever.
+supervise_elitedate_bot() {
+    set +e
+    cd /app
+    local max_restarts=5
+    local window_sec=600
+    local restart_times=()
+
+    while true; do
+        python -m elitedate_bot.main
+        local code=$?
+        local now
+        now=$(date +%s)
+
+        local pruned=()
+        local t
+        for t in "${restart_times[@]}"; do
+            if [ $((now - t)) -lt "$window_sec" ]; then
+                pruned+=("$t")
+            fi
+        done
+        restart_times=("${pruned[@]}")
+        restart_times+=("$now")
+
+        echo "[elitedate_bot] exited with code $code (${#restart_times[@]}/${max_restarts} restarts in last ${window_sec}s)"
+        if [ "${#restart_times[@]}" -ge "$max_restarts" ]; then
+            echo "[elitedate_bot] too many restarts, giving up. Fix the underlying issue and restart the add-on."
+            break
+        fi
+        sleep 5
+    done
+}
+
+if [ "${ELITEDATE_BOT_ENABLED:-true}" = "true" ]; then
+    echo "Starting elitedate_bot in background (supervised)..."
+    # /data isn't mapped to a host-visible folder for this add-on, so route
+    # output through the main process's stdout (visible in the add-on's Log
+    # tab) instead of a file nobody can read, prefixed to tell it apart.
+    supervise_elitedate_bot 2>&1 | sed -u 's/^/[elitedate_bot] /' &
+else
+    echo "elitedate_bot disabled (ELITEDATE_BOT_ENABLED=false)."
+fi
+
 # Log level (falls back to info)
 LOG_LEVEL="${LOG_LEVEL:-info}"
 echo "Log level: ${LOG_LEVEL}"
