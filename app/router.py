@@ -22,6 +22,7 @@ Available tools:
 
 Rules:
 - USE CONVERSATION HISTORY to understand context. If the user says "show them", "summarize them", "zhrň ich" etc. — look at what was discussed before and route to the appropriate tool. For example if the previous message was about emails, route to gmail.
+- If the user asks a follow-up OPINION/ADVICE question about something already discussed (e.g. "oplatí sa íst na motorke?", "treba dáždnik?", "mám ísť von?", "je to bezpečné?") right after weather/calendar/etc. was already fetched in this conversation — route to "chat", NOT back to the original tool. The chat tool sees the full history and can reason over the data already fetched; re-routing to "weather" would re-fetch today's weather and ignore the actual context (e.g. it was about tomorrow).
 - If the user asks about temperature, weather, forecast, or conditions in any location — use "weather" and extract the city name.
 - If the user asks about weather WITHOUT specifying a city (e.g. just "aké je počasie?" or "koľko je stupňov?"), use "weather" with params: {"city": ""} — do NOT guess or invent a city name.
 - If the user asks for a forecast/prediction for multiple days (e.g. "predpoveď na 3 dni", "počasie na zajtra a pozajtra", "zobraz +3 dni", "počasie na týždeň"), use action: "forecast" with the appropriate number of days. Keywords: predpoveď, forecast, +Xdní, nasledujúce dni, tento týždeň (weather context).
@@ -79,16 +80,16 @@ Respond ONLY with a valid JSON object, no explanation, no markdown:
 
 
 async def llm_route(prompt: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
-  """Ask GPT to decide which tool to call and what params to pass."""
-  if not settings.openai_api_key:
-    return {"tool": "chat", "params": {}, "reason": "No OpenAI API key configured."}
+    """Ask GPT to decide which tool to call and what params to pass."""
+    if not settings.openai_api_key:
+        return {"tool": "chat", "params": {}, "reason": "No OpenAI API key configured."}
 
     from datetime import datetime
     current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
     system_with_date = _ROUTER_SYSTEM_PROMPT + f"\n\nCurrent date and time: {current_date}"
 
     headers = {
-      "Authorization": f"Bearer {settings.openai_api_key}",
+        "Authorization": f"Bearer {settings.openai_api_key}",
         "Content-Type": "application/json",
     }
 
@@ -99,14 +100,14 @@ async def llm_route(prompt: str, history: list[dict[str, str]] | None = None) ->
     messages.append({"role": "user", "content": prompt})
 
     data = {
-      "model": settings.openai_model,
+        "model": settings.openai_model,
         "messages": messages,
         "temperature": 0.0,
     }
 
     async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
         response = await client.post(
-          "https://api.openai.com/v1/chat/completions",
+            "https://api.openai.com/v1/chat/completions",
             headers=headers,
             json=data,
         )
