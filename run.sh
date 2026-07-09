@@ -50,6 +50,16 @@ mkdir -p "$CFG/elitedate"
 [ -e "$CFG/elitedate/.seen_messages.json" ] || echo "[]" > "$CFG/elitedate/.seen_messages.json"
 ln -sf "$CFG/elitedate/.seen_messages.json" /app/elitedate_bot/.seen_messages.json
 
+# Seen-tinder-messages cache: same persistence treatment.
+mkdir -p "$CFG/tinder"
+[ -e "$CFG/tinder/.seen_messages.json" ] || echo "[]" > "$CFG/tinder/.seen_messages.json"
+ln -sf "$CFG/tinder/.seen_messages.json" /app/tinder_bot/.seen_messages.json
+
+# Persistent Chrome profile for Tinder's login session (phone-OTP/captcha
+# can't be re-solved headlessly on every restart) — keep it under /data so it
+# survives container rebuilds.
+mkdir -p "$CFG/tinder/chrome-profile"
+
 # ---------------------------------------------------------------------------
 # elitedate_bot (Selenium against Elite Date)
 # ---------------------------------------------------------------------------
@@ -105,6 +115,57 @@ if [ "${ELITEDATE_BOT_ENABLED:-true}" = "true" ]; then
     supervise_elitedate_bot 2>&1 | sed -u 's/^/[elitedate_bot] /' &
 else
     echo "elitedate_bot disabled (ELITEDATE_BOT_ENABLED=false)."
+fi
+
+# ---------------------------------------------------------------------------
+# tinder_bot (Selenium against Tinder)
+# ---------------------------------------------------------------------------
+# Same rationale as elitedate_bot above: force the in-image Chromium here,
+# under Tinder-specific env var names so it never collides with elitedate_bot's
+# BOT_HOST/BOT_PORT/etc. when both run from the same shared .env.
+export TINDER_BROWSER=chrome
+export TINDER_BROWSER_BINARY=/usr/bin/chromium
+export TINDER_WEBDRIVER_PATH=/usr/bin/chromedriver
+export TINDER_HEADLESS=true
+export TINDER_USER_DATA_DIR="${TINDER_USER_DATA_DIR:-$CFG/tinder/chrome-profile}"
+
+supervise_tinder_bot() {
+    set +e
+    cd /app
+    local max_restarts=5
+    local window_sec=600
+    local restart_times=()
+
+    while true; do
+        python -m tinder_bot.main
+        local code=$?
+        local now
+        now=$(date +%s)
+
+        local pruned=()
+        local t
+        for t in "${restart_times[@]}"; do
+            if [ $((now - t)) -lt "$window_sec" ]; then
+                pruned+=("$t")
+            fi
+        done
+        restart_times=("${pruned[@]}")
+        restart_times+=("$now")
+
+        echo "[tinder_bot] exited with code $code (${#restart_times[@]}/${max_restarts} restarts in last ${window_sec}s)"
+        if [ "${#restart_times[@]}" -ge "$max_restarts" ]; then
+            echo "[tinder_bot] too many restarts, giving up. Fix the underlying issue and restart the add-on."
+            break
+        fi
+        sleep 5
+    done
+}
+
+if [ "${TINDER_BOT_ENABLED:-true}" = "true" ]; then
+    echo "Starting tinder_bot in background (supervised)..."
+    supervise_tinder_bot 2>&1 | sed -u 's/^/[tinder_bot] /' &
+else
+    echo "tinder_bot disabled (TINDER_BOT_ENABLED=false)."
 fi
 
 # Log level (falls back to info)

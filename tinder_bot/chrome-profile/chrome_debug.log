@@ -1,0 +1,10 @@
+[1324:2764:0709/222149.841:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:239] No machine level policy manager exists.
+[9268:7892:0709/222149.960:INFO:third_party\webrtc\rtc_base\cpu_info.cc:77] Available number of cores: 8
+[5824:21160:0709/222149.960:INFO:third_party\webrtc\rtc_base\cpu_info.cc:77] Available number of cores: 8
+[17836:7676:0709/222150.221:VERBOSE1:components\viz\service\main\viz_main_impl.cc:87] VizNullHypothesis is disabled (not a warning)
+[2284:20832:0709/222150.326:INFO:third_party\webrtc\rtc_base\cpu_info.cc:77] Available number of cores: 8
+[20780:18420:0709/222150.397:INFO:third_party\webrtc\rtc_base\cpu_info.cc:77] Available number of cores: 8
+[1324:2764:0709/222151.029:INFO:CONSOLE:2] "WARNING: config[%d] has %s. %s%s 67 invalid value pay for dimension app {"dimensions":["app:pay"]} ", source: https://tinder.com/static/build/vendor-110227a34d0cfb87f9e0.js (2)
+[1324:3916:0709/222152.804:ERROR:google_apis\gcm\engine\registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT
+[20164:20680:0709/222156.613:WARNING:net\extras\sqlite\sqlite_persistent_store_backend_base.cc:179] Failed to post task from FlushAndNotifyInBackground@net\extras\sqlite\sqlite_persistent_store_backend_base.cc:229 to client_task_runner_.
+[20164:20680:0709/222156.613:WARNING:net\extras\sqlite\sqlite_persistent_store_backend_base.cc:179] Failed to post task from FlushAndNotifyInBackground@net\extras\sqlite\sqlite_persistent_store_backend_base.cc:229 to client_task_runner_.

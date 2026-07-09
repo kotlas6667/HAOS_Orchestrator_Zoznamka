@@ -122,14 +122,15 @@ class OrchestratorDiscordClient(discord.Client):
             self._numeric_fallback_suppression_until[message.channel.id] = time.monotonic() + 12
 
         try:
-            # EliteDate intercept — ONLY when the user is replying to a message
+            # Dating-app intercept — ONLY when the user is replying to a message
             # that contains a known dating-app keyword (e.g. "Elite Date", "Tinder").
             # This prevents any standalone "1"/"2"/"3" message from accidentally
             # hijacking normal LLM routing.
-            from app.tools import elitedate_dispatch
+            from app.tools import elitedate_dispatch, tinder_dispatch
 
             replied_to_message_id: str | None = None
             _is_dating_reply = False
+            _dating_dispatchers = (elitedate_dispatch,)
             if message.reference and message.reference.message_id:
                 replied_to_message_id = str(message.reference.message_id)
                 try:
@@ -140,20 +141,30 @@ class OrchestratorDiscordClient(discord.Client):
                     _DATING_KEYWORDS = ("Elite Date", "Tinder", "Badoo", "Bumble", "Hinge", "Vlákno:")
                     _is_dating_reply = any(kw in ref_content for kw in _DATING_KEYWORDS)
                     LOGGER.info(f"Reply detected to message: {ref_content[:100]}... -> is_dating={_is_dating_reply}")
+                    # Prefer the dispatcher for the specific app named in the
+                    # referenced message; fall back to trying both when the
+                    # reference only matched the generic "Vlákno:" marker.
+                    if "Tinder" in ref_content:
+                        _dating_dispatchers = (tinder_dispatch,)
+                    elif "Elite Date" in ref_content:
+                        _dating_dispatchers = (elitedate_dispatch,)
+                    elif _is_dating_reply:
+                        _dating_dispatchers = (elitedate_dispatch, tinder_dispatch)
                 except Exception as exc:  # noqa: BLE001
                     LOGGER.warning(f"Could not fetch referenced message: {exc}")
 
             if _is_dating_reply:
-                LOGGER.info(f"Processing EliteDate selection: {prompt}")
-                elitedate_reply = await elitedate_dispatch.handle_selection(
-                    prompt,
-                    replied_to_message_id=replied_to_message_id,
-                )
-                if elitedate_reply is not None:
-                    await message.channel.send(elitedate_reply)
-                    self._add_to_history(message.author.id, prompt, elitedate_reply)
-                    return
-                # Replied to an EliteDate message but no matching entry — stay silent.
+                LOGGER.info(f"Processing dating-app selection: {prompt}")
+                for dispatcher in _dating_dispatchers:
+                    dating_reply = await dispatcher.handle_selection(
+                        prompt,
+                        replied_to_message_id=replied_to_message_id,
+                    )
+                    if dating_reply is not None:
+                        await message.channel.send(dating_reply)
+                        self._add_to_history(message.author.id, prompt, dating_reply)
+                        return
+                # Replied to a dating-app message but no matching entry — stay silent.
                 LOGGER.info("Reply to dating-app message had no actionable selection context; suppressing")
                 return
 

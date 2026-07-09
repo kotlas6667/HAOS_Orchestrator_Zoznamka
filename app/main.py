@@ -378,3 +378,30 @@ async def elitedate_incoming(request: Request):
         submit=submit,
     )
     return {"status": "success", "entry": entry}
+
+
+# Tinder bot integration endpoint
+from app.tools import tinder_dispatch
+
+
+@app.post("/api/tinder/incoming")
+async def tinder_incoming(request: Request):
+    """Called by the tinder_bot process when it finds a new message."""
+    data = await request.json()
+    conversation_id = data.get("conversation_id", "").strip()
+    sender = data.get("sender", "Neznámy").strip()
+    message = data.get("message", "").strip()
+    my_last_message = data.get("my_last_message", "").strip()
+    submit = bool(data.get("submit", False))
+
+    if not conversation_id or not message:
+        return {"status": "error", "error": "conversation_id and message are required"}
+
+    entry = await tinder_dispatch.handle_incoming(
+        conversation_id,
+        sender,
+        message,
+        my_last_message=my_last_message,
+        submit=submit,
+    )
+    return {"status": "success", "entry": entry}

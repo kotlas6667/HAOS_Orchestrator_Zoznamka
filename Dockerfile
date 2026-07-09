@@ -12,11 +12,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install Python dependencies (main app + elitedate_bot)
+# Install Python dependencies (main app + elitedate_bot + tinder_bot)
 COPY requirements.txt /tmp/
 COPY elitedate_bot/requirements.txt /tmp/elitedate_requirements.txt
+COPY tinder_bot/requirements.txt /tmp/tinder_requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r /tmp/requirements.txt -r /tmp/elitedate_requirements.txt
+    pip install --no-cache-dir -r /tmp/requirements.txt -r /tmp/elitedate_requirements.txt -r /tmp/tinder_requirements.txt
 
 # ---------------------------------------------------------------------------
 # Final stage
@@ -27,9 +28,9 @@ FROM python:3.11-slim
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Runtime dependencies for SSL/certificates, plus Chromium + driver for the
-# elitedate_bot Selenium session (not available on armv7; that arch falls
-# back gracefully only if elitedate_bot is left disabled via .env).
+# Runtime dependencies for SSL/certificates, plus Chromium + driver shared by
+# the elitedate_bot and tinder_bot Selenium sessions (not available on armv7;
+# that arch falls back gracefully only if both bots are left disabled via .env).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     openssl \
@@ -43,6 +44,7 @@ WORKDIR /app
 # Copy application code and configuration
 COPY app/ /app/app/
 COPY elitedate_bot/ /app/elitedate_bot/
+COPY tinder_bot/ /app/tinder_bot/
 COPY *.json /app/
 COPY *.pickle /app/
 COPY *.txt /app/

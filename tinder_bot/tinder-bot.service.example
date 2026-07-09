@@ -1,0 +1,15 @@
+[Unit]
+Description=Tinder Selenium Bot
+After=network.target haos-orchestrator.service
+Wants=haos-orchestrator.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/pi/HAOS_Orchestrator
+EnvironmentFile=/home/pi/HAOS_Orchestrator/.env
+ExecStart=/home/pi/HAOS_Orchestrator/.venv/bin/python -m tinder_bot.main
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
