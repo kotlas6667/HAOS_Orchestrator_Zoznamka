@@ -1,0 +1,11 @@
+{
+  "domain": "haos_orchestrator_conversation",
+  "name": "HAOS Orchestrator Conversation",
+  "config_flow": true,
+  "documentation": "https://github.com/your-repo/haos_orchestrator",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "codeowners": [],
+  "requirements": [],
+  "version": "1.0.0"
+}

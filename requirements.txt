@@ -1,0 +1,30 @@
+# HAOS Orchestrator Dependencies
+# Core Web Framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+jinja2>=3.1.2
+
+# Configuration
+python-dotenv>=1.0.0
+pydantic-settings>=2.1.0
+
+# HTTP Client
+httpx>=0.25.0
+certifi>=2023.7.22
+
+# Discord Integration
+discord.py>=2.3.0
+
+# Google APIs (Gmail & Calendar)
+google-auth-oauthlib>=1.1.0
+google-auth-httplib2>=0.1.0
+google-api-python-client>=2.86.0
+
+# Timezone support
+tzdata>=2023.3
+
+# aiohttp for HA WebSocket support
+aiohttp>=3.8.0
+
+# Pydantic for data validation
+pydantic>=2.5.0

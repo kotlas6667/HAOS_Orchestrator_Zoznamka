@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pripojiť HAOS Orchestrator",
+        "description": "Zadaj adresu, na ktorej beží HAOS Orchestrator add-on. Keďže Home Assistant Core a add-on bežia na tom istom hostiteľovi, zvyčajne stačí ponechať http://localhost:8000.",
+        "data": {
+          "url": "URL adresa"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nepodarilo sa pripojiť na zadanú adresu. Skontroluj, či HAOS Orchestrator add-on beží."
+    },
+    "abort": {
+      "already_configured": "Táto adresa je už nakonfigurovaná."
+    }
+  }
+}

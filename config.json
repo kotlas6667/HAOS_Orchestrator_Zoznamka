@@ -1,0 +1,35 @@
+{
+  "name": "HAOS Orchestrator",
+  "description": "AI orchestrator for Home Assistant - Gmail, Calendar, Weather, Discord and natural language smart home control",
+  "version": "1.0.1",
+  "slug": "haos_orchestrator",
+  "init": false,
+  "arch": ["amd64", "aarch64", "armv7"],
+  "startup": "application",
+  "boot": "auto",
+  "ports": {
+    "8000/tcp": 8000
+  },
+  "ports_description": {
+    "8000/tcp": "Orchestrator API and Web UI"
+  },
+  "ingress": true,
+  "ingress_port": 8000,
+  "panel_icon": "mdi:robot",
+  "panel_title": "Orchestrator",
+  "panel_admin": false,
+  "hassio_api": true,
+  "homeassistant_api": true,
+  "host_network": false,
+  "options": {
+    "log_level": "info"
+  },
+  "schema": {
+    "log_level": "list(trace|debug|info|notice|warning|error|fatal)?"
+  },
+  "url": "https://github.com/your-repo/haos_orchestrator",
+  "maintainer": "kotlas <kotlas6667@gmail.com>",
+  "authors": ["kotlas"],
+  "licenses": ["MIT"],
+  "keywords": ["orchestrator", "ai", "assistant", "automation", "gmail", "calendar", "weather", "discord", "homeassistant"]
+}

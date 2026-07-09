@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="sk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ app_name }} — Dashboard</title>
+    <link rel="stylesheet" href="static/styles.css" />
+  </head>
+  <body>
+    <div class="dashboard">
+      <!-- Header -->
+      <header class="dash-header">
+        <div class="header-left">
+          <h1 class="logo">🤖 {{ app_name }}</h1>
+          <span class="status-badge online">● Online</span>
+        </div>
+        <div class="header-right">
+          <div class="datetime">
+            <span id="date" class="date-text"></span>
+            <span id="clock" class="clock-text"></span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Info bar -->
+      <section class="info-bar">
+        <div class="info-card nameday">
+          <span class="info-icon">🎂</span>
+          <div>
+            <span class="info-label">Meniny</span>
+            <span id="nameday" class="info-value">—</span>
+          </div>
+        </div>
+        <div class="info-card weather-mini" id="weather-card" title="Klikni pre zmenu mesta" style="cursor:pointer">
+          <span class="info-icon">🌤️</span>
+          <div>
+            <span class="info-label">Počasie</span>
+            <span id="weather-mini" class="info-value">—</span>
+          </div>
+        </div>
+        <div class="info-card hourly-inline" id="hourly-forecast">
+          <div class="hourly-cards" id="hourly-cards">
+            <div class="hourly-loading">⏱️ Predpoveď...</div>
+          </div>
+        </div>
+        <div class="info-card uptime">
+          <span class="info-icon">⏱️</span>
+          <div>
+            <span class="info-label">Uptime</span>
+            <span id="uptime" class="info-value">—</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Main layout: sidebar left + center + sidebar right -->
+      <div class="main-layout">
+        <!-- Left sidebar: TODO -->
+        <aside class="sidebar sidebar-left">
+          <h2 class="section-title">📋 Úlohy</h2>
+          <div class="todo-widget">
+            <div class="todo-input-wrap">
+              <input type="text" id="todo-input" placeholder="Pridať úlohu..." />
+              <button id="todo-add-btn" class="todo-add-btn" title="Pridať">+</button>
+            </div>
+            <div id="todo-list" class="todo-list"></div>
+          </div>
+        </aside>
+
+        <!-- Center content -->
+        <main class="center-content">
+          <!-- Tools grid -->
+          <section class="tools-section">
+            <h2 class="section-title">Nástroje</h2>
+            <div class="tools-grid">
+              <div class="tool-card" data-tool="weather">
+                <div class="tool-icon">🌤️</div>
+                <div class="tool-name">Počasie</div>
+                <div class="tool-desc">Aktuálne počasie v ľubovoľnom meste</div>
+                <div class="tool-status active">Aktívny</div>
+              </div>
+              <div class="tool-card" data-tool="gmail">
+                <div class="tool-icon">📧</div>
+                <div class="tool-name">Gmail</div>
+                <div class="tool-desc">Čítanie a posielanie emailov</div>
+                <div class="tool-status active">Aktívny</div>
+              </div>
+              <div class="tool-card" data-tool="calendar">
+                <div class="tool-icon">📅</div>
+                <div class="tool-name">Kalendár</div>
+                <div class="tool-desc">Google Calendar udalosti</div>
+                <div class="tool-status active">Aktívny</div>
+              </div>
+              <div class="tool-card" data-tool="homeassistant">
+                <div class="tool-icon">🏠</div>
+                <div class="tool-name">Home Assistant</div>
+                <div class="tool-desc">Ovládanie smart home zariadení</div>
+                <div class="tool-status" id="ha-status">Mock</div>
+              </div>
+              <div class="tool-card" data-tool="chat">
+                <div class="tool-icon">💬</div>
+                <div class="tool-name">Chat AI</div>
+                <div class="tool-desc">Konverzácia s Mistral AI</div>
+                <div class="tool-status active">Aktívny</div>
+              </div>
+              <div class="tool-card" data-tool="todo">
+                <div class="tool-icon">📋</div>
+                <div class="tool-name">TODO</div>
+                <div class="tool-desc">Poznámky a úlohy</div>
+                <div class="tool-status active">Aktívny</div>
+              </div>
+              <div class="tool-card" data-tool="discord">
+                <div class="tool-icon">🎮</div>
+                <div class="tool-name">Discord Bot</div>
+                <div class="tool-desc">TomBot na Discord serveri</div>
+                <div class="tool-status active">Aktívny</div>
+              </div>
+              <div class="tool-card" data-tool="messages">
+                <div class="tool-icon">📨</div>
+                <div class="tool-name">Správy</div>
+                <div class="tool-desc">Webhook notifikácie</div>
+                <div class="tool-status active">Aktívny</div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Prompt section -->
+          <section class="prompt-section">
+            <h2 class="section-title">Prompt</h2>
+            <form id="prompt-form" class="prompt-form">
+              <div class="prompt-input-wrap">
+                <textarea id="prompt" name="prompt" rows="2" placeholder="Napíš niečo... napr. 'Aké je počasie v Bratislave?'"></textarea>
+                <button type="submit" class="send-btn" title="Odoslať">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                  </svg>
+                </button>
+              </div>
+            </form>
+            <div id="chat-history" class="chat-history"></div>
+          </section>
+        </main>
+
+        <!-- Right sidebar: Calendar -->
+        <aside class="sidebar sidebar-right">
+          <h2 class="section-title">📅 Kalendár</h2>
+          <div class="calendar-widget">
+            <div class="calendar-header">
+              <span class="calendar-today-label" id="calendar-date"></span>
+              <button class="calendar-refresh-btn" id="calendar-refresh" title="Obnoviť">↻</button>
+            </div>
+            <div id="calendar-events" class="calendar-events">
+              <div class="todo-empty">Načítavam...</div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- Footer -->
+      <footer class="dash-footer">
+        <span>{{ app_name }} v1.0 • Mistral AI • FastAPI</span>
+      </footer>
+    </div>
+
+    <script>
+      // Clock
+      function updateClock() {
+        const now = new Date();
+        const days = ['Nedeľa','Pondelok','Utorok','Streda','Štvrtok','Piatok','Sobota'];
+        const months = ['januára','februára','marca','apríla','mája','júna','júla','augusta','septembra','októbra','novembra','decembra'];
+        document.getElementById('date').textContent = `${days[now.getDay()]}, ${now.getDate()}. ${months[now.getMonth()]} ${now.getFullYear()}`;
+        document.getElementById('clock').textContent = now.toLocaleTimeString('sk-SK', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+      }
+      updateClock();
+      setInterval(updateClock, 1000);
+
+      // Namedays (Slovak)
+      const namedays = {
+        "1-1":"Drahoslav","1-2":"Alexandra","1-3":"Daniela","1-4":"Drahomíra","1-5":"Andrea",
+        "1-6":"Antónia","1-7":"Bohuslava","1-8":"Severín","1-9":"Alexej","1-10":"Dáša",
+        "1-11":"Malvína","1-12":"Ernest","1-13":"Rastislav","1-14":"Radovan","1-15":"Dobroslav",
+        "1-16":"Kristína","1-17":"Nataša","1-18":"Bohdana","1-19":"Drahomíra","1-20":"Dalibor",
+        "1-21":"Vincent","1-22":"Zora","1-23":"Miloš","1-24":"Timotej","1-25":"Gejza",
+        "1-26":"Tamara","1-27":"Bohuš","1-28":"Alfonz","1-29":"Gašpar","1-30":"Ema","1-31":"Emil",
+        "2-1":"Tatiana","2-2":"Erik","2-3":"Blažej","2-4":"Veronika","2-5":"Agáta",
+        "2-6":"Dorota","2-7":"Vanda","2-8":"Zoja","2-9":"Zdenko","2-10":"Gabriela",
+        "2-11":"Dezider","2-12":"Perla","2-13":"Arpád","2-14":"Valentín","2-15":"Pravoslav",
+        "2-16":"Ida","2-17":"Miloslava","2-18":"Jaromír","2-19":"Vlasta","2-20":"Lívia",
+        "2-21":"Eleonóra","2-22":"Etela","2-23":"Roman","2-24":"Matej","2-25":"Frederik",
+        "2-26":"Viktor","2-27":"Alexander","2-28":"Zlatica","2-29":"Radomír",
+        "3-1":"Albín","3-2":"Anežka","3-3":"Bohumil","3-4":"Kazimír","3-5":"Fridrich",
+        "3-6":"Radoslav","3-7":"Tomáš","3-8":"Alan","3-9":"Františka","3-10":"Branislav",
+        "3-11":"Angela","3-12":"Gregor","3-13":"Vlastimil","3-14":"Matilda","3-15":"Svetlana",
+        "3-16":"Boleslav","3-17":"Ľubica","3-18":"Eduard","3-19":"Jozef","3-20":"Víťazoslav",
+        "3-21":"Blahoslav","3-22":"Beňadik","3-23":"Adrián","3-24":"Gabriel","3-25":"Marián",
+        "3-26":"Emanuel","3-27":"Alena","3-28":"Soňa","3-29":"Miroslav","3-30":"Vieroslava","3-31":"Benjamín",
+        "4-1":"Hugo","4-2":"Zita","4-3":"Richard","4-4":"Izidor","4-5":"Miroslava",
+        "4-6":"Irena","4-7":"Zoltán","4-8":"Albert","4-9":"Milena","4-10":"Igor",
+        "4-11":"Július","4-12":"Estera","4-13":"Aleš","4-14":"Justína","4-15":"Fedor",
+        "4-16":"Dana","4-17":"Rudolf","4-18":"Valér","4-19":"Jela","4-20":"Marcel",
+        "4-21":"Ervín","4-22":"Slavomír","4-23":"Vojtech","4-24":"Juraj","4-25":"Marek",
+        "4-26":"Jaroslava","4-27":"Jaroslav","4-28":"Jarmila","4-29":"Lea","4-30":"Anastázia",
+        "5-1":"Svätopluk","5-2":"Žigmund","5-3":"Galina","5-4":"Florián","5-5":"Lesana",
+        "5-6":"Hermína","5-7":"Monika","5-8":"Ingrida","5-9":"Roland","5-10":"Viktória",
+        "5-11":"Blažena","5-12":"Pankrác","5-13":"Servác","5-14":"Bonifác","5-15":"Žofia",
+        "5-16":"Svetozár","5-17":"Gizela","5-18":"Viola","5-19":"Gertrúda","5-20":"Bernard",
+        "5-21":"Zina","5-22":"Júlia","5-23":"Želmíra","5-24":"Ela","5-25":"Urban",
+        "5-26":"Dušan","5-27":"Iveta","5-28":"Viliam","5-29":"Vilma","5-30":"Ferdinand","5-31":"Petronela",
+        "6-1":"Žaneta","6-2":"Oxana","6-3":"Karolína","6-4":"Lenka","6-5":"Laura",
+        "6-6":"Norbert","6-7":"Róbert","6-8":"Medard","6-9":"Stanislava","6-10":"Margaréta",
+        "6-11":"Dobroslava","6-12":"Zlatko","6-13":"Anton","6-14":"Vasil","6-15":"Vít",
+        "6-16":"Blanka","6-17":"Adolf","6-18":"Vratislava","6-19":"Alfréd","6-20":"Valéria",
+        "6-21":"Alojz","6-22":"Paulína","6-23":"Sidónia","6-24":"Ján","6-25":"Tadeáš",
+        "6-26":"Adriána","6-27":"Ladislav","6-28":"Beáta","6-29":"Peter","6-30":"Melánia",
+        "7-1":"Diana","7-2":"Berta","7-3":"Miloslav","7-4":"Prokop","7-5":"Cyril",
+        "7-6":"Patrícia","7-7":"Oliver","7-8":"Ivan","7-9":"Lujza","7-10":"Amália",
+        "7-11":"Milota","7-12":"Nina","7-13":"Margita","7-14":"Kamil","7-15":"Henrich",
+        "7-16":"Drahomír","7-17":"Bohuslav","7-18":"Kamila","7-19":"Dušana","7-20":"Iľja",
+        "7-21":"Daniel","7-22":"Magdaléna","7-23":"Oľga","7-24":"Vladimír","7-25":"Jakub",
+        "7-26":"Anna","7-27":"Božena","7-28":"Krištof","7-29":"Marta","7-30":"Libuša","7-31":"Ignác",
+        "8-1":"Božidara","8-2":"Gustav","8-3":"Jerguš","8-4":"Dominik","8-5":"Hortenzia",
+        "8-6":"Jozefína","8-7":"Štefánia","8-8":"Oskar","8-9":"Ľubomíra","8-10":"Vavrinec",
+        "8-11":"Zuzana","8-12":"Darina","8-13":"Ľubomír","8-14":"Mojmír","8-15":"Marcela",
+        "8-16":"Leonard","8-17":"Milica","8-18":"Elena","8-19":"Lýdia","8-20":"Anabela",
+        "8-21":"Jana","8-22":"Tichomír","8-23":"Filip","8-24":"Bartolomej","8-25":"Ľudovít",
+        "8-26":"Samuel","8-27":"Silvia","8-28":"Augustín","8-29":"Nikola","8-30":"Ružena","8-31":"Nora",
+        "9-1":"Drahoslava","9-2":"Linda","9-3":"Belo","9-4":"Rozália","9-5":"Regina",
+        "9-6":"Alica","9-7":"Marianna","9-8":"Miriama","9-9":"Martina","9-10":"Oleg",
+        "9-11":"Bystrík","9-12":"Mária","9-13":"Ctibor","9-14":"Ľudomil","9-15":"Jolana",
+        "9-16":"Ľudmila","9-17":"Olympia","9-18":"Eugénia","9-19":"Konštantín","9-20":"Ľuboslav",
+        "9-21":"Matúš","9-22":"Móric","9-23":"Zdenka","9-24":"Ľuboš","9-25":"Vladislav",
+        "9-26":"Edita","9-27":"Cyprián","9-28":"Václav","9-29":"Michal","9-30":"Jarolím",
+        "10-1":"Arnold","10-2":"Levoslav","10-3":"Stela","10-4":"František","10-5":"Viera",
+        "10-6":"Natália","10-7":"Eliška","10-8":"Brigita","10-9":"Dionýz","10-10":"Slavomíra",
+        "10-11":"Valentína","10-12":"Maximilian","10-13":"Koloman","10-14":"Boris","10-15":"Terézia",
+        "10-16":"Vladimíra","10-17":"Hedviga","10-18":"Lukáš","10-19":"Kristián","10-20":"Vendelín",
+        "10-21":"Uršuľa","10-22":"Sergej","10-23":"Alojzia","10-24":"Kvetoslava","10-25":"Aurel",
+        "10-26":"Demeter","10-27":"Sabína","10-28":"Dobromila","10-29":"Klára","10-30":"Šimon","10-31":"Aurélia",
+        "11-1":"Denis","11-2":"Pamätný","11-3":"Hubert","11-4":"Karol","11-5":"Imrich",
+        "11-6":"Renáta","11-7":"René","11-8":"Bohumír","11-9":"Teodor","11-10":"Tibor",
+        "11-11":"Maroš","11-12":"Svätopluk","11-13":"Stanislav","11-14":"Irma","11-15":"Leopold",
+        "11-16":"Agnesa","11-17":"Klaudia","11-18":"Eugen","11-19":"Alžbeta","11-20":"Félix",
+        "11-21":"Elvíra","11-22":"Cecília","11-23":"Klement","11-24":"Emília","11-25":"Katarína",
+        "11-26":"Kornel","11-27":"Milan","11-28":"Henrieta","11-29":"Vratko","11-30":"Ondrej",
+        "12-1":"Edmund","12-2":"Bibiána","12-3":"Oldrich","12-4":"Barbora","12-5":"Oto",
+        "12-6":"Mikuláš","12-7":"Ambróz","12-8":"Marína","12-9":"Izabela","12-10":"Radúz",
+        "12-11":"Hilda","12-12":"Otília","12-13":"Lucia","12-14":"Branislava","12-15":"Ivica",
+        "12-16":"Albína","12-17":"Kornélia","12-18":"Sláva","12-19":"Judita","12-20":"Dagmara",
+        "12-21":"Bohdan","12-22":"Adela","12-23":"Nadežda","12-24":"Adam","12-25":"Prvý sviatok vianočný",
+        "12-26":"Štefan","12-27":"Filoména","12-28":"Ivana","12-29":"Milada","12-30":"Dávid","12-31":"Silvester"
+      };
+      const now = new Date();
+      const key = `${now.getMonth()+1}-${now.getDate()}`;
+      document.getElementById('nameday').textContent = namedays[key] || '—';
+
+      // Uptime
+      const startTime = Date.now();
+      function updateUptime() {
+        const diff = Date.now() - startTime;
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        document.getElementById('uptime').textContent = `${h}h ${m}m ${s}s`;
+      }
+      setInterval(updateUptime, 1000);
+      updateUptime();
+
+      // Weather mini
+      let weatherCity = localStorage.getItem('weatherCity') || '{{ weather_city }}';
+
+      async function loadWeather() {
+        try {
+          const res = await fetch('api/weather', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({city: weatherCity})
+          });
+          const data = await res.json();
+          if (data.result && data.result.temperature_c != null) {
+            document.getElementById('weather-mini').textContent = `${data.result.city} ${data.result.temperature_c}°C, ${data.result.forecast}`;
+          }
+        } catch(e) {}
+      }
+      loadWeather();
+
+      // Click on weather card to change city
+      document.getElementById('weather-card').addEventListener('click', async () => {
+        const newCity = prompt('Zadaj mesto pre počasie:', weatherCity);
+        if (newCity && newCity.trim()) {
+          const city = newCity.trim();
+          document.getElementById('weather-mini').textContent = 'Načítavam...';
+          try {
+            const res = await fetch('api/weather', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({city})
+            });
+            const data = await res.json();
+            if (data.result && data.result.status === 'error') {
+              alert(`Mesto "${city}" nebolo nájdené v databáze počasia.`);
+              loadWeather(); // reload old city
+            } else if (data.result && data.result.temperature_c != null) {
+              weatherCity = city;
+              localStorage.setItem('weatherCity', weatherCity);
+              document.getElementById('weather-mini').textContent = `${data.result.city} ${data.result.temperature_c}°C, ${data.result.forecast}`;
+              loadHourlyForecast();
+            } else {
+              alert(`Mesto "${city}" nebolo nájdené.`);
+              loadWeather();
+            }
+          } catch(e) {
+            alert('Chyba pri načítaní počasia.');
+            loadWeather();
+          }
+        }
+      });
+
+      // HA status
+      const haProvider = '{{ ha_provider }}';
+      const haEl = document.getElementById('ha-status');
+      if (haProvider === 'real') {
+        haEl.textContent = 'Aktívny';
+        haEl.classList.add('active');
+      }
+
+      // Prompt form
+      const form = document.getElementById('prompt-form');
+      const resultSection = document.getElementById('result');
+      // Chat history
+      const chatHistory = document.getElementById('chat-history');
+
+      // Rolling conversation history sent to the router so it can resolve
+      // follow-up references ("zapni ho", "a čo zajtra" ...). Mirrors the
+      // Discord bot's per-user history window (last 10 exchanges).
+      let conversationHistory = [];
+      const MAX_HISTORY_PAIRS = 10;
+
+      function pushHistory(userText, assistantText) {
+        conversationHistory.push({role: 'user', content: userText});
+        conversationHistory.push({role: 'assistant', content: assistantText});
+        const maxMessages = MAX_HISTORY_PAIRS * 2;
+        if (conversationHistory.length > maxMessages) {
+          conversationHistory = conversationHistory.slice(-maxMessages);
+        }
+      }
+
+      // Enter to submit (Shift+Enter for new line)
+      document.getElementById('prompt').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          form.dispatchEvent(new Event('submit'));
+        }
+      });
+
+      function addMessage(type, content, meta, afterElement) {
+        const msg = document.createElement('div');
+        msg.className = `chat-msg ${type}`;
+        if (type === 'user') {
+          const time = new Date().toLocaleTimeString('sk-SK', {hour:'2-digit', minute:'2-digit'});
+          msg.innerHTML = `<div class="msg-bubble user-bubble"><span class="msg-text">${escapeHtml(content)}</span><span class="msg-meta">${time}</span></div>`;
+        } else {
+          msg.innerHTML = `<div class="msg-bubble bot-bubble"><span class="msg-meta">${meta || ''}</span><pre class="msg-text">${escapeHtml(content)}</pre></div>`;
+        }
+        if (afterElement && afterElement.nextSibling) {
+          chatHistory.insertBefore(msg, afterElement.nextSibling);
+        } else if (afterElement) {
+          chatHistory.appendChild(msg);
+        } else {
+          chatHistory.insertBefore(msg, chatHistory.firstChild);
+        }
+        return msg;
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const prompt = document.getElementById('prompt').value.trim();
+        if (!prompt) return;
+
+        const userMsg = addMessage('user', prompt);
+        document.getElementById('prompt').value = '';
+
+        // Loading — insert right after the user message
+        const loadingId = 'loading-' + Date.now();
+        const loading = document.createElement('div');
+        loading.className = 'chat-msg bot';
+        loading.id = loadingId;
+        loading.innerHTML = '<div class="msg-bubble bot-bubble"><span class="msg-text">⏳ Spracovávam...</span></div>';
+        if (userMsg.nextSibling) {
+          chatHistory.insertBefore(loading, userMsg.nextSibling);
+        } else {
+          chatHistory.appendChild(loading);
+        }
+
+        const t0 = performance.now();
+        try {
+          const res = await fetch('api/prompt', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({prompt, history: conversationHistory})
+          });
+          const data = await res.json();
+          const ms = Math.round(performance.now() - t0);
+          document.getElementById(loadingId)?.remove();
+
+          const tool = data.route || '?';
+          let reply = '';
+          if (data.executions && data.executions[0]) {
+            const r = data.executions[0].result;
+            // Show reply/message/error text if available, otherwise format nicely
+            if (r.reply) {
+              reply = r.reply;
+            } else if (r.status === 'clarify') {
+              reply = '❓ ' + (r.reply || r.message || JSON.stringify(r, null, 2));
+            } else if (r.message) {
+              reply = r.message;
+            } else if (r.error) {
+              reply = '⚠️ ' + r.error;
+            } else if (r.events) {
+              // Format calendar events
+              const events = r.events;
+              if (!events.length) {
+                reply = '📅 Žiadne udalosti.';
+              } else {
+                let lines = [`📅 Udalosti (${events.length}):`];
+                let lastDate = '';
+                events.forEach(e => {
+                  const d = (e.start || '').slice(0, 10);
+                  if (d !== lastDate) { lines.push(`  📆 ${d}`); lastDate = d; }
+                  lines.push(`    🕐 ${e.start_time || ''} — ${e.summary}`);
+                });
+                reply = lines.join('\n');
+              }
+            } else {
+              reply = JSON.stringify(r, null, 2);
+            }
+          } else {
+            reply = JSON.stringify(data, null, 2);
+          }
+          addMessage('bot', reply, `🛠️ ${tool} • ${ms}ms`, userMsg);
+          pushHistory(prompt, reply);
+          // Auto-refresh calendar if event was created
+          if (tool === 'calendar') loadCalendar();
+          // Auto-refresh todos if task was added/changed
+          if (tool === 'todo') loadTodos();
+        } catch(err) {
+          document.getElementById(loadingId)?.remove();
+          addMessage('bot', `❌ Chyba: ${err.message}`, '', userMsg);
+        }
+      });
+      // Calendar widget
+      const calendarEvents = document.getElementById('calendar-events');
+      const calendarDate = document.getElementById('calendar-date');
+      const calendarRefresh = document.getElementById('calendar-refresh');
+
+      const todayStr = new Date().toLocaleDateString('sk-SK', {weekday:'long', day:'numeric', month:'long'});
+      calendarDate.textContent = todayStr.charAt(0).toUpperCase() + todayStr.slice(1);
+
+      async function loadCalendar() {
+        calendarEvents.innerHTML = '<div class="todo-empty">Načítavam...</div>';
+        try {
+          const res = await fetch('api/calendar/upcoming');
+          const data = await res.json();
+          if (data.status === 'mock') {
+            calendarEvents.innerHTML = '<div class="todo-empty">Calendar nie je pripojený</div>';
+            return;
+          }
+          const events = data.events || [];
+          if (!events.length) {
+            calendarEvents.innerHTML = '<div class="todo-empty">Žiadne udalosti dnes 🎉</div>';
+            return;
+          }
+          let html = '';
+          let lastDate = '';
+          events.forEach(e => {
+            // Show date header if different day
+            const eventDate = e.start ? e.start.split('T')[0] : '';
+            if (eventDate && eventDate !== lastDate) {
+              const d = new Date(eventDate);
+              const dayName = d.toLocaleDateString('sk-SK', {weekday:'short', day:'numeric', month:'short'});
+              html += `<div class="cal-date-header">${dayName}</div>`;
+              lastDate = eventDate;
+            }
+            const time = e.all_day ? 'Celý deň' : (e.start_time || '');
+            const icon = e.all_day ? '📌' : '🕐';
+            html += `<div class="calendar-event">
+              <span class="cal-time">${icon} ${time}</span>
+              <span class="cal-name">${escapeHtml(e.summary)}</span>
+              ${e.location ? `<span class="cal-location">📍 ${escapeHtml(e.location)}</span>` : ''}
+            </div>`;
+          });
+          calendarEvents.innerHTML = html;
+        } catch(e) {
+          calendarEvents.innerHTML = '<div class="todo-empty">Chyba pri načítaní</div>';
+        }
+      }
+
+      calendarRefresh.addEventListener('click', loadCalendar);
+      loadCalendar();
+
+      // TODO widget
+      const todoInput = document.getElementById('todo-input');
+      const todoAddBtn = document.getElementById('todo-add-btn');
+      const todoList = document.getElementById('todo-list');
+
+      async function loadTodos() {
+        try {
+          const res = await fetch('api/todos');
+          const data = await res.json();
+          renderTodos(data.todos || []);
+        } catch(e) {}
+      }
+
+      function renderTodos(todos) {
+        const pending = todos.filter(t => !t.done);
+        const done = todos.filter(t => t.done);
+        let html = '';
+        pending.forEach(t => {
+          html += `<div class="todo-item">
+            <button class="todo-check" onclick="toggleTodo(${t.id})">○</button>
+            <span class="todo-text">${escapeHtml(t.task)}</span>
+            <button class="todo-del" onclick="deleteTodo(${t.id})">×</button>
+          </div>`;
+        });
+        done.forEach(t => {
+          html += `<div class="todo-item done">
+            <button class="todo-check" onclick="toggleTodo(${t.id})">✓</button>
+            <span class="todo-text">${escapeHtml(t.task)}</span>
+            <button class="todo-del" onclick="deleteTodo(${t.id})">×</button>
+          </div>`;
+        });
+        if (!todos.length) html = '<div class="todo-empty">Žiadne úlohy</div>';
+        todoList.innerHTML = html;
+      }
+
+      async function addTodo() {
+        const task = todoInput.value.trim();
+        if (!task) return;
+        await fetch('api/todos', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({task})});
+        todoInput.value = '';
+        loadTodos();
+      }
+
+      async function toggleTodo(id) {
+        await fetch(`api/todos/${id}`, {method:'PATCH'});
+        loadTodos();
+      }
+
+      async function deleteTodo(id) {
+        await fetch(`api/todos/${id}`, {method:'DELETE'});
+        loadTodos();
+      }
+
+      todoAddBtn.addEventListener('click', addTodo);
+      todoInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addTodo(); });
+      loadTodos();
+
+      // Hourly forecast
+      async function loadHourlyForecast() {
+        const cardsEl = document.getElementById('hourly-cards');
+        try {
+          const city = weatherCity || '{{ weather_city }}';
+          const res = await fetch(`api/weather/hourly?city=${encodeURIComponent(city)}`);
+          const data = await res.json();
+          if (data.status === 'error') {
+            cardsEl.innerHTML = `<div class="hourly-loading">⚠️ ${data.error || 'Chyba'}</div>`;
+            return;
+          }
+          if (data.status === 'mock') {
+            cardsEl.innerHTML = '<div class="hourly-loading">Počasie nie je pripojené</div>';
+            return;
+          }
+          const hours = data.hours || [];
+          if (!hours.length) {
+            cardsEl.innerHTML = '<div class="hourly-loading">Žiadne dáta</div>';
+            return;
+          }
+          let html = '';
+          hours.forEach(h => {
+            const iconUrl = `https://openweathermap.org/img/wn/${h.icon}.png`;
+            html += `<div class="hourly-card">
+              <span class="hourly-time">${h.time}</span>
+              <img class="hourly-icon" src="${iconUrl}" alt="${h.description}" title="${h.description}" />
+              <span class="hourly-temp">${h.temp}°</span>
+              <span class="hourly-wind">💨${h.wind_kph}</span>
+            </div>`;
+          });
+          cardsEl.innerHTML = html;
+        } catch(e) {
+          cardsEl.innerHTML = `<div class="hourly-loading">Chyba: ${e.message}</div>`;
+        }
+      }
+      loadHourlyForecast();
+      // Refresh every 30 minutes
+      setInterval(loadHourlyForecast, 30 * 60 * 1000);
+    </script>
+  </body>
+</html>

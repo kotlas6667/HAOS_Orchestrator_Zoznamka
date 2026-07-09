@@ -1,0 +1,19 @@
+{
+  "queue": [
+    {
+      "id": "46e1370d-07ff-4c09-9953-bf48b2984890",
+      "conversation_id": "manual:Eva:1.1",
+      "sender": "Eva, 40",
+      "message": "Nitra",
+      "my_last_message": "Odkiaľ si 🙂",
+      "options": [
+        "Aha, Nitra! Pekné mesto, chodím tam občas. Si odtiaľ celá alebo si sa presťahovala? 😊",
+        "Nitra, super! Máš tam nejaké obľúbené miesto kam chodíš keď máš voľno? 🙂"
+      ],
+      "status": "awaiting_selection",
+      "submit": false,
+      "prompt_message_id": "1524776945647353917",
+      "created": "2026-07-09T15:59:12"
+    }
+  ]
+}

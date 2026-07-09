@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "&": true,
+        "netstat": true,
+        "Set-ExecutionPolicy": true,
+        "Start-Process": true
+    }
+}

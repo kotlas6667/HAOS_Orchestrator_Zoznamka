@@ -1,0 +1,25 @@
+# Secrets / credentials — never commit
+.env
+gmailSecret.json
+credentials.json
+token.pickle
+token_calendar.pickle
+*.pem
+
+# Personal data
+todo.json
+.seen_email_ids
+
+# Claude Code local settings (local paths, LAN IPs)
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
