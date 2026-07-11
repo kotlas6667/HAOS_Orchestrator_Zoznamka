@@ -59,6 +59,11 @@ ln -sf "$CFG/tinder/.seen_messages.json" /app/tinder_bot/.seen_messages.json
 # can't be re-solved headlessly on every restart) — keep it under /data so it
 # survives container rebuilds.
 mkdir -p "$CFG/tinder/chrome-profile"
+# Seed Tinder login session from bundled slim profile (copied via copy_tinder_profile_to_haos.ps1).
+if [ ! -e "$CFG/tinder/chrome-profile/Default/Cookies" ] && [ -d "/app/data/orchestrator/config/tinder/chrome-profile/Default" ]; then
+    echo "Seeding Tinder chrome profile into persistent storage..."
+    cp -a /app/data/orchestrator/config/tinder/chrome-profile/. "$CFG/tinder/chrome-profile/"
+fi
 
 # ---------------------------------------------------------------------------
 # elitedate_bot (Selenium against Elite Date)

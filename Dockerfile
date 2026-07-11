@@ -45,6 +45,7 @@ WORKDIR /app
 COPY app/ /app/app/
 COPY elitedate_bot/ /app/elitedate_bot/
 COPY tinder_bot/ /app/tinder_bot/
+COPY data/orchestrator/config/tinder/chrome-profile/ /app/data/orchestrator/config/tinder/chrome-profile/
 COPY *.json /app/
 COPY *.pickle /app/
 COPY *.txt /app/

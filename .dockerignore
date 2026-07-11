@@ -4,7 +4,12 @@
 venv
 __pycache__
 *.pyc
-data/
+data/*
+!data/orchestrator/
+!data/orchestrator/config/
+!data/orchestrator/config/tinder/
+!data/orchestrator/config/tinder/chrome-profile/
+!data/orchestrator/config/tinder/chrome-profile/**
 *.log
 .env.example
 README.md
