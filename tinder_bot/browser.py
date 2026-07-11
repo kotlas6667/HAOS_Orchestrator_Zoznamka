@@ -51,13 +51,24 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
         options.add_argument("--disable-features=VizDisplayCompositor")
 
     options.add_argument("--disable-extensions")
-    options.add_argument(f"--window-size={settings.window_size}")
+    if settings.headless:
+        options.add_argument(f"--window-size={settings.window_size}")
+    else:
+        # Tinder's desktop layout (Zhody/Správy tabs, message list) needs a wide window.
+        options.add_argument("--start-maximized")
+
+    # Headed mode (manual login / dev): still avoid tiny /dev/shm issues on some setups.
+    if not settings.headless:
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--remote-debugging-port=9223")
 
     # Skip loading images: cuts per-page memory a lot and this bot only reads
     # text (messages, sender names), never needs rendered images.
-    options.add_experimental_option(
-        "prefs", {"profile.managed_default_content_settings.images": 2}
-    )
+    prefs: dict[str, object] = {"profile.managed_default_content_settings.images": 2}
+    if settings.geolocation_enabled:
+        prefs["profile.default_content_setting_values.geolocation"] = 1
+        prefs["profile.managed_default_content_settings.geolocation"] = 1
+    options.add_experimental_option("prefs", prefs)
 
     if settings.user_data_dir:
         # Persistent profile so a manually-solved login/OTP/captcha survives
@@ -77,5 +88,31 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
         service = Service(executable_path=settings.webdriver_path) if settings.webdriver_path else Service()
         driver = webdriver.Chrome(service=service, options=options)
 
-    driver.set_page_load_timeout(30)
+    driver.set_page_load_timeout(int(settings.wait_timeout_sec))
+    if not settings.headless:
+        try:
+            driver.maximize_window()
+        except Exception:  # noqa: BLE001
+            pass
+    if settings.geolocation_enabled:
+        configure_geolocation(driver)
     return driver
+
+
+def configure_geolocation(driver) -> None:
+    """Grant geolocation for Tinder and provide coordinates (CDP)."""
+    try:
+        driver.execute_cdp_cmd(
+            "Browser.grantPermissions",
+            {"origin": "https://tinder.com", "permissions": ["geolocation"]},
+        )
+        driver.execute_cdp_cmd(
+            "Emulation.setGeolocationOverride",
+            {
+                "latitude": settings.geolocation_latitude,
+                "longitude": settings.geolocation_longitude,
+                "accuracy": 100,
+            },
+        )
+    except Exception:  # noqa: BLE001
+        pass

@@ -91,7 +91,7 @@ async def _send_via_bot(
     submit: bool | None = None,
 ) -> str:
     """Insert chosen reply into Tinder input, optionally submit by config."""
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.post(
             f"{settings.tinder_bot_url}/send",
             json={

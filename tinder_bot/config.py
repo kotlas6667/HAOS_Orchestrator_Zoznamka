@@ -29,8 +29,16 @@ class BotSettings(BaseSettings):
     orchestrator_url: str = "http://127.0.0.1:8000"
 
     # Polling
+    poll_enabled: bool = Field(default=True, validation_alias="TINDER_POLL_ENABLED")
     poll_interval_min_sec: float = Field(default=90.0, validation_alias="TINDER_POLL_INTERVAL_MIN_SEC")
     poll_interval_max_sec: float = Field(default=180.0, validation_alias="TINDER_POLL_INTERVAL_MAX_SEC")
+
+    # Pause after each navigation / tab switch — Tinder's SPA is slow to render.
+    page_settle_sec: float = Field(default=3.0, validation_alias="TINDER_PAGE_SETTLE_SEC")
+    # Max wait for any single Selenium / health-check step (seconds).
+    wait_timeout_sec: float = Field(default=10.0, validation_alias="TINDER_WAIT_TIMEOUT_SEC")
+    # After clicking Správy — wait for the inbox list to paint (like reading a screenshot).
+    spravy_settle_sec: float = Field(default=10.0, validation_alias="TINDER_SPRAVY_SETTLE_SEC")
 
     # Browser
     browser: str = Field(default="chrome", validation_alias="TINDER_BROWSER")  # supported: chrome, edge
@@ -40,6 +48,10 @@ class BotSettings(BaseSettings):
     window_size: str = Field(default="1366,768", validation_alias="TINDER_WINDOW_SIZE")
     user_agent: str | None = Field(default=None, validation_alias="TINDER_USER_AGENT")
     user_data_dir: str | None = Field(default=None, validation_alias="TINDER_USER_DATA_DIR")
+
+    geolocation_enabled: bool = Field(default=True, validation_alias="TINDER_GEOLOCATION_ENABLED")
+    geolocation_latitude: float = Field(default=48.1486, validation_alias="TINDER_GEOLOCATION_LAT")
+    geolocation_longitude: float = Field(default=17.1077, validation_alias="TINDER_GEOLOCATION_LON")
 
     seen_messages_file: str = "tinder_bot/.seen_messages.json"
 
