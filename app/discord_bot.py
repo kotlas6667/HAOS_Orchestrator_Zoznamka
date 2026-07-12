@@ -4,11 +4,14 @@ import asyncio
 import logging
 import re
 import ssl
+import sys
 import time
 from typing import Any
 
 import aiohttp
 import discord
+
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from app.config import Settings
 from app.discord_chat import build_discord_reply, normalize_discord_prompt

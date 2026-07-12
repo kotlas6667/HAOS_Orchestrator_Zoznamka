@@ -118,8 +118,10 @@ if [ "${ELITEDATE_BOT_ENABLED:-true}" = "true" ]; then
     # output through the main process's stdout (visible in the add-on's Log
     # tab) instead of a file nobody can read, prefixed to tell it apart.
     supervise_elitedate_bot 2>&1 | sed -u 's/^/[elitedate_bot] /' &
+    ELITEDATE_SUPERVISOR_PID=$!
 else
     echo "elitedate_bot disabled (ELITEDATE_BOT_ENABLED=false)."
+    ELITEDATE_SUPERVISOR_PID=""
 fi
 
 # ---------------------------------------------------------------------------
@@ -169,9 +171,30 @@ supervise_tinder_bot() {
 if [ "${TINDER_BOT_ENABLED:-true}" = "true" ]; then
     echo "Starting tinder_bot in background (supervised)..."
     supervise_tinder_bot 2>&1 | sed -u 's/^/[tinder_bot] /' &
+    TINDER_SUPERVISOR_PID=$!
 else
     echo "tinder_bot disabled (TINDER_BOT_ENABLED=false)."
+    TINDER_SUPERVISOR_PID=""
 fi
+
+_shutdown() {
+    echo "Shutting down HAOS Orchestrator add-on..."
+    local pid
+    for pid in "${ELITEDATE_SUPERVISOR_PID}" "${TINDER_SUPERVISOR_PID}"; do
+        if [ -n "$pid" ]; then
+            kill -TERM "$pid" 2>/dev/null || true
+        fi
+    done
+    for pid in $(jobs -p); do
+        kill -TERM "$pid" 2>/dev/null || true
+    done
+    sleep 2
+    for pid in $(jobs -p); do
+        kill -KILL "$pid" 2>/dev/null || true
+    done
+    wait 2>/dev/null || true
+}
+trap _shutdown SIGTERM SIGINT
 
 # Log level (falls back to info)
 LOG_LEVEL="${LOG_LEVEL:-info}"
@@ -181,7 +204,10 @@ echo "Log level: ${LOG_LEVEL}"
 # IMPORTANT: single worker only. The app starts background tasks in its
 # lifespan (Discord bot, email polling, morning summary) that must not be
 # duplicated across worker processes.
-exec python -m uvicorn app.main:app \
+# Do not `exec` here: we must stay PID 1 so Docker's SIGTERM reaches our trap
+# and background elitedate/tinder supervisors (and their Chrome children) are
+# killed cleanly instead of outliving a stop request.
+python -m uvicorn app.main:app \
     --host 0.0.0.0 \
     --port 8000 \
     --log-level "${LOG_LEVEL}"

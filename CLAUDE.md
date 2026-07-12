@@ -60,9 +60,24 @@ A second process — `elitedate_bot/` — automates a personal Elite Date accoun
 - **Orchestrator side:** `app/tools/elitedate_dispatch.handle_incoming()` generates two alternative AI reply drafts via GPT (`app/tools/elitedate_reply_provider.py`), stores them in a FIFO queue on disk (`elitedate_state.json`, via `app/tools/elitedate_state.py` — only the head of the queue is `awaiting_selection` at any time, to keep a bare "1"/"2" Discord reply unambiguous), and posts the two options to Discord.
 - **Orchestrator → bot:** When the user replies "1", "2", or free text in Discord, `app/discord_bot.py`'s `on_message` intercepts it **before** LLM routing (calling `elitedate_dispatch.handle_selection()`) whenever a conversation is `awaiting_selection` — this mirrors the existing email-navigation intercept (`_is_navigation_request`) already in that file. On a valid selection, the orchestrator POSTs the chosen text to the bot's own local FastAPI server (`elitedate_bot/server.py`, `POST /send`), which drives Selenium to actually send it.
 - **Selenium DOM selectors are placeholders.** `elitedate_client.py`'s `login()`, `check_new_messages()`, and `send_reply()` need real CSS selectors filled in from Elite Date's actual DOM (inspect via browser DevTools) — Elite Date's markup isn't something to guess at.
+- **Session recovery:** `elitedate_bot/session.py` rebuilds Chrome and re-logs in on `invalid session id` / dead browser; poller and `/send` use `run_with_recovery()`.
 - The Selenium `webdriver.Chrome` instance is not safe for concurrent use — both the poll loop and incoming `/send` calls acquire `elitedate_bot/shared_state.driver_lock` before touching it, and blocking Selenium calls are run via `asyncio.to_thread`.
 - **Packaging:** the main `Dockerfile`/`run.sh` (HAOS add-on) bundles `elitedate_bot/` and installs `chromium` + `chromium-driver` alongside the orchestrator, launching `python -m elitedate_bot.main` as a background process before the orchestrator's `uvicorn` (set `ELITEDATE_BOT_ENABLED=false` in `.env` to skip it). `run.sh` force-exports `BROWSER_BINARY=/usr/bin/chromium` / `WEBDRIVER_PATH=/usr/bin/chromedriver` so a Windows-dev `.env` (desktop Chrome path) never leaks into the container — real env vars win over `.env` values in pydantic-settings. `elitedate_bot/elitedate-bot.service.example` is kept for running it as a standalone systemd service outside HAOS instead (e.g. directly on the Pi) — inside the shared add-on container a Selenium crash currently has no per-process supervision/restart, unlike that standalone setup.
 - Elite Date's ToS almost certainly prohibits automated/scripted use of the account — this is a known, accepted risk (account ban), not a technical concern to engineer around.
+
+## Tinder integration (tinder_bot/)
+
+Mirrors `elitedate_bot/` — a separate Selenium process on Tinder web (`tinder.com/app/...`), Discord handoff for reply selection:
+
+- **Bot → orchestrator:** `tinder_bot/poller.py` polls `TinderClient.check_new_messages()` and POSTs to `POST /api/tinder/incoming`. First poll runs immediately on startup; then 90–180s randomized interval.
+- **Orchestrator side:** `app/tools/tinder_dispatch.py` + `tinder_reply_provider.py` + `tinder_state.json` (same FIFO queue pattern as Elite Date).
+- **Orchestrator → bot:** Discord `on_message` intercepts "1"/"2"/free text when the referenced prompt contains "Tinder" → `tinder_dispatch.handle_selection()` → `POST` to `tinder_bot` `/send`.
+- **Login:** Tinder uses phone OTP / Google / Facebook — not automatable. Set `TINDER_USER_DATA_DIR`, run once with `TINDER_HEADLESS=false`, log in manually; session persists in Chrome profile.
+- **Session recovery:** Both bots rebuild the Selenium session automatically on `invalid session id` / dead Chrome (`tinder_bot/session.py`, `elitedate_bot/session.py`); poller and `/send` use `run_with_recovery()`.
+- **UI quirk:** Tinder opens on **Zhody** (matches grid) by default. `TinderClient._navigate_to_inbox()` always clicks the **Správy** tab first. Only list rows with a message preview count as conversations — Zhody match tiles (`a[href*='/app/messages/']` without preview) are ignored.
+- **New-message detection:** compares preview text per conversation against `tinder_bot/.conversation_previews.json`; opens a chat only when preview changes and last bubble is from them. Seeding (`previous_preview is None`) never opens chats.
+- **Debug endpoints:** `GET /health`, `GET /debug/inbox`, `POST /debug/poll` on port 8601 (default).
+- **Packaging:** bundled in `Dockerfile`/`run.sh` (`TINDER_BOT_ENABLED`, supervised restart). See `tinder_bot/README.md`.
 
 ## Notes for future edits to this file
 

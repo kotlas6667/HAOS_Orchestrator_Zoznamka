@@ -5,13 +5,18 @@ import asyncio
 from fastapi import FastAPI, Request
 
 from elitedate_bot import shared_state
+from elitedate_bot.session import run_with_recovery, session_alive
 
 app = FastAPI(title="EliteDate Bot")
 
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok", "logged_in": shared_state.client is not None}
+    return {
+        "status": "ok",
+        "logged_in": shared_state.client is not None,
+        "session_alive": session_alive(shared_state.client),
+    }
 
 
 @app.get("/debug/inbox")
@@ -42,7 +47,7 @@ async def debug_inbox() -> dict:
                     except Exception:
                         senders.append("<no h5>")
                 return {"url": url, "items_visible": len(items), "senders": senders}
-            result = await asyncio.to_thread(_inspect)
+            result = await run_with_recovery(_inspect)
     except Exception as exc:  # noqa: BLE001
         return {"status": "error", "error": str(exc)}
     return result
@@ -63,7 +68,7 @@ async def find_conversation(request: Request) -> dict:
 
     try:
         async with shared_state.driver_lock:
-            snapshot = await asyncio.to_thread(
+            snapshot = await run_with_recovery(
                 shared_state.client.find_conversation_snapshot,
                 sender,
                 date_hint,
@@ -102,7 +107,7 @@ async def send(request: Request) -> dict:
 
     try:
         async with shared_state.driver_lock:
-            ok = await asyncio.to_thread(
+            ok = await run_with_recovery(
                 shared_state.client.send_reply,
                 conversation_id,
                 text,
