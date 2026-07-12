@@ -169,8 +169,11 @@ supervise_tinder_bot() {
 }
 
 if [ "${TINDER_BOT_ENABLED:-true}" = "true" ]; then
-    echo "Starting tinder_bot in background (supervised)..."
-    supervise_tinder_bot 2>&1 | sed -u 's/^/[tinder_bot] /' &
+    echo "Starting tinder_bot in background (supervised, 20s delay)..."
+    (
+        sleep 20
+        supervise_tinder_bot 2>&1 | sed -u 's/^/[tinder_bot] /'
+    ) &
     TINDER_SUPERVISOR_PID=$!
 else
     echo "tinder_bot disabled (TINDER_BOT_ENABLED=false)."

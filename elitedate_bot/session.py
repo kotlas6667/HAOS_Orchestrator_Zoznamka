@@ -52,27 +52,42 @@ async def rebuild_session() -> EliteDateClient:
 
     await asyncio.sleep(2)
 
-    driver = await asyncio.to_thread(build_driver)
-    client = EliteDateClient(driver)
-    await asyncio.to_thread(client.login)
-    shared_state.client = client
-    print("[elitedate_bot] Selenium session rebuilt and re-logged in.")
-    return client
+    last_exc: Exception | None = None
+    for attempt in range(3):
+        try:
+            driver = await asyncio.to_thread(build_driver)
+            client = EliteDateClient(driver)
+            await asyncio.to_thread(client.login)
+            shared_state.client = client
+            print("[elitedate_bot] Selenium session rebuilt and re-logged in.")
+            return client
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            if attempt < 2 and is_dead_session_error(exc):
+                print(f"[elitedate_bot] Chrome startup failed on rebuild attempt {attempt + 1}, retrying...")
+                await asyncio.sleep(4)
+                continue
+            raise
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("rebuild_session failed without an exception")
 
 
 async def run_with_recovery(func: Callable[..., T], /, *args: Any, **kwargs: Any) -> T:
-    """Run a blocking Selenium call; rebuild the browser session once on crash."""
+    """Run a blocking Selenium call; rebuild the browser session on crash."""
     last_exc: Exception | None = None
-    for attempt in range(2):
+    max_attempts = 3
+    for attempt in range(max_attempts):
         if not session_alive(shared_state.client):
             await rebuild_session()
         try:
             return await asyncio.to_thread(func, *args, **kwargs)
         except Exception as exc:  # noqa: BLE001
             last_exc = exc
-            if attempt == 0 and is_dead_session_error(exc):
+            if is_dead_session_error(exc) and attempt < max_attempts - 1:
                 print(f"[elitedate_bot] Dead session ({exc}); rebuilding...")
                 await rebuild_session()
+                await asyncio.sleep(1.5)
                 continue
             raise
     if last_exc is not None:

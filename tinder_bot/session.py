@@ -65,8 +65,8 @@ async def rebuild_session() -> TinderClient:
         except Exception as exc:  # noqa: BLE001
             last_exc = exc
             msg = str(exc).lower()
-            if attempt < 2 and ("failed to write prefs" in msg or "user data directory" in msg):
-                print(f"[tinder_bot] Chrome profile locked on rebuild attempt {attempt + 1}, retrying...")
+            if attempt < 2 and (is_dead_session_error(exc) or "failed to write prefs" in msg or "user data directory" in msg):
+                print(f"[tinder_bot] Chrome startup failed on rebuild attempt {attempt + 1}, retrying...")
                 await asyncio.sleep(4)
                 continue
             raise
@@ -76,18 +76,20 @@ async def rebuild_session() -> TinderClient:
 
 
 async def run_with_recovery(func: Callable[..., T], /, *args: Any, **kwargs: Any) -> T:
-    """Run a blocking Selenium call; rebuild the browser session once on crash."""
+    """Run a blocking Selenium call; rebuild the browser session on crash."""
     last_exc: Exception | None = None
-    for attempt in range(2):
+    max_attempts = 3
+    for attempt in range(max_attempts):
         if not session_alive(shared_state.client):
             await rebuild_session()
         try:
             return await asyncio.to_thread(func, *args, **kwargs)
         except Exception as exc:  # noqa: BLE001
             last_exc = exc
-            if attempt == 0 and is_dead_session_error(exc):
+            if is_dead_session_error(exc) and attempt < max_attempts - 1:
                 print(f"[tinder_bot] Dead session ({exc}); rebuilding...")
                 await rebuild_session()
+                await asyncio.sleep(1.5)
                 continue
             raise
     if last_exc is not None:
