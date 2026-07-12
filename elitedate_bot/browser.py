@@ -7,6 +7,7 @@ from selenium.webdriver.edge.options import Options as EdgeOptions
 from selenium.webdriver.edge.service import Service as EdgeService
 
 from elitedate_bot.config import settings
+from chrome_lock import chrome_startup_lock
 
 
 def build_driver() -> webdriver.Chrome | webdriver.Edge:
@@ -62,12 +63,13 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
         options.binary_location = browser_binary
 
     webdriver_path = settings.webdriver_path or settings.chromedriver_path
-    if browser_name == "edge":
-        service = EdgeService(executable_path=webdriver_path) if webdriver_path else EdgeService()
-        driver = webdriver.Edge(service=service, options=options)
-    else:
-        service = Service(executable_path=webdriver_path) if webdriver_path else Service()
-        driver = webdriver.Chrome(service=service, options=options)
+    with chrome_startup_lock("elitedate_bot"):
+        if browser_name == "edge":
+            service = EdgeService(executable_path=webdriver_path) if webdriver_path else EdgeService()
+            driver = webdriver.Edge(service=service, options=options)
+        else:
+            service = Service(executable_path=webdriver_path) if webdriver_path else Service()
+            driver = webdriver.Chrome(service=service, options=options)
 
     driver.set_page_load_timeout(30)
     return driver

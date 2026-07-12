@@ -7,6 +7,7 @@ from selenium.webdriver.edge.options import Options as EdgeOptions
 from selenium.webdriver.edge.service import Service as EdgeService
 
 from tinder_bot.config import settings
+from chrome_lock import chrome_startup_lock
 
 
 def build_driver() -> webdriver.Chrome | webdriver.Edge:
@@ -81,12 +82,13 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
     if settings.browser_binary:
         options.binary_location = settings.browser_binary
 
-    if browser_name == "edge":
-        service = EdgeService(executable_path=settings.webdriver_path) if settings.webdriver_path else EdgeService()
-        driver = webdriver.Edge(service=service, options=options)
-    else:
-        service = Service(executable_path=settings.webdriver_path) if settings.webdriver_path else Service()
-        driver = webdriver.Chrome(service=service, options=options)
+    with chrome_startup_lock("tinder_bot"):
+        if browser_name == "edge":
+            service = EdgeService(executable_path=settings.webdriver_path) if settings.webdriver_path else EdgeService()
+            driver = webdriver.Edge(service=service, options=options)
+        else:
+            service = Service(executable_path=settings.webdriver_path) if settings.webdriver_path else Service()
+            driver = webdriver.Chrome(service=service, options=options)
 
     driver.set_page_load_timeout(int(settings.wait_timeout_sec))
     if not settings.headless:
