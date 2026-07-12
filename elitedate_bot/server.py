@@ -5,7 +5,7 @@ import asyncio
 from fastapi import FastAPI, Request
 
 from elitedate_bot import shared_state
-from elitedate_bot.session import run_with_recovery, session_alive
+from elitedate_bot.session import run_client_method, run_with_recovery, session_alive
 
 app = FastAPI(title="EliteDate Bot")
 
@@ -68,8 +68,8 @@ async def find_conversation(request: Request) -> dict:
 
     try:
         async with shared_state.driver_lock:
-            snapshot = await run_with_recovery(
-                shared_state.client.find_conversation_snapshot,
+            snapshot = await run_client_method(
+                "find_conversation_snapshot",
                 sender,
                 date_hint,
             )
@@ -107,8 +107,8 @@ async def send(request: Request) -> dict:
 
     try:
         async with shared_state.driver_lock:
-            ok = await run_with_recovery(
-                shared_state.client.send_reply,
+            ok = await run_client_method(
+                "send_reply",
                 conversation_id,
                 text,
                 submit=submit,

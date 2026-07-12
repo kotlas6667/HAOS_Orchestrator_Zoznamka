@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request
 
 from tinder_bot import shared_state
 from tinder_bot.config import settings
-from tinder_bot.session import run_with_recovery, session_alive
+from tinder_bot.session import run_client_method, run_with_recovery, session_alive
 
 app = FastAPI(title="Tinder Bot")
 
@@ -85,7 +85,7 @@ async def debug_poll() -> dict:
         return {"status": "error", "error": "not logged in"}
     try:
         async with shared_state.driver_lock:
-            messages = await run_with_recovery(shared_state.client.check_new_messages)
+            messages = await run_client_method("check_new_messages")
     except Exception as exc:  # noqa: BLE001
         return {"status": "error", "error": str(exc)}
     return {"status": "ok", "new_messages": len(messages), "messages": messages}
@@ -244,8 +244,8 @@ async def send(request: Request) -> dict:
 
     try:
         async with shared_state.driver_lock:
-            ok = await run_with_recovery(
-                shared_state.client.send_reply,
+            ok = await run_client_method(
+                "send_reply",
                 conversation_id,
                 text,
                 submit=submit,

@@ -10,7 +10,7 @@ import httpx
 
 from elitedate_bot import shared_state
 from elitedate_bot.config import settings
-from elitedate_bot.session import run_with_recovery
+from elitedate_bot.session import run_client_method
 
 _SEEN_FILE = Path(settings.seen_messages_file)
 
@@ -62,7 +62,7 @@ async def poll_loop() -> None:
 
         try:
             async with shared_state.driver_lock:
-                messages = await run_with_recovery(shared_state.client.check_new_messages)
+                messages = await run_client_method("check_new_messages")
         except Exception as exc:  # noqa: BLE001
             print(f"[elitedate_bot] check_new_messages failed: {exc}")
             continue

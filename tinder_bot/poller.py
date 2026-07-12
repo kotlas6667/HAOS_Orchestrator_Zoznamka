@@ -10,6 +10,7 @@ import httpx
 
 from tinder_bot import shared_state
 from tinder_bot.config import settings
+from tinder_bot.session import run_client_method
 
 _SEEN_FILE = Path(settings.seen_messages_file)
 
@@ -48,17 +49,20 @@ async def poll_loop() -> None:
     """Runs forever: periodically checks for new Tinder messages and
     forwards genuinely new ones to the orchestrator."""
     seen = _load_seen()
+    first = True
 
     while True:
-        wait_s = random.uniform(settings.poll_interval_min_sec, settings.poll_interval_max_sec)
-        await asyncio.sleep(wait_s)
+        if not first:
+            wait_s = random.uniform(settings.poll_interval_min_sec, settings.poll_interval_max_sec)
+            await asyncio.sleep(wait_s)
+        first = False
 
         if shared_state.client is None:
             continue
 
         try:
             async with shared_state.driver_lock:
-                messages = await asyncio.to_thread(shared_state.client.check_new_messages)
+                messages = await run_client_method("check_new_messages")
         except Exception as exc:  # noqa: BLE001
             print(f"[tinder_bot] check_new_messages failed: {exc}")
             continue

@@ -78,3 +78,15 @@ async def run_with_recovery(func: Callable[..., T], /, *args: Any, **kwargs: Any
     if last_exc is not None:
         raise last_exc
     raise RuntimeError("run_with_recovery failed without an exception")
+
+
+async def run_client_method(method_name: str, /, *args: Any, **kwargs: Any) -> T:
+    """Call a client method using the current shared_state.client after rebuilds."""
+
+    def _call() -> T:
+        client = shared_state.client
+        if client is None:
+            raise RuntimeError("client is not initialized")
+        return getattr(client, method_name)(*args, **kwargs)
+
+    return await run_with_recovery(_call)
