@@ -35,6 +35,52 @@ if [ -f /app/.env ]; then
     set +a
 fi
 
+# HA add-on UI options (/data/options.json) override .env for bot toggles and log level.
+if [ -f /data/options.json ]; then
+    _opt_bool() {
+        python3 - "$1" <<'PY'
+import json, sys
+key = sys.argv[1]
+try:
+    with open("/data/options.json") as f:
+        val = json.load(f).get(key)
+except Exception:
+    sys.exit(1)
+if isinstance(val, bool):
+    print("true" if val else "false")
+    sys.exit(0)
+sys.exit(1)
+PY
+    }
+    _opt_str() {
+        python3 - "$1" <<'PY'
+import json, sys
+key = sys.argv[1]
+try:
+    with open("/data/options.json") as f:
+        val = json.load(f).get(key)
+except Exception:
+    sys.exit(1)
+if val is not None and val != "":
+    print(val)
+    sys.exit(0)
+sys.exit(1)
+PY
+    }
+    if _tinder=$(_opt_bool tinder_bot_enabled 2>/dev/null); then
+        export TINDER_BOT_ENABLED="$_tinder"
+        echo "tinder_bot_enabled from add-on options: ${TINDER_BOT_ENABLED}"
+    fi
+    if _ed=$(_opt_bool elitedate_bot_enabled 2>/dev/null); then
+        export ELITEDATE_BOT_ENABLED="$_ed"
+        echo "elitedate_bot_enabled from add-on options: ${ELITEDATE_BOT_ENABLED}"
+    fi
+    if _lvl=$(_opt_str log_level 2>/dev/null); then
+        LOG_LEVEL="$_lvl"
+        export LOG_LEVEL
+    fi
+fi
+
 # ---------------------------------------------------------------------------
 # Persistent state
 # ---------------------------------------------------------------------------
