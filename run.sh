@@ -24,6 +24,15 @@ else
     echo "Using bundled configuration (/app/.env)"
 fi
 
+# run.sh supervisors read TINDER_BOT_ENABLED / ELITEDATE_BOT_ENABLED from the
+# shell environment — load /app/.env so .env toggles actually apply at startup.
+if [ -f /app/.env ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . /app/.env
+    set +a
+fi
+
 # ---------------------------------------------------------------------------
 # Persistent state
 # ---------------------------------------------------------------------------
