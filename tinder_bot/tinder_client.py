@@ -585,7 +585,8 @@ class TinderClient:
         Reads Správy list via JS only. Opens a chat ONLY when preview changed
         from a cached value — never on first sighting (seeding).
         """
-        self._navigate_to_inbox()
+        # fast=True: inbox list only via JS — full navigate OOMs Pi easily.
+        self._navigate_to_inbox(fast=True)
 
         preview_cache = self._load_preview_cache()
         results: list[dict[str, Any]] = []
