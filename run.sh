@@ -24,9 +24,10 @@ else
     echo "Using bundled configuration (/app/.env)"
 fi
 
-# run.sh supervisors read TINDER_BOT_ENABLED / ELITEDATE_BOT_ENABLED from the
-# shell environment — load /app/.env so .env toggles actually apply at startup.
+# Strip Windows CRLF — sourcing .env with stray \r breaks run.sh on Linux.
 if [ -f /app/.env ]; then
+    sed -i 's/\r$//' /app/.env
+    [ -f "$CFG/.env" ] && sed -i 's/\r$//' "$CFG/.env"
     set -a
     # shellcheck disable=SC1091
     . /app/.env
