@@ -19,15 +19,16 @@ mkdir -p /data/orchestrator/logs "$CFG" /data/orchestrator/tokens
 # A custom .env placed in the config folder wins over the bundled one.
 if [ -f "$CFG/.env" ]; then
     echo "Using persistent config from $CFG/.env"
-    cp -f "$CFG/.env" /app/.env
+    tr -d '\r' < "$CFG/.env" > /app/.env
 else
     echo "Using bundled configuration (/app/.env)"
+    if [ -f /app/.env ]; then
+        tr -d '\r' < /app/.env > /app/.env.__tmp && mv -f /app/.env.__tmp /app/.env
+    fi
 fi
 
-# Strip Windows CRLF — sourcing .env with stray \r breaks run.sh on Linux.
+# run.sh supervisors read TINDER_BOT_ENABLED / ELITEDATE_BOT_ENABLED from the shell.
 if [ -f /app/.env ]; then
-    sed -i 's/\r$//' /app/.env
-    [ -f "$CFG/.env" ] && sed -i 's/\r$//' "$CFG/.env"
     set -a
     # shellcheck disable=SC1091
     . /app/.env
