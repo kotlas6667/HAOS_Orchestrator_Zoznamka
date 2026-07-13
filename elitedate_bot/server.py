@@ -36,7 +36,7 @@ async def debug_inbox() -> dict:
     if not session_alive(shared_state.client):
         return {"status": "error", "error": "session dead — reštartuj add-on alebo vypni Tinder bota (RAM)"}
     import time
-    from selenium.webdriver.by import By
+    from selenium.webdriver.common.by import By
     from selenium.webdriver.support import expected_conditions as EC
     try:
         async with shared_state.driver_lock:
