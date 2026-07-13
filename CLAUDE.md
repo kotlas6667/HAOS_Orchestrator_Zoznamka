@@ -27,7 +27,12 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 # run.sh is the Home Assistant add-on entrypoint (production)
 ```
 
-No test suite exists in this repo. There's no lint/build step beyond running the app.
+No lint/build step beyond running the app. Unit tests:
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+pytest
+```
 
 Docker: `docker build -t haos-orchestrator .` then `docker run -p 8000:8000 haos-orchestrator`.
 
