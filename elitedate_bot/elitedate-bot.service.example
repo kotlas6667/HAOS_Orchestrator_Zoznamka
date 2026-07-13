@@ -7,6 +7,8 @@ Wants=haos-orchestrator.service
 Type=simple
 WorkingDirectory=/home/pi/HAOS_Orchestrator
 EnvironmentFile=/home/pi/HAOS_Orchestrator/.env
+Environment=BOT_HOST=127.0.0.1
+Environment=ORCHESTRATOR_URL=http://127.0.0.1:8000
 ExecStart=/home/pi/HAOS_Orchestrator/.venv/bin/python -m elitedate_bot.main
 Restart=on-failure
 RestartSec=10

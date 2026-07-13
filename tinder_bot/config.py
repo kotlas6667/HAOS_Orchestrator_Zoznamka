@@ -22,11 +22,11 @@ class BotSettings(BaseSettings):
     # does not support the old pydantic-v1 `Field(env=...)` kwarg) avoid
     # colliding with elitedate_bot's generically-named BOT_HOST/BROWSER/etc.
     # when both share the same .env.
-    bot_host: str = Field(default="127.0.0.1", validation_alias="TINDER_BOT_HOST")
+    bot_host: str = Field(default="0.0.0.0", validation_alias="TINDER_BOT_HOST")
     bot_port: int = Field(default=8601, validation_alias="TINDER_BOT_PORT")
 
     # Where the orchestrator's FastAPI app listens (this bot calls that)
-    orchestrator_url: str = "http://127.0.0.1:8000"
+    orchestrator_url: str = "http://haos_orchestrator:8000"
 
     # Polling
     poll_enabled: bool = Field(default=True, validation_alias="TINDER_POLL_ENABLED")

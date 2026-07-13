@@ -6,8 +6,9 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.edge.options import Options as EdgeOptions
 from selenium.webdriver.edge.service import Service as EdgeService
 
+from tinder_bot.chrome_lock import chrome_startup_lock
 from tinder_bot.config import settings
-from chrome_lock import chrome_startup_lock
+
 
 
 def build_driver() -> webdriver.Chrome | webdriver.Edge:

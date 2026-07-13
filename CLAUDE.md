@@ -27,6 +27,8 @@ No test suite exists in this repo. There's no lint/build step beyond running the
 
 Docker: `docker build -t haos-orchestrator .` then `docker run -p 8000:8000 haos-orchestrator`.
 
+Elite Date / Tinder sú **samostatné HA add-ony** (vlastný Chromium každý) — nebalia sa do hlavného orchestrátor image. Pozri sekcie nižšie a inštaláciu v README.
+
 ## Architecture
 
 **Request flow:** entrypoint (dashboard `/api/prompt`, Discord bot, or HA conversation agent) → `Orchestrator.handle_prompt()` (`app/orchestrator.py`) → `llm_route()` (`app/router.py`) asks GPT which tool + params to use → orchestrator looks up the tool in the registry and calls `tool.run(prompt, context=params)` → returns a `PromptResponse` (route, summary, `ToolExecution` with the raw result dict).
@@ -54,7 +56,7 @@ Docker: `docker build -t haos-orchestrator .` then `docker run -p 8000:8000 haos
 
 ## Elite Date integration (elitedate_bot/)
 
-A second process — `elitedate_bot/` — automates a personal Elite Date account (a dating site with no public API) via Selenium, and hands the "which reply to send" decision to the user over Discord. It talks to the orchestrator over localhost HTTP in both directions (no polling of the orchestrator needed):
+A second process — `elitedate_bot/` — automates a personal Elite Date account (a dating site with no public API) via Selenium, and hands the "which reply to send" decision to the user over Discord. It talks to the orchestrator over HTTP in both directions (no polling of the orchestrator needed):
 
 - **Bot → orchestrator:** `elitedate_bot/poller.py` runs a loop (randomized 90-180s interval) that calls `EliteDateClient.check_new_messages()` (Selenium, `elitedate_bot/elitedate_client.py`) and POSTs any new message to the orchestrator's `POST /api/elitedate/incoming` (`app/main.py`).
 - **Orchestrator side:** `app/tools/elitedate_dispatch.handle_incoming()` generates two alternative AI reply drafts via GPT (`app/tools/elitedate_reply_provider.py`), stores them in a FIFO queue on disk (`elitedate_state.json`, via `app/tools/elitedate_state.py` — only the head of the queue is `awaiting_selection` at any time, to keep a bare "1"/"2" Discord reply unambiguous), and posts the two options to Discord.
@@ -62,7 +64,7 @@ A second process — `elitedate_bot/` — automates a personal Elite Date accoun
 - **Selenium DOM selectors are placeholders.** `elitedate_client.py`'s `login()`, `check_new_messages()`, and `send_reply()` need real CSS selectors filled in from Elite Date's actual DOM (inspect via browser DevTools) — Elite Date's markup isn't something to guess at.
 - **Session recovery:** `elitedate_bot/session.py` rebuilds Chrome and re-logs in on `invalid session id` / dead browser; poller and `/send` use `run_with_recovery()`.
 - The Selenium `webdriver.Chrome` instance is not safe for concurrent use — both the poll loop and incoming `/send` calls acquire `elitedate_bot/shared_state.driver_lock` before touching it, and blocking Selenium calls are run via `asyncio.to_thread`.
-- **Packaging:** the main `Dockerfile`/`run.sh` (HAOS add-on) bundles `elitedate_bot/` and installs `chromium` + `chromium-driver` alongside the orchestrator, launching `python -m elitedate_bot.main` as a background process before the orchestrator's `uvicorn` (set `ELITEDATE_BOT_ENABLED=false` in `.env` to skip it). `run.sh` force-exports `BROWSER_BINARY=/usr/bin/chromium` / `WEBDRIVER_PATH=/usr/bin/chromedriver` so a Windows-dev `.env` (desktop Chrome path) never leaks into the container — real env vars win over `.env` values in pydantic-settings. `elitedate_bot/elitedate-bot.service.example` is kept for running it as a standalone systemd service outside HAOS instead (e.g. directly on the Pi) — inside the shared add-on container a Selenium crash currently has no per-process supervision/restart, unlike that standalone setup.
+- **Packaging (samostatný HA add-on):** `elitedate_bot/` is its own add-on (`config.json` slug `haos_elitedate`, port 8600, `shm_size` 512M). The main orchestrator image does **not** ship Chromium and does not start this bot. DNS: orchestrator → `http://haos_elitedate:8600`, bot → `ORCHESTRATOR_URL=http://haos_orchestrator:8000`. On a Pi 5 prefer running at most one dating bot at a time (or host the other elsewhere). `elitedate_bot/elitedate-bot.service.example` remains for standalone systemd outside HAOS.
 - Elite Date's ToS almost certainly prohibits automated/scripted use of the account — this is a known, accepted risk (account ban), not a technical concern to engineer around.
 
 ## Tinder integration (tinder_bot/)
@@ -77,7 +79,7 @@ Mirrors `elitedate_bot/` — a separate Selenium process on Tinder web (`tinder.
 - **UI quirk:** Tinder opens on **Zhody** (matches grid) by default. `TinderClient._navigate_to_inbox()` always clicks the **Správy** tab first. Only list rows with a message preview count as conversations — Zhody match tiles (`a[href*='/app/messages/']` without preview) are ignored.
 - **New-message detection:** compares preview text per conversation against `tinder_bot/.conversation_previews.json`; opens a chat only when preview changes and last bubble is from them. Seeding (`previous_preview is None`) never opens chats.
 - **Debug endpoints:** `GET /health`, `GET /debug/inbox`, `POST /debug/poll` on port 8601 (default).
-- **Packaging:** bundled in `Dockerfile`/`run.sh` (`TINDER_BOT_ENABLED`, supervised restart). See `tinder_bot/README.md`.
+- **Packaging (samostatný HA add-on):** `tinder_bot/` is its own add-on (`config.json` slug `haos_tinder`, port 8601, `shm_size` 512M). Same split as Elite Date — one Chromium per container. DNS: orchestrator → `http://haos_tinder:8601`, bot → `ORCHESTRATOR_URL=http://haos_orchestrator:8000`. Chrome profile lives in add-on `/data/chrome-profile`. See `tinder_bot/README.md`.
 
 ## Notes for future edits to this file
 

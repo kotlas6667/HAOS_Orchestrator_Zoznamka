@@ -9,12 +9,15 @@ class BotSettings(BaseSettings):
     elitedate_password: str = ""
     elitedate_login_url: str = "https://www.elitedate.sk/prihlaseni"
 
-    # Where this bot's own local HTTP server listens (orchestrator calls this)
-    bot_host: str = "127.0.0.1"
+    # Where this bot's own local HTTP server listens (orchestrator calls this).
+    # Default 0.0.0.0 so the dedicated HA add-on is reachable from the
+    # orchestrator container over the Docker network; override to 127.0.0.1
+    # for local/systemd co-hosting on one machine.
+    bot_host: str = "0.0.0.0"
     bot_port: int = 8600
 
     # Where the orchestrator's FastAPI app listens (this bot calls that)
-    orchestrator_url: str = "http://127.0.0.1:8000"
+    orchestrator_url: str = "http://haos_orchestrator:8000"
 
     # Polling
     poll_interval_min_sec: float = 90.0

@@ -81,31 +81,31 @@ HAOS Orchestrator is a **Home Assistant Add-on** that provides:
 
 ### As a Home Assistant Add-on
 
-1. **Copy this repository** to your HAOS add-ons directory:
-   ```bash
-   cd /addons
-   git clone https://github.com/your-repo/haos_orchestrator.git haos_orchestrator
+Elite Date a Tinder majú **vlastné add-ony** (jeden Chromium na kontajner), aby Pi 5 nemuselo ťahať dva Selenium procesy spolu s orchestrátorom.
+
+```bash
+# Na HAOS hoste (SSH / Samba do /addons):
+cd /addons
+git clone https://github.com/kotlas6667/haos_orchestrator_zoznamka.git haos_orchestrator
+
+# Samostatné dating boty — kópia priečinka = samostatný local add-on
+cp -a haos_orchestrator/elitedate_bot haos_elitedate
+cp -a haos_orchestrator/tinder_bot haos_tinder
+```
+
+1. **Supervisor → Local add-ons** — nainštaluj a spusti `HAOS Orchestrator` (ľahký, bez Chromium).
+2. V orchestrátor `.env` (`/data/orchestrator/config/.env`):
+   ```env
+   ELITEDATE_BOT_URL=http://haos_elitedate:8600
+   TINDER_BOT_URL=http://haos_tinder:8601
    ```
+3. Nainštaluj **len ten bot, ktorý chceš** (`HAOS Elite Date Bot` a/alebo `HAOS Tinder Bot`). Na Pi 5 odporúčame naraz iba jeden.
+4. V bot add-one vyplň `/data/.env` (vznikne pri prvom boote) — credentials + `ORCHESTRATOR_URL=http://haos_orchestrator:8000`.
+5. Tinder: raz treba manuálne prihlásenie (`TINDER_HEADLESS=false`), session ostane v `/data/chrome-profile`.
 
-2. **Or copy the folder** `HAOS_Orchestrator` to your add-ons directory
+### Starý monolitický režim (už nie default)
 
-3. **Restart Home Assistant** to discover the new add-on
-
-4. **Install the add-on** through the Supervisor UI:
-   - Go to Supervisor → Add-on Store
-   - Find "HAOS Orchestrator" in the local add-ons
-   - Click "Install"
-
-5. **Configure the add-on**:
-   - Set your `HA_TOKEN` (Long-lived access token from HA)
-   - Configure other services (OpenAI API, OpenWeather, Discord, Gmail)
-   - Enable/disable features as needed
-
-6. **Start the add-on**
-
-7. **Access the dashboard**:
-   - Through HA's ingress: `http://your-ha-ip/api/orchestrator/dashboard`
-   - Or directly on port 8000
+Skôr bežali ED + Tinder ako background procesy v tom istom kontajneri ako orchestrátor. To na Pi 5 často končilo OOM / Chrome crash loop — preto sú oddelené.
 
 ---
 
@@ -181,10 +181,13 @@ DISCORD_BOT_PREFIX=!
 DISCORD_BOT_REQUIRE_MENTION=false
 ```
 
-**EliteDate:**
+**EliteDate / Tinder (samostatné add-ony):**
 ```env
-ELITEDATE_BOT_URL=http://127.0.0.1:8600
+# HA Docker DNS medzi add-onmi
+ELITEDATE_BOT_URL=http://haos_elitedate:8600
+TINDER_BOT_URL=http://haos_tinder:8601
 ELITEDATE_AUTO_SEND=false
+TINDER_AUTO_SEND=false
 ```
 
 **Gmail:**

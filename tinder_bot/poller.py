@@ -49,8 +49,7 @@ async def poll_loop() -> None:
     """Runs forever: periodically checks for new Tinder messages and
     forwards genuinely new ones to the orchestrator."""
     seen = _load_seen()
-    # Let elitedate_bot grab Chrome first; both bots polling at once OOMs Pi easily.
-    await asyncio.sleep(45)
+    # Bot beží vo vlastnom add-one — nie je treba čakať na elitedate Chrome.
     first = True
 
     while True:
