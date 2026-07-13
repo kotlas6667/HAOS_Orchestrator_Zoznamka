@@ -23,10 +23,14 @@
   "host_network": false,
   "shm_size": "1024M",
   "options": {
-    "log_level": "info"
+    "log_level": "info",
+    "tinder_bot_enabled": false,
+    "elitedate_bot_enabled": true
   },
   "schema": {
-    "log_level": "list(trace|debug|info|notice|warning|error|fatal)?"
+    "log_level": "list(trace|debug|info|notice|warning|error|fatal)?",
+    "tinder_bot_enabled": "bool",
+    "elitedate_bot_enabled": "bool"
   },
   "url": "https://github.com/your-repo/haos_orchestrator",
   "maintainer": "kotlas <kotlas6667@gmail.com>",

@@ -16,9 +16,10 @@ class BotSettings(BaseSettings):
     # Where the orchestrator's FastAPI app listens (this bot calls that)
     orchestrator_url: str = "http://127.0.0.1:8000"
 
-    # Polling
-    poll_interval_min_sec: float = 90.0
-    poll_interval_max_sec: float = 180.0
+    # Polling — fixed interval; change detection is in conversation_last_messages.json
+    poll_interval_sec: float = 60.0
+    poll_interval_min_sec: float = 60.0  # backward compatible alias
+    poll_interval_max_sec: float = 60.0
 
     # Browser
     browser: str = "chrome"  # supported: chrome, edge

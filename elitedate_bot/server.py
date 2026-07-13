@@ -3,11 +3,20 @@ from __future__ import annotations
 import asyncio
 
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from elitedate_bot import shared_state
 from elitedate_bot.session import run_client_method, run_with_recovery, session_alive
 
 app = FastAPI(title="EliteDate Bot")
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(
+        status_code=200,
+        content={"status": "error", "error": f"{type(exc).__name__}: {exc}"},
+    )
 
 
 @app.get("/health")
@@ -24,13 +33,17 @@ async def debug_inbox() -> dict:
     """Show current page URL and first visible conversation senders."""
     if shared_state.client is None:
         return {"status": "error", "error": "not logged in"}
+    if not session_alive(shared_state.client):
+        return {"status": "error", "error": "session dead — reštartuj add-on alebo vypni Tinder bota (RAM)"}
     import time
-    from selenium.webdriver.by import By
+    from selenium.webdriver.common.by import By
     from selenium.webdriver.support import expected_conditions as EC
     try:
         async with shared_state.driver_lock:
             def _inspect():
                 c = shared_state.client
+                if c is None:
+                    raise RuntimeError("client is None")
                 c.driver.get(c._messages_url())
                 try:
                     c._wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".conversation-section-list")))
@@ -47,10 +60,26 @@ async def debug_inbox() -> dict:
                     except Exception:
                         senders.append("<no h5>")
                 return {"url": url, "items_visible": len(items), "senders": senders}
+
             result = await run_with_recovery(_inspect)
     except Exception as exc:  # noqa: BLE001
         return {"status": "error", "error": str(exc)}
-    return result
+    if not isinstance(result, dict):
+        return {"status": "error", "error": "unexpected inspect result"}
+    return {"status": "ok", **result}
+
+
+@app.post("/debug/poll")
+async def debug_poll() -> dict:
+    """Run one check_new_messages cycle (for testing)."""
+    if shared_state.client is None:
+        return {"status": "error", "error": "not logged in"}
+    try:
+        async with shared_state.driver_lock:
+            messages = await run_client_method("check_new_messages")
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "error", "error": str(exc)}
+    return {"status": "ok", "new_messages": len(messages), "messages": messages}
 
 
 @app.post("/conversation/find")

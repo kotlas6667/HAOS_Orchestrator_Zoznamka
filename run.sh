@@ -19,9 +19,75 @@ mkdir -p /data/orchestrator/logs "$CFG" /data/orchestrator/tokens
 # A custom .env placed in the config folder wins over the bundled one.
 if [ -f "$CFG/.env" ]; then
     echo "Using persistent config from $CFG/.env"
-    cp -f "$CFG/.env" /app/.env
+    tr -d '\r' < "$CFG/.env" > /app/.env
+    cp -f /app/.env "$CFG/.env"
 else
     echo "Using bundled configuration (/app/.env)"
+    if [ -f /app/.env ]; then
+        tr -d '\r' < /app/.env > /app/.env.__tmp && mv -f /app/.env.__tmp /app/.env
+    fi
+fi
+
+# run.sh supervisors read TINDER_BOT_ENABLED / ELITEDATE_BOT_ENABLED from the shell.
+# Never `source` the whole .env in bash — values like "HAOS Orchestrator" or
+# "# Discord Bot" with CRLF break startup. Python dotenv handles quoting safely.
+if [ -f /app/.env ]; then
+    eval "$(python3 <<'PY'
+from dotenv import dotenv_values
+import shlex
+
+for key in ("TINDER_BOT_ENABLED", "ELITEDATE_BOT_ENABLED", "LOG_LEVEL"):
+    val = dotenv_values("/app/.env").get(key)
+    if val is not None and str(val).strip() != "":
+        print(f"export {key}={shlex.quote(str(val).strip())}")
+PY
+)"
+fi
+
+# HA add-on UI options (/data/options.json) override .env for bot toggles and log level.
+if [ -f /data/options.json ]; then
+    _opt_bool() {
+        python3 - "$1" <<'PY'
+import json, sys
+key = sys.argv[1]
+try:
+    with open("/data/options.json") as f:
+        val = json.load(f).get(key)
+except Exception:
+    sys.exit(1)
+if isinstance(val, bool):
+    print("true" if val else "false")
+    sys.exit(0)
+sys.exit(1)
+PY
+    }
+    _opt_str() {
+        python3 - "$1" <<'PY'
+import json, sys
+key = sys.argv[1]
+try:
+    with open("/data/options.json") as f:
+        val = json.load(f).get(key)
+except Exception:
+    sys.exit(1)
+if val is not None and val != "":
+    print(val)
+    sys.exit(0)
+sys.exit(1)
+PY
+    }
+    if _tinder=$(_opt_bool tinder_bot_enabled 2>/dev/null); then
+        export TINDER_BOT_ENABLED="$_tinder"
+        echo "tinder_bot_enabled from add-on options: ${TINDER_BOT_ENABLED}"
+    fi
+    if _ed=$(_opt_bool elitedate_bot_enabled 2>/dev/null); then
+        export ELITEDATE_BOT_ENABLED="$_ed"
+        echo "elitedate_bot_enabled from add-on options: ${ELITEDATE_BOT_ENABLED}"
+    fi
+    if _lvl=$(_opt_str log_level 2>/dev/null); then
+        LOG_LEVEL="$_lvl"
+        export LOG_LEVEL
+    fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -49,6 +115,8 @@ ln -sf "$CFG/.seen_email_ids" /app/.seen_email_ids
 mkdir -p "$CFG/elitedate"
 [ -e "$CFG/elitedate/.seen_messages.json" ] || echo "[]" > "$CFG/elitedate/.seen_messages.json"
 ln -sf "$CFG/elitedate/.seen_messages.json" /app/elitedate_bot/.seen_messages.json
+[ -e "$CFG/elitedate/.conversation_last_messages.json" ] || echo "{}" > "$CFG/elitedate/.conversation_last_messages.json"
+ln -sf "$CFG/elitedate/.conversation_last_messages.json" /app/elitedate_bot/.conversation_last_messages.json
 
 # Seen-tinder-messages cache: same persistence treatment.
 mkdir -p "$CFG/tinder"
