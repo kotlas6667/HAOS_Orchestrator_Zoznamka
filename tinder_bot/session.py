@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Callable
 from typing import Any, TypeVar
 
 from selenium.common.exceptions import InvalidSessionIdException
 
+from chrome_cleanup import kill_stale_chrome_for_profile
 from tinder_bot import shared_state
 from tinder_bot.browser import build_driver
+from tinder_bot.config import settings
 from tinder_bot.tinder_client import TinderClient
 
 T = TypeVar("T")
@@ -19,8 +22,14 @@ _DEAD_SESSION_MARKERS = (
     "connection refused",
     "target machine actively refused",
     "disconnected: not connected to devtools",
+    "unable to receive message from renderer",
+    "session deleted as the browser has closed",
+    "tab crashed",
     "chrome not reachable",
 )
+
+_last_rebuild_at: float = 0.0
+_REBUILD_COOLDOWN_SEC = 15.0
 
 
 def is_dead_session_error(exc: BaseException) -> bool:
@@ -42,6 +51,12 @@ def session_alive(client: TinderClient | None) -> bool:
 
 async def rebuild_session() -> TinderClient:
     """Quit the dead driver, start a new one, and log back into Tinder."""
+    global _last_rebuild_at
+
+    since_last = time.monotonic() - _last_rebuild_at
+    if since_last < _REBUILD_COOLDOWN_SEC:
+        await asyncio.sleep(_REBUILD_COOLDOWN_SEC - since_last)
+
     old = shared_state.client
     if old is not None:
         try:
@@ -50,8 +65,9 @@ async def rebuild_session() -> TinderClient:
             pass
     shared_state.client = None
 
+    await asyncio.to_thread(kill_stale_chrome_for_profile, settings.user_data_dir)
     # Let Chrome release the profile lock after quit.
-    await asyncio.sleep(2)
+    await asyncio.sleep(3)
 
     last_exc: Exception | None = None
     for attempt in range(3):
@@ -60,6 +76,7 @@ async def rebuild_session() -> TinderClient:
             client = TinderClient(driver)
             await asyncio.to_thread(client.login)
             shared_state.client = client
+            _last_rebuild_at = time.monotonic()
             print("[tinder_bot] Selenium session rebuilt and re-logged in.")
             return client
         except Exception as exc:  # noqa: BLE001
@@ -78,7 +95,7 @@ async def rebuild_session() -> TinderClient:
 async def run_with_recovery(func: Callable[..., T], /, *args: Any, **kwargs: Any) -> T:
     """Run a blocking Selenium call; rebuild the browser session on crash."""
     last_exc: Exception | None = None
-    max_attempts = 3
+    max_attempts = 2
     for attempt in range(max_attempts):
         if not session_alive(shared_state.client):
             await rebuild_session()
@@ -89,7 +106,7 @@ async def run_with_recovery(func: Callable[..., T], /, *args: Any, **kwargs: Any
             if is_dead_session_error(exc) and attempt < max_attempts - 1:
                 print(f"[tinder_bot] Dead session ({exc}); rebuilding...")
                 await rebuild_session()
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(3)
                 continue
             raise
     if last_exc is not None:
