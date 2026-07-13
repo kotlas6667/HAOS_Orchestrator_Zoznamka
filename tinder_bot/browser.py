@@ -14,8 +14,8 @@ from tinder_bot.config import settings
 def build_driver() -> webdriver.Chrome | webdriver.Edge:
     """Build a browser driver for Tinder.
 
-    Supports Chrome/Chromium and Edge. Tuned for Raspberry Pi (limited RAM/CPU,
-    small /dev/shm) but works the same way on a regular desktop. Tinder's login
+    Supports Chrome/Chromium and Edge. Chrome flags are tuned for containers
+    (limited /dev/shm) on the HAOS host (i3 / 16 GB). Tinder's login
     usually requires solving a phone-OTP or captcha challenge that Selenium
     cannot drive reliably — see the note on `tinder_user_data_dir` in config.py.
     """
@@ -32,7 +32,7 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
         # separate one that can get OOM-killed ("tab crashed").
         options.add_argument("--headless")
 
-        # Raspberry Pi essentials: /dev/shm is tiny by default and Chrome will
+        # Container essentials: /dev/shm is often tiny and Chrome will
         # crash without --disable-dev-shm-usage; --single-process/--no-zygote
         # cut memory further. These are unstable for a *visible* desktop Chrome
         # window (crashes on Windows), so only apply them in headless mode —

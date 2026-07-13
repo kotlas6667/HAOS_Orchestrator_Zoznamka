@@ -1,7 +1,8 @@
 # Elite Date bot — samostatný HA add-on
 
 Selenium bot pre Elite Date. Beží **mimo** hlavného orchestrátora (vlastný
-Chromium), aby Pi 5 nemuselo ťahať dva browsery + FastAPI v jednom kontajneri.
+Chromium) — izolovaný crash/reštart bez pádu FastAPI. Na i3 / 16 GB môže
+bežať súčasne s Tinder add-onom.
 
 ## Inštalácia
 

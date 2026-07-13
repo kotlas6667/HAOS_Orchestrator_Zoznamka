@@ -4,8 +4,9 @@ Tento bot (`tinder_bot/`) je **samostatný HA add-on / proces**. Drží prihlás
 Selenium session na Tinderi, sleduje nové správy a odosiela vybrané odpovede.
 S orchestrátorom sa rozpráva cez HTTP (`ORCHESTRATOR_URL` / `TINDER_BOT_URL`).
 
-Na Pi 5 ho nespúšťaj v tom istom kontajneri ako Elite Date — každý bot má
-vlastný Chromium a vlastný add-on (`slug: haos_tinder`).
+Beží ako **samostatný HA add-on** (vlastný Chromium, slug `haos_tinder`).
+Na i3 / 16 GB môže bežať naraz s Elite Date add-onom — oddelenie je kvôli
+izolácii, nie kvôli RAM.
 
 ## Inštalácia ako HA add-on
 

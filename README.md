@@ -81,7 +81,7 @@ HAOS Orchestrator is a **Home Assistant Add-on** that provides:
 
 ### As a Home Assistant Add-on
 
-Elite Date a Tinder majú **vlastné add-ony** (jeden Chromium na kontajner), aby Pi 5 nemuselo ťahať dva Selenium procesy spolu s orchestrátorom.
+Elite Date a Tinder majú **vlastné add-ony** (jeden Chromium na kontajner) — izolácia crashov a samostatný reštart bez pádu orchestrátora. Na aktuálnom hardvéri (i3 / 16 GB RAM) môžu bežať oba naraz.
 
 ```bash
 # Na HAOS hoste (SSH / Samba do /addons):
@@ -99,13 +99,13 @@ cp -a haos_orchestrator/tinder_bot haos_tinder
    ELITEDATE_BOT_URL=http://haos_elitedate:8600
    TINDER_BOT_URL=http://haos_tinder:8601
    ```
-3. Nainštaluj **len ten bot, ktorý chceš** (`HAOS Elite Date Bot` a/alebo `HAOS Tinder Bot`). Na Pi 5 odporúčame naraz iba jeden.
+3. Nainštaluj dating boty podľa potreby (`HAOS Elite Date Bot` a/alebo `HAOS Tinder Bot`). Na i3 / 16 GB môžu bežať oba naraz.
 4. V bot add-one vyplň `/data/.env` (vznikne pri prvom boote) — credentials + `ORCHESTRATOR_URL=http://haos_orchestrator:8000`.
 5. Tinder: raz treba manuálne prihlásenie (`TINDER_HEADLESS=false`), session ostane v `/data/chrome-profile`.
 
 ### Starý monolitický režim (už nie default)
 
-Skôr bežali ED + Tinder ako background procesy v tom istom kontajneri ako orchestrátor. To na Pi 5 často končilo OOM / Chrome crash loop — preto sú oddelené.
+Skôr bežali ED + Tinder ako background procesy v tom istom kontajneri ako orchestrátor (historicky na Pi 5 to končilo OOM / Chrome crash loop). Dnes je cieľový hardvér i3 / 16 GB — oddelenie ostáva kvôli izolácii, nie kvôli nedostatku pamäte.
 
 ---
 

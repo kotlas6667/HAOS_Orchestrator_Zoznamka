@@ -6,8 +6,7 @@
 # or overridden by /data/orchestrator/config/.env.
 #
 # Elite Date a Tinder bežia ako SAMOSTATNÉ add-ony (elitedate_bot/, tinder_bot/)
-# — tento kontajner ich nespúšťa, aby Pi 5 nemuselo ťahať dva Chromium procesy
-# spolu s orchestrátorom.
+# — tento kontajner ich nespúšťa (izolácia Chromium crashov od orchestrátora).
 #
 set -e
 

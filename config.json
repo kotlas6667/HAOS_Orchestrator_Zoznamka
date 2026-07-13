@@ -1,6 +1,6 @@
 {
   "name": "HAOS Orchestrator",
-  "description": "AI orchestrator for Home Assistant - Gmail, Calendar, Weather, Discord and natural language smart home control. Elite Date a Tinder sú samostatné add-ony (nižšia záťaž na Pi).",
+  "description": "AI orchestrator for Home Assistant - Gmail, Calendar, Weather, Discord and natural language smart home control. Elite Date a Tinder sú samostatné add-ony.",
   "version": "1.1.0",
   "slug": "haos_orchestrator",
   "init": false,

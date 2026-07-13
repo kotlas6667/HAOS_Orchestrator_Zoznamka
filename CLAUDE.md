@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Target hardware
+
+HAOS beží na mini PC / NUC-like stroji: **Intel i3, 16 GB RAM, 256 GB úložisko** (nie Raspberry Pi 5). Oba dating boty (Elite Date + Tinder) môžu bežať naraz — 16 GB stačí na dva Chromium kontajnery + orchestrátor. Oddelené add-ony ostávajú kvôli izolácii crashov a samostatnému životnému cyklu, nie kvôli nedostatku RAM.
+
 ## What this is
 
 HAOS Orchestrator is a Home Assistant Add-on / standalone Python service that lets users control a smart home and related services (Gmail, Google Calendar, weather, Discord, TODOs) via natural-language prompts (mostly Slovak). A FastAPI app receives a prompt from the web dashboard, a Discord bot, a Home Assistant Voice PE integration, or the custom HA conversation agent, uses GPT to decide which internal "tool" should handle it, runs that tool, and returns a structured result.
@@ -64,7 +68,7 @@ A second process — `elitedate_bot/` — automates a personal Elite Date accoun
 - **Selenium DOM selectors are placeholders.** `elitedate_client.py`'s `login()`, `check_new_messages()`, and `send_reply()` need real CSS selectors filled in from Elite Date's actual DOM (inspect via browser DevTools) — Elite Date's markup isn't something to guess at.
 - **Session recovery:** `elitedate_bot/session.py` rebuilds Chrome and re-logs in on `invalid session id` / dead browser; poller and `/send` use `run_with_recovery()`.
 - The Selenium `webdriver.Chrome` instance is not safe for concurrent use — both the poll loop and incoming `/send` calls acquire `elitedate_bot/shared_state.driver_lock` before touching it, and blocking Selenium calls are run via `asyncio.to_thread`.
-- **Packaging (samostatný HA add-on):** `elitedate_bot/` is its own add-on (`config.json` slug `haos_elitedate`, port 8600, `shm_size` 512M). The main orchestrator image does **not** ship Chromium and does not start this bot. DNS: orchestrator → `http://haos_elitedate:8600`, bot → `ORCHESTRATOR_URL=http://haos_orchestrator:8000`. On a Pi 5 prefer running at most one dating bot at a time (or host the other elsewhere). `elitedate_bot/elitedate-bot.service.example` remains for standalone systemd outside HAOS.
+- **Packaging (samostatný HA add-on):** `elitedate_bot/` is its own add-on (`config.json` slug `haos_elitedate`, port 8600, `shm_size` 512M). The main orchestrator image does **not** ship Chromium and does not start this bot. DNS: orchestrator → `http://haos_elitedate:8600`, bot → `ORCHESTRATOR_URL=http://haos_orchestrator:8000`. On current hardware (i3 / 16 GB) both dating bots can run alongside the orchestrator. `elitedate_bot/elitedate-bot.service.example` remains for standalone systemd outside HAOS.
 - Elite Date's ToS almost certainly prohibits automated/scripted use of the account — this is a known, accepted risk (account ban), not a technical concern to engineer around.
 
 ## Tinder integration (tinder_bot/)

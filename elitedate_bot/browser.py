@@ -14,8 +14,8 @@ from elitedate_bot.config import settings
 def build_driver() -> webdriver.Chrome | webdriver.Edge:
     """Build a headless browser driver.
 
-    Supports Chrome/Chromium and Edge. Tuned for Raspberry Pi (limited RAM/CPU,
-    small /dev/shm) but works the same way on a regular desktop.
+    Supports Chrome/Chromium and Edge. Chrome flags are tuned for containers
+    (limited /dev/shm, co-located add-ons on i3 / 16 GB HAOS host).
     """
     browser_name = settings.browser.strip().lower()
     if browser_name == "edge":
@@ -30,9 +30,9 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
         # separate one that can get OOM-killed ("tab crashed").
         options.add_argument("--headless")
 
-    # Raspberry Pi essentials: /dev/shm is tiny by default and Chrome will crash
-    # without --disable-dev-shm-usage; --no-sandbox is required when running as
-    # a non-root systemd service without extra sandboxing capabilities.
+    # Container essentials: /dev/shm is often tiny and Chrome will crash
+    # without --disable-dev-shm-usage; --no-sandbox is required in typical
+    # add-on containers without extra sandboxing capabilities.
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
