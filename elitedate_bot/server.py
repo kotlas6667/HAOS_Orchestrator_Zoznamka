@@ -53,6 +53,19 @@ async def debug_inbox() -> dict:
     return result
 
 
+@app.post("/debug/poll")
+async def debug_poll() -> dict:
+    """Run one check_new_messages cycle (for testing)."""
+    if shared_state.client is None:
+        return {"status": "error", "error": "not logged in"}
+    try:
+        async with shared_state.driver_lock:
+            messages = await run_client_method("check_new_messages")
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "error", "error": str(exc)}
+    return {"status": "ok", "new_messages": len(messages), "messages": messages}
+
+
 @app.post("/conversation/find")
 async def find_conversation(request: Request) -> dict:
     """Find an existing EliteDate conversation by sender/date and return context."""

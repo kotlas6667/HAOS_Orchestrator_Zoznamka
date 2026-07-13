@@ -49,6 +49,8 @@ ln -sf "$CFG/.seen_email_ids" /app/.seen_email_ids
 mkdir -p "$CFG/elitedate"
 [ -e "$CFG/elitedate/.seen_messages.json" ] || echo "[]" > "$CFG/elitedate/.seen_messages.json"
 ln -sf "$CFG/elitedate/.seen_messages.json" /app/elitedate_bot/.seen_messages.json
+[ -e "$CFG/elitedate/.conversation_last_messages.json" ] || echo "{}" > "$CFG/elitedate/.conversation_last_messages.json"
+ln -sf "$CFG/elitedate/.conversation_last_messages.json" /app/elitedate_bot/.conversation_last_messages.json
 
 # Seen-tinder-messages cache: same persistence treatment.
 mkdir -p "$CFG/tinder"
