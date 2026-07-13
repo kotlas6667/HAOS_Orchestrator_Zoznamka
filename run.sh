@@ -20,6 +20,7 @@ mkdir -p /data/orchestrator/logs "$CFG" /data/orchestrator/tokens
 if [ -f "$CFG/.env" ]; then
     echo "Using persistent config from $CFG/.env"
     tr -d '\r' < "$CFG/.env" > /app/.env
+    cp -f /app/.env "$CFG/.env"
 else
     echo "Using bundled configuration (/app/.env)"
     if [ -f /app/.env ]; then
@@ -28,11 +29,19 @@ else
 fi
 
 # run.sh supervisors read TINDER_BOT_ENABLED / ELITEDATE_BOT_ENABLED from the shell.
+# Never `source` the whole .env in bash — values like "HAOS Orchestrator" or
+# "# Discord Bot" with CRLF break startup. Python dotenv handles quoting safely.
 if [ -f /app/.env ]; then
-    set -a
-    # shellcheck disable=SC1091
-    . /app/.env
-    set +a
+    eval "$(python3 <<'PY'
+from dotenv import dotenv_values
+import shlex
+
+for key in ("TINDER_BOT_ENABLED", "ELITEDATE_BOT_ENABLED", "LOG_LEVEL"):
+    val = dotenv_values("/app/.env").get(key)
+    if val is not None and str(val).strip() != "":
+        print(f"export {key}={shlex.quote(str(val).strip())}")
+PY
+)"
 fi
 
 # HA add-on UI options (/data/options.json) override .env for bot toggles and log level.
