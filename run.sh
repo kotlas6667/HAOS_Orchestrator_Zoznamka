@@ -77,6 +77,36 @@ export BROWSER_BINARY=/usr/bin/chromium
 export WEBDRIVER_PATH=/usr/bin/chromedriver
 export HEADLESS=true
 
+# True when ELITEDATE_EMAIL and ELITEDATE_PASSWORD are set (real env wins over .env).
+_elitedate_credentials_configured() {
+    python - <<'PY'
+from pathlib import Path
+import os
+
+
+def _val(key: str) -> str:
+    v = os.environ.get(key, "")
+    if v:
+        return v.strip()
+    env_path = Path("/app/.env")
+    if not env_path.is_file():
+        return ""
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, _, rest = line.partition("=")
+        if k.strip() == key:
+            return rest.strip().strip('"').strip("'")
+    return ""
+
+
+email = _val("ELITEDATE_EMAIL")
+password = _val("ELITEDATE_PASSWORD")
+raise SystemExit(0 if email and password else 1)
+PY
+}
+
 # Poor-man's supervisor: restarts elitedate_bot on crash (Selenium/Chrome
 # dying is expected occasionally), but gives up after too many restarts in a
 # short window instead of respawning a permanently-broken process forever.
@@ -90,6 +120,10 @@ supervise_elitedate_bot() {
     while true; do
         python -m elitedate_bot.main
         local code=$?
+        if [ "$code" -eq 77 ]; then
+            echo "[elitedate_bot] configuration error (exit 77), not restarting."
+            break
+        fi
         local now
         now=$(date +%s)
 
@@ -113,12 +147,17 @@ supervise_elitedate_bot() {
 }
 
 if [ "${ELITEDATE_BOT_ENABLED:-true}" = "true" ]; then
-    echo "Starting elitedate_bot in background (supervised)..."
-    # /data isn't mapped to a host-visible folder for this add-on, so route
-    # output through the main process's stdout (visible in the add-on's Log
-    # tab) instead of a file nobody can read, prefixed to tell it apart.
-    supervise_elitedate_bot 2>&1 | sed -u 's/^/[elitedate_bot] /' &
-    ELITEDATE_SUPERVISOR_PID=$!
+    if _elitedate_credentials_configured; then
+        echo "Starting elitedate_bot in background (supervised)..."
+        # /data isn't mapped to a host-visible folder for this add-on, so route
+        # output through the main process's stdout (visible in the add-on's Log
+        # tab) instead of a file nobody can read, prefixed to tell it apart.
+        supervise_elitedate_bot 2>&1 | sed -u 's/^/[elitedate_bot] /' &
+        ELITEDATE_SUPERVISOR_PID=$!
+    else
+        echo "elitedate_bot skipped: ELITEDATE_EMAIL / ELITEDATE_PASSWORD not set (configure .env or set ELITEDATE_BOT_ENABLED=false)."
+        ELITEDATE_SUPERVISOR_PID=""
+    fi
 else
     echo "elitedate_bot disabled (ELITEDATE_BOT_ENABLED=false)."
     ELITEDATE_SUPERVISOR_PID=""

@@ -13,9 +13,23 @@ from elitedate_bot.elitedate_client import EliteDateClient
 from elitedate_bot.poller import poll_loop
 from elitedate_bot.server import app as inner_app
 
+# Exit code used by run.sh supervisor to stop retrying on static misconfiguration.
+CONFIG_EXIT_CODE = 77
+
+
+class ConfigurationError(RuntimeError):
+    """Missing or invalid static configuration; retrying won't help."""
+
+
+def credentials_configured() -> bool:
+    return bool(settings.elitedate_email and settings.elitedate_password)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if not credentials_configured():
+        raise ConfigurationError("ELITEDATE_EMAIL / ELITEDATE_PASSWORD not set in .env")
+
     client = None
     driver = None
     last_exc: Exception | None = None
@@ -55,6 +69,13 @@ inner_app.router.lifespan_context = lifespan
 
 
 def main() -> None:
+    if not credentials_configured():
+        print(
+            "[elitedate_bot] ELITEDATE_EMAIL / ELITEDATE_PASSWORD not set — bot will not start. "
+            "Configure credentials in .env or set ELITEDATE_BOT_ENABLED=false."
+        )
+        raise SystemExit(CONFIG_EXIT_CODE)
+
     uvicorn.run(inner_app, host=settings.bot_host, port=settings.bot_port, log_level="info")
 
 
