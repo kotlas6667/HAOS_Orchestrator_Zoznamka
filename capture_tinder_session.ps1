@@ -65,7 +65,10 @@ if (-not $env:TINDER_BROWSER_BINARY) {
 
 Write-Host ""
 Write-Host "============================================================"
-Write-Host " Otvara sa Chrome. Prihlas sa do Tinderu (OTP / Google / FB)."
+Write-Host " Otvara sa Chrome. Prihlas sa do Tinderu."
+Write-Host " DOLEZITE: NEPOUZIVAJ 'Pokracovat cez Google' — Google to"
+Write-Host "           blokuje v Selenium Chrome. Pouzi TELEFON + OTP"
+Write-Host "           (alebo Facebook, ak to tvoj ucet podporuje)."
 Write-Host " Cakam az 10 minut. Po uspechu uvidis:"
 Write-Host "   [tinder_bot] Login detected, session saved..."
 Write-Host " Potom Ctrl+C."

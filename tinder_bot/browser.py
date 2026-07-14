@@ -60,9 +60,13 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
         options.add_argument("--start-maximized")
 
     # Headed mode (manual login / dev): still avoid tiny /dev/shm issues on some setups.
+    # Also hide the most obvious Selenium fingerprints so Google/Tinder "Prihlásenie
+    # sa nepodarilo / not secure" is less likely. Phone OTP still works best.
     if not settings.headless:
         options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--remote-debugging-port=9223")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
+        options.add_experimental_option("useAutomationExtension", False)
 
     # Skip loading images: cuts per-page memory a lot and this bot only reads
     # text (messages, sender names), never needs rendered images.
