@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.3
+
+- Lepšia diagnostika /data mountu a Cookies v logu
+- Jasnšie chybové hlášky (profil v kontajneri vs expirovaná session)
+- `--password-store=basic` vždy (dešifrovanie cookies v Linux add-one)
+
 ## 1.2.2
 
 - CHANGELOG pre HA update dialóg

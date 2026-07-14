@@ -12,6 +12,30 @@ set -e
 echo "Starting HAOS Tinder Bot add-on..."
 
 DATA=/data
+
+# Diagnostika /data mountu a Chrome profilu (host vs kontajner)
+log_data_mount() {
+    echo "[tinder_bot] --- /data mount ---"
+    ls -la "$DATA/" 2>/dev/null | head -20 || echo "  (cannot list $DATA)"
+    if [ -d "$DATA/chrome-profile" ]; then
+        local n
+        n=$(find "$DATA/chrome-profile" -maxdepth 3 -type f 2>/dev/null | wc -l)
+        echo "[tinder_bot] chrome-profile: $n files under $DATA/chrome-profile"
+        ls -la "$DATA/chrome-profile/Default/Network/Cookies" 2>/dev/null \
+            || ls -la "$DATA/chrome-profile/Default/Cookies" 2>/dev/null \
+            || echo "[tinder_bot]   (no Cookies file inside container yet)"
+        # Zbytočné lock súbory po nečistom ukončení Chromium
+        rm -f "$DATA/chrome-profile/SingletonLock" \
+              "$DATA/chrome-profile/SingletonCookie" \
+              "$DATA/chrome-profile/SingletonSocket" 2>/dev/null || true
+        chmod -R a+rX "$DATA/chrome-profile" 2>/dev/null || true
+    else
+        echo "[tinder_bot] chrome-profile dir missing in container — will create after mount check"
+    fi
+    echo "[tinder_bot] --- end /data ---"
+}
+
+log_data_mount
 mkdir -p "$DATA/chrome-profile"
 
 if [ ! -f "$DATA/.env" ]; then
@@ -176,10 +200,14 @@ start_novnc_if_needed() {
 
 echo "[tinder_bot] TINDER_USER_DATA_DIR=$TINDER_USER_DATA_DIR"
 echo "[tinder_bot] TINDER_HEADLESS=$TINDER_HEADLESS"
-if [ -f "$TINDER_USER_DATA_DIR/Default/Network/Cookies" ]; then
-    echo "[tinder_bot] Found Default/Network/Cookies ($(stat -c%s "$TINDER_USER_DATA_DIR/Default/Network/Cookies" 2>/dev/null || echo '?') bytes)"
+if [ -f "$TINDER_USER_DATA_DIR/Default/Network/Cookies" ] || [ -f "$TINDER_USER_DATA_DIR/Default/Cookies" ]; then
+    COOKIE_PATH="$TINDER_USER_DATA_DIR/Default/Network/Cookies"
+    [ -f "$COOKIE_PATH" ] || COOKIE_PATH="$TINDER_USER_DATA_DIR/Default/Cookies"
+    echo "[tinder_bot] Found Cookies ($(stat -c%s "$COOKIE_PATH" 2>/dev/null || echo '?') bytes) at $COOKIE_PATH"
 else
-    echo "[tinder_bot] WARNING: no Cookies yet — use noVNC login if TINDER_HEADLESS=false"
+    echo "[tinder_bot] WARNING: no Cookies in container — profil na hoste nemusí byť namapovaný do /data"
+    echo "[tinder_bot]   Host:  ls /mnt/data/supervisor/addons/data/local_haos_tinder/chrome-profile/"
+    echo "[tinder_bot]   Vnútri: docker exec addon_local_haos_tinder ls -la /data/chrome-profile/Default/Network/"
 fi
 
 start_novnc_if_needed

@@ -84,13 +84,8 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
         # across restarts instead of re-triggering every time.
         options.add_argument(f"--user-data-dir={settings.user_data_dir}")
 
-    # Portable profiles (WSL → HAOS): avoid OS keyring so cookies decrypt on both.
-    password_store = __import__("os").environ.get("TINDER_CHROME_PASSWORD_STORE", "").strip()
-    if password_store:
-        options.add_argument(f"--password-store={password_store}")
-    elif not settings.headless:
-        # Headed capture sessions should also be portable to the Linux add-on.
-        options.add_argument("--password-store=basic")
+    # Linux add-on / WSL capture: cookies must decrypt without OS keyring.
+    options.add_argument("--password-store=basic")
 
     if settings.user_agent:
         options.add_argument(f"--user-agent={settings.user_agent}")
