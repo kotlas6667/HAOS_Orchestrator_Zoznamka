@@ -76,6 +76,7 @@ export BROWSER=chrome
 export BROWSER_BINARY=/usr/bin/chromium
 export WEBDRIVER_PATH=/usr/bin/chromedriver
 export HEADLESS=true
+export SELENIUM_CHROME_LOCK="${SELENIUM_CHROME_LOCK:-/data/orchestrator/config/.selenium_chrome.lock}"
 
 # True when ELITEDATE_EMAIL and ELITEDATE_PASSWORD are set (real env wins over .env).
 _elitedate_credentials_configured() {

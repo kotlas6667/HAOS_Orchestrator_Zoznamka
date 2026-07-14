@@ -9,11 +9,13 @@ class BotSettings(BaseSettings):
     elitedate_password: str = ""
     elitedate_login_url: str = "https://www.elitedate.sk/prihlaseni"
 
-    # Where this bot's own local HTTP server listens (orchestrator calls this)
+    # Where this bot's own local HTTP server listens (orchestrator calls this).
+    # Standalone HA add-on: set BOT_HOST=0.0.0.0 in Nastaveniach / .env.
     bot_host: str = "127.0.0.1"
     bot_port: int = 8600
 
-    # Where the orchestrator's FastAPI app listens (this bot calls that)
+    # Where the orchestrator's FastAPI app listens (this bot calls that).
+    # Standalone HA add-on: http://haos_orchestrator:8000 via Nastavenia / .env.
     orchestrator_url: str = "http://127.0.0.1:8000"
 
     # Polling
