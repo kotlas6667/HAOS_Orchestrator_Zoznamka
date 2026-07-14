@@ -1,26 +1,28 @@
 from __future__ import annotations
 
 import httpx
-import os
 from typing import Any
-from dotenv import load_dotenv
 
-load_dotenv()  # Načíta .env súbor
+from app.config import settings
+
 
 class DiscordNotifier:
     def __init__(self, webhook_url: str | None = None):
-        self.webhook_url = webhook_url or os.getenv("DISCORD_WEBHOOK_URL")
-        if not self.webhook_url:
-            raise ValueError("DISCORD_WEBHOOK_URL not set in .env")
-
-        # OpenAI API configuration
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        if not self.openai_api_key:
-            raise ValueError("OPENAI_API_KEY not set in .env")
-        self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        self.webhook_url = webhook_url or settings.discord_webhook_url
+        self.enabled = bool(self.webhook_url)
+        self.openai_api_key = settings.openai_api_key
+        self.openai_model = settings.openai_model
         self.openai_api_url = "https://api.openai.com/v1/chat/completions"
+
     async def send_message(self, content: str) -> dict[str, Any]:
         """Send a message to Discord via webhook."""
+        if not self.enabled:
+            return {
+                "status": "disabled",
+                "message": "Discord webhook not configured",
+                "message_id": None,
+            }
+
         payload = {"content": content}
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.post(
@@ -37,6 +39,13 @@ class DiscordNotifier:
 
     async def send_email_summary(self, email_data: dict[str, Any]) -> dict[str, Any]:
         """Send a summarized email notification to Discord using GPT (in Slovak)."""
+        if not self.enabled:
+            return {
+                "status": "disabled",
+                "message": "Discord webhook not configured",
+                "message_id": None,
+            }
+
         summary = await self._summarize_email_with_ai(email_data)
         return await self.send_message(summary)
 
@@ -46,10 +55,13 @@ class DiscordNotifier:
         subject = email_data.get("subject", "No Subject")
         body = email_data.get("body", "")
 
-        # OpenAI API request
+        if not self.openai_api_key:
+            sender_name = sender.split("<")[0].strip().strip('"') or sender
+            return f"📧 **{sender_name}** — {subject}"
+
         headers = {
             "Authorization": f"Bearer {self.openai_api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
         payload = {
             "model": self.openai_model,
@@ -79,8 +91,5 @@ class DiscordNotifier:
             response.raise_for_status()
             ai_summary = response.json()["choices"][0]["message"]["content"]
 
-        # Extract just the sender name (before email in angle brackets)
         sender_name = sender.split("<")[0].strip().strip('"') or sender
         return f"📧 **{sender_name}** — {ai_summary.strip()}"
-
-
