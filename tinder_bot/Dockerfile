@@ -22,6 +22,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     chromium \
     chromium-driver \
+    xvfb \
+    x11vnc \
+    novnc \
+    websockify \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -38,6 +42,6 @@ ENV PYTHONUNBUFFERED=1 \
 
 RUN chmod +x /app/run.sh
 
-EXPOSE 8601
+EXPOSE 8601 6080
 
 ENTRYPOINT ["/app/run.sh"]
