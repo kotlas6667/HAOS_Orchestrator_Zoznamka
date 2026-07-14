@@ -81,6 +81,14 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
         # across restarts instead of re-triggering every time.
         options.add_argument(f"--user-data-dir={settings.user_data_dir}")
 
+    # Portable profiles (WSL → HAOS): avoid OS keyring so cookies decrypt on both.
+    password_store = __import__("os").environ.get("TINDER_CHROME_PASSWORD_STORE", "").strip()
+    if password_store:
+        options.add_argument(f"--password-store={password_store}")
+    elif not settings.headless:
+        # Headed capture sessions should also be portable to the Linux add-on.
+        options.add_argument("--password-store=basic")
+
     if settings.user_agent:
         options.add_argument(f"--user-agent={settings.user_agent}")
 
@@ -97,6 +105,18 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
 
     driver.set_page_load_timeout(int(settings.wait_timeout_sec))
     if not settings.headless:
+        try:
+            driver.execute_cdp_cmd(
+                "Page.addScriptToEvaluateOnNewDocument",
+                {
+                    "source": (
+                        "Object.defineProperty(navigator, 'webdriver', "
+                        "{get: () => undefined});"
+                    )
+                },
+            )
+        except Exception:  # noqa: BLE001
+            pass
         try:
             driver.maximize_window()
         except Exception:  # noqa: BLE001

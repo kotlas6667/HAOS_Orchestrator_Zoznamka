@@ -55,6 +55,17 @@ export TINDER_BOT_PORT="${TINDER_BOT_PORT:-8601}"
 export TINDER_USER_DATA_DIR="${TINDER_USER_DATA_DIR:-$DATA/chrome-profile}"
 export SELENIUM_CHROME_LOCK="${SELENIUM_CHROME_LOCK:-/tmp/selenium_chrome.lock}"
 
+# Startup diagnostics — helps spot missing profile / Windows cookie issues.
+echo "[tinder_bot] TINDER_USER_DATA_DIR=$TINDER_USER_DATA_DIR"
+echo "[tinder_bot] TINDER_HEADLESS=$TINDER_HEADLESS"
+if [ -f "$TINDER_USER_DATA_DIR/Default/Network/Cookies" ]; then
+    echo "[tinder_bot] Found Default/Network/Cookies ($(stat -c%s "$TINDER_USER_DATA_DIR/Default/Network/Cookies" 2>/dev/null || echo '?') bytes)"
+elif [ -f "$TINDER_USER_DATA_DIR/Default/Cookies" ]; then
+    echo "[tinder_bot] Found Default/Cookies"
+else
+    echo "[tinder_bot] WARNING: no Cookies file under $TINDER_USER_DATA_DIR/Default — session missing"
+fi
+
 _shutdown() {
     echo "Shutting down Tinder bot..."
     if [ -n "${BOT_PID:-}" ]; then

@@ -469,9 +469,11 @@ class TinderClient:
 
         if settings.headless:
             raise RuntimeError(
-                "No email+password login form detected and no persisted session found. "
-                "Set TINDER_USER_DATA_DIR, run once with TINDER_HEADLESS=false, and log in "
-                "manually (phone OTP / Google / Facebook / Apple) so the session persists."
+                "No persisted Tinder session in TINDER_USER_DATA_DIR (headless). "
+                "Windows Chrome cookies usually cannot be decrypted by Linux Chromium — "
+                "create the profile on Linux (WSL): ./capture_tinder_session_wsl.sh, "
+                "copy chrome-profile-linux to the HAOS tinder add-on data dir, then restart. "
+                "Alternatively run once headed with TINDER_HEADLESS=false on a machine with a display."
             )
 
         # Manual OTP / Google / Facebook login needs far more than the normal
