@@ -1,0 +1,33 @@
+configuration:
+  log_level:
+    name: Úroveň logu
+    description: >-
+      Podrobnosť logov add-onu. Pre bežnú prevádzku nechaj info.
+      Zapni debug len pri ladení problémov.
+  elitedate_email:
+    name: E-mail (Elite Date)
+    description: >-
+      Prihlasovací e-mail na elitedate.sk. Vyplň v Nastaveniach add-onu —
+      nemusíš ručne editovať /data/.env.
+  elitedate_password:
+    name: Heslo (Elite Date)
+    description: >-
+      Prihlasovacie heslo. Uložené v /data/.env na zariadení.
+      Po zmene hesla ulož Nastavenia a reštartuj add-on.
+  orchestrator_url:
+    name: URL orchestrátora
+    description: >-
+      Adresa hlavného add-onu HAOS Orchestrator v Docker sieti HA.
+      Štandardne http://haos_orchestrator:8000 — nemeníš, ak bežia oba add-ony na tom istom HA.
+  elitedate_login_url:
+    name: Login URL
+    description: >-
+      Adresa prihlasovacej stránky Elite Date. Default https://www.elitedate.sk/prihlaseni
+  headless:
+    name: Headless režim
+    description: >-
+      ZAPNUTÉ (true) — Chromium beží na pozadí bez okna (bežná prevádzka).
+      VYPNUTÉ (false) — len pri ladení s pripojeným displejom / VNC.
+
+network:
+  8600/tcp: HTTP API bota — /health, odoslanie odpovedí z Discordu
