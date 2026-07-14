@@ -33,7 +33,7 @@ TINDER_SPRAVY_SETTLE_SEC=10
 TINDER_WAIT_TIMEOUT_SEC=10
 
 # Prvé prihlásenie: false + noVNC http://<IP>:6080/vnc.html , potom true
-TINDER_HEADLESS=true
+TINDER_HEADLESS=false
 TINDER_USER_DATA_DIR=/data/chrome-profile
 TINDER_LOGIN_WAIT_SEC=600
 
