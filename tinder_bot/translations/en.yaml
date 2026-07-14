@@ -1,0 +1,34 @@
+configuration:
+  log_level:
+    name: Log level
+    description: Log verbosity. Keep info for normal operation.
+  tinder_headless:
+    name: Headless mode (no noVNC)
+    description: >-
+      OFF (false) — first login via noVNC on port 6080.
+      ON (true) — normal operation after session is saved.
+  orchestrator_url:
+    name: Orchestrator URL
+    description: HAOS Orchestrator add-on URL in HA Docker network.
+  poll_enabled:
+    name: Message polling
+    description: ON — bot checks Tinder for new messages periodically.
+  login_wait_sec:
+    name: Login wait timeout (seconds)
+    description: How long to wait for noVNC login completion (default 600).
+  tinder_phone:
+    name: Phone (optional)
+    description: Optional prefill for Tinder login form.
+  geolocation_enabled:
+    name: Geolocation for Tinder
+    description: ON — browser sends GPS coordinates to Tinder.
+  geolocation_lat:
+    name: Latitude
+    description: Geolocation latitude (default Bratislava).
+  geolocation_lon:
+    name: Longitude
+    description: Geolocation longitude (default Bratislava).
+
+network:
+  8601/tcp: Bot HTTP API — /health, send replies
+  6080/tcp: noVNC — first login only when headless is off

@@ -17,7 +17,7 @@ cp -a /addons/haos_orchestrator/tinder_bot /addons/haos_tinder
 
 ### 1) Nastavenia (prvý krok — ešte pred Start)
 
-**Doplnky → HAOS Tinder Bot → Nastavenia → Možnosti:**
+**Doplnky → HAOS Tinder Bot → Nastavenia → Možnosti** (popisy pri každom poli, jazyk HA = sk):
 
 | Pole | Prvé prihlásenie | Bežná prevádzka |
 |------|------------------|-----------------|

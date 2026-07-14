@@ -40,6 +40,7 @@ def test_tinder_addon_manifest():
     assert "tinder_headless" in cfg["options"]
     assert "tinder_headless" in cfg["schema"]
     assert "orchestrator_url" in cfg["schema"]
+    assert (ROOT / "tinder_bot" / "translations" / "sk.yaml").is_file()
     assert "chromium" in (ROOT / "tinder_bot" / "Dockerfile").read_text(encoding="utf-8").lower()
     run_sh = (ROOT / "tinder_bot" / "run.sh").read_text(encoding="utf-8")
     assert "options.json" in run_sh

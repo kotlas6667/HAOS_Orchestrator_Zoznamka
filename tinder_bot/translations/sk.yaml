@@ -1,0 +1,52 @@
+configuration:
+  log_level:
+    name: Úroveň logu
+    description: >-
+      Podrobnosť logov add-onu. Pre bežnú prevádzku nechaj info.
+      Zapni debug len pri ladení problémov.
+  tinder_headless:
+    name: Headless režim (bez noVNC)
+    description: >-
+      VYPNUTÉ (false) — prvé prihlásenie: spustí noVNC na porte 6080.
+      Otvor http://<IP_HA>:6080/vnc.html, prihlás sa telefónom + OTP.
+      Po riadku „Login detected“ v logu ZAPNI (true) a reštartuj add-on.
+      ZAPNUTÉ (true) — bežná prevádzka: Chromium beží na pozadí, port 6080 netreba.
+  orchestrator_url:
+    name: URL orchestrátora
+    description: >-
+      Adresa hlavného add-onu HAOS Orchestrator v Docker sieti HA.
+      Štandardne http://haos_orchestrator:8000 — nemeníš, ak bežia oba add-ony na tom istom HA.
+  poll_enabled:
+    name: Automatické sledovanie správ
+    description: >-
+      ZAPNUTÉ — bot pravidelne (cca 90–180 s) kontroluje nové Tinder správy
+      a posiela ich orchestrátoru. VYPNUTÉ len pri ladení alebo dočasnom vypnutí bota.
+  login_wait_sec:
+    name: Čakanie na prihlásenie (sekundy)
+    description: >-
+      Koľko sekúnd má bot počkať na dokončenie prihlásenia cez noVNC
+      (platí len keď je headless režim vypnutý). Pri prvom prihlásení nechaj 600 (10 min).
+  tinder_phone:
+    name: Telefón (voliteľné)
+    description: >-
+      Voliteľné predvyplnenie telefónneho čísla v Tinder prihlasovacom formulári.
+      Môžeš nechať prázdne a zadať číslo ručne v noVNC.
+  geolocation_enabled:
+    name: Geolokácia pre Tinder
+    description: >-
+      ZAPNUTÉ — Chromium posiela GPS súradnice do Tinderu (Tinder ich často vyžaduje).
+      VYPNUTÉ len pri testovaní bez polohy.
+  geolocation_lat:
+    name: Zemepisná šírka (lat)
+    description: >-
+      Súradnica pre Tinder geolokáciu. Default 48.1486 (Bratislava).
+      Uprav, ak chceš inú polohu. Platí len keď je geolokácia zapnutá.
+  geolocation_lon:
+    name: Zemepisná dĺžka (lon)
+    description: >-
+      Súradnica pre Tinder geolokáciu. Default 17.1077 (Bratislava).
+      Platí len keď je geolokácia zapnutá.
+
+network:
+  8601/tcp: HTTP API bota — /health, odoslanie odpovedí z Discordu
+  6080/tcp: noVNC — otvor /vnc.html len pri prvom prihlásení (headless režim vypnutý)
