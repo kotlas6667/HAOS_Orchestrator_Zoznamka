@@ -59,14 +59,17 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
         # Tinder's desktop layout (Zhody/Správy tabs, message list) needs a wide window.
         options.add_argument("--start-maximized")
 
-    # Headed mode (manual login / dev): still avoid tiny /dev/shm issues on some setups.
-    # Also hide the most obvious Selenium fingerprints so Google/Tinder "Prihlásenie
-    # sa nepodarilo / not secure" is less likely. Phone OTP still works best.
+    # Headed mode (manual login / dev): hide automation fingerprints; on WSLg also
+    # disable GPU/sandbox quirks that cause a grey frozen window.
     if not settings.headless:
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
         options.add_experimental_option("useAutomationExtension", False)
+        if __import__("os").name == "posix":
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--disable-software-rasterizer")
 
     # Skip loading images: cuts per-page memory a lot and this bot only reads
     # text (messages, sender names), never needs rendered images.
