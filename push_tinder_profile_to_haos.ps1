@@ -1,9 +1,13 @@
-# Po capture_tinder_session.ps1 skopiruj profil na HAOS Tinder add-on.
+# Skopiruj Tinder chrome-profile z PC na HAOS (samostatny add-on haos_tinder).
 #
-# Pouzitie:
-#   .\push_tinder_profile_to_haos.ps1
-#   .\push_tinder_profile_to_haos.ps1 -HaosHost 192.168.1.109
-#   .\push_tinder_profile_to_haos.ps1 -HaosHost 100.82.143.35 -ShareName share
+# 1) Na Windows (po uspesnom capture_tinder_session.ps1):
+#      .\push_tinder_profile_to_haos.ps1
+#      .\push_tinder_profile_to_haos.ps1 -HaosHost 192.168.1.109
+#      .\push_tinder_profile_to_haos.ps1 -HaosHost 192.168.1.109 -ShareName share
+#
+# 2) Na HAOS SSH:
+#      bash /share/tinder-chrome-profile/deploy_on_haos.sh
+#    (alebo prikazy vypisane na konci tohto skriptu)
 
 param(
     [string]$HaosHost = "192.168.1.109",
@@ -16,18 +20,37 @@ $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SrcProfile = Join-Path $Root "tinder_bot\chrome-profile"
 $DestOnShare = "\\$HaosHost\$ShareName\$StagingFolder"
 
-if (-not (Test-Path (Join-Path $SrcProfile "Default"))) {
-    throw "Profil nenajdeny / prazdny: $SrcProfile\Default. Najprv spusti .\capture_tinder_session.ps1"
+if (-not (Test-Path (Join-Path $SrcProfile "Default\Cookies")) -and
+    -not (Test-Path (Join-Path $SrcProfile "Default"))) {
+    throw "Profil nenajdeny: $SrcProfile\Default. Najprv spusti .\capture_tinder_session.ps1"
 }
 
-Write-Host "[1/3] Zastav chromedriver (Chrome na PC mozes nechat)..."
+Write-Host "[1/4] Uvolnujem profile lock..."
 Get-Process chromedriver -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 1
 Remove-Item "$SrcProfile\SingletonLock","$SrcProfile\SingletonCookie","$SrcProfile\SingletonSocket","$SrcProfile\DevToolsActivePort" -Force -ErrorAction SilentlyContinue
 
-Write-Host "[2/3] Kopirujem slim profil na Samba: $DestOnShare"
-if (-not (Test-Path "\\$HaosHost\$ShareName")) {
-    throw "Samba \\$HaosHost\$ShareName nie je dostupna. Uprav -HaosHost / -ShareName."
+$shareRoot = "\\$HaosHost\$ShareName"
+Write-Host "[2/4] Kontrolujem Samba $shareRoot ..."
+if (-not (Test-Path $shareRoot)) {
+    Write-Host "Nedostupne. Skusam bezne share mena: share, addons, config..."
+    $found = $null
+    foreach ($name in @("share", "addons", "config", "media")) {
+        if (Test-Path "\\$HaosHost\$name") {
+            $ShareName = $name
+            $shareRoot = "\\$HaosHost\$ShareName"
+            $DestOnShare = "$shareRoot\$StagingFolder"
+            $found = $name
+            break
+        }
+    }
+    if (-not $found) {
+        throw "Ziadny Samba share na \\$HaosHost nie je dostupny. Zapni Samba add-on / uprav -HaosHost."
+    }
+    Write-Host "  pouzivam share: $ShareName"
 }
+
+Write-Host "[3/4] Kopirujem slim profil -> $DestOnShare"
 New-Item -ItemType Directory -Path $DestOnShare -Force | Out-Null
 
 $TempSlim = Join-Path $env:TEMP "tinder-chrome-profile-slim"
@@ -41,17 +64,43 @@ $null = & robocopy $SrcProfile $TempSlim /E `
     /XF "SingletonLock" "SingletonCookie" "SingletonSocket" "DevToolsActivePort" "lockfile" `
     /R:2 /W:2 /NFL /NDL /NJH /NJS
 
-$null = & robocopy $TempSlim $DestOnShare /MIR /R:2 /W:3 /NFL /NDL
+$null = & robocopy $TempSlim $DestOnShare /MIR /R:2 /W:3 /NFL /NDL `
+    /XF "deploy_on_haos.sh"
 if ($LASTEXITCODE -ge 8) { throw "robocopy zlyhal: $LASTEXITCODE" }
 
-Write-Host "[3/3] Hotovo na Samba. Na HAOS SSH teraz spusti:"
-Write-Host @"
-
+# HAOS helper script next to the profile on the share
+$haosHelper = @"
+#!/usr/bin/env bash
+set -e
 TD=/mnt/data/supervisor/addons/data/local_haos_tinder
-mkdir -p "`$TD/chrome-profile"
-rm -rf "`$TD/chrome-profile"/*
-cp -a /share/$StagingFolder/. "`$TD/chrome-profile/"
-ls "`$TD/chrome-profile/Default" | head
+SRC=/share/$StagingFolder
+# ak Samba mapuje inak:
+[ -d "`$SRC/Default" ] || SRC=/mnt/data/$StagingFolder
+[ -d "`$SRC/Default" ] || SRC=/share/$StagingFolder
 
-# potom v UI: Restart HAOS Tinder Bot
+if [ ! -d "`$SRC/Default" ]; then
+  echo "Nenasiel som profil. Hladam..."
+  find /share /mnt/data -maxdepth 3 -type d -name 'tinder-chrome-profile' 2>/dev/null
+  exit 1
+fi
+
+mkdir -p "`$TD/chrome-profile"
+rm -rf "`$TD/chrome-profile"/* "`$TD/chrome-profile"/.[!.]* 2>/dev/null || true
+cp -a "`$SRC/." "`$TD/chrome-profile/"
+# zbav sa helper skriptu v profile ak sa skopiroval
+rm -f "`$TD/chrome-profile/deploy_on_haos.sh"
+echo "Hotovo. Cookies?"
+ls "`$TD/chrome-profile/Default" | head
+echo "Teraz v UI: Restart HAOS Tinder Bot"
 "@
+Set-Content -Path (Join-Path $DestOnShare "deploy_on_haos.sh") -Value $haosHelper -Encoding Ascii
+
+$cookies = Join-Path $DestOnShare "Default\Cookies"
+$ok = Test-Path $cookies
+Write-Host "[4/4] Samba OK. Cookies present: $ok"
+Write-Host ""
+Write-Host "====== NA HAOS SSH SPUSTI ======"
+Write-Host "bash /share/$StagingFolder/deploy_on_haos.sh"
+Write-Host "================================"
+Write-Host "Potom v UI: Stop + Start HAOS Tinder Bot"
+Write-Host "V logu hladaj: Logged in, starting poll loop"
