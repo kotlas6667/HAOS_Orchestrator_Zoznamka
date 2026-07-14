@@ -23,10 +23,12 @@
   "host_network": false,
   "shm_size": "1024M",
   "options": {
-    "log_level": "info"
+    "log_level": "info",
+    "discord_webhook_url": ""
   },
   "schema": {
-    "log_level": "list(trace|debug|info|notice|warning|error|fatal)?"
+    "log_level": "list(trace|debug|info|notice|warning|error|fatal)?",
+    "discord_webhook_url": "url?"
   },
   "url": "https://github.com/your-repo/haos_orchestrator",
   "maintainer": "kotlas <kotlas6667@gmail.com>",

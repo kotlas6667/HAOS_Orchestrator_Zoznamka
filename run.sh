@@ -24,6 +24,46 @@ else
     echo "Using bundled configuration (/app/.env)"
 fi
 
+# HA add-on UI options (/data/options.json) override .env for selected keys.
+if [ -f /data/options.json ]; then
+    _opt_str() {
+        python3 - "$1" <<'PY'
+import json, sys
+
+key = sys.argv[1]
+try:
+    with open("/data/options.json") as f:
+        data = json.load(f)
+except Exception:
+    sys.exit(1)
+if key not in data:
+    sys.exit(1)
+val = data[key]
+if val is None:
+    print("")
+    sys.exit(0)
+text = str(val).strip()
+print(text)
+sys.exit(0)
+PY
+    }
+    if _webhook=$(_opt_str discord_webhook_url 2>/dev/null); then
+        if [ -n "$_webhook" ]; then
+            export DISCORD_WEBHOOK_URL="$_webhook"
+            export DISCORD_PROVIDER=discord_webhook
+            echo "discord_webhook_url from add-on options: configured"
+        else
+            export DISCORD_WEBHOOK_URL=""
+            echo "discord_webhook_url from add-on options: not set"
+        fi
+    fi
+    if _lvl=$(_opt_str log_level 2>/dev/null); then
+        LOG_LEVEL="$_lvl"
+        export LOG_LEVEL
+        echo "log_level from add-on options: ${LOG_LEVEL}"
+    fi
+fi
+
 # ---------------------------------------------------------------------------
 # Persistent state
 # ---------------------------------------------------------------------------
