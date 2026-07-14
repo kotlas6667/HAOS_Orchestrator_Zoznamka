@@ -8,6 +8,9 @@
 
 ## 1.2.2
 
+- `deploy/HAOS_DEPLOY.md` — kompletný návod pre HAOS
+- Skripty `update_addons.sh`, `tinder_session.sh` (automatizácia sync/rebuild/noVNC)
+
 - CHANGELOG pre HA update dialóg
 - Poznámka: pri lokálnom add-one používaj **Rebuild**, ak „Aktualizovať“ ukazuje rovnakú verziu
 

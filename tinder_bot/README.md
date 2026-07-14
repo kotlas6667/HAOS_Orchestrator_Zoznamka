@@ -10,8 +10,10 @@ izolácii, nie kvôli RAM.
 
 ## Inštalácia ako HA add-on
 
+**Kompletný návod:** [`deploy/HAOS_DEPLOY.md`](../deploy/HAOS_DEPLOY.md)
+
 ```bash
-cp -a /addons/haos_orchestrator/tinder_bot /addons/haos_tinder
+bash /addons/haos_orchestrator/deploy/sync_local_addons.sh
 # Supervisor → Local add-ons → HAOS Tinder Bot → Install
 ```
 
@@ -40,13 +42,22 @@ TINDER_BOT_URL=http://haos_tinder:8601
 
 ### Aktualizácia lokálneho add-onu
 
-Po `git pull` + `cp` alebo `deploy/sync_local_addons.sh`:
+```bash
+bash /addons/haos_orchestrator/deploy/update_addons.sh --only tinder
+```
 
-1. Supervisor reštart → Skontrolovať aktualizácie
-2. **Info → ⋮ → Rebuild** (nie dialóg „Aktualizovať“ — pri local add-onoch často ukazuje zlú verziu)
-3. Alebo SSH: `ha addons rebuild local_haos_tinder`
+Detail: [`deploy/HAOS_DEPLOY.md`](../deploy/HAOS_DEPLOY.md). Vždy **Rebuild**, nie dialóg Aktualizovať.
 
 ### 3) Prvé prihlásenie cez noVNC
+
+Automaticky:
+
+```bash
+bash /addons/haos_orchestrator/deploy/tinder_session.sh begin-login <IP_HA>
+# noVNC → wait-login → finish-login
+```
+
+Ručne:
 
 1. V **Nastaveniach** maj `tinder_headless = false` → Start add-onu.
 2. V prehliadači na PC otvor: `http://<IP_HA>:6080/vnc.html`

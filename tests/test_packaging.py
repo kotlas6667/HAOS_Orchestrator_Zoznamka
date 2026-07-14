@@ -53,6 +53,18 @@ def test_orchestrator_manifest_no_shm_requirement():
     assert "shm_size" not in cfg
 
 
+def test_deploy_scripts_exist():
+    deploy = ROOT / "deploy"
+    for name in (
+        "sync_local_addons.sh",
+        "update_addons.sh",
+        "tinder_session.sh",
+        "HAOS_DEPLOY.md",
+        "lib/common.sh",
+    ):
+        assert (deploy / name).is_file(), name
+
+
 def test_bot_run_scripts_are_supervised():
     for bot in ("elitedate_bot", "tinder_bot"):
         text = (ROOT / bot / "run.sh").read_text(encoding="utf-8")

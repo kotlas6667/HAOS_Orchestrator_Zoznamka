@@ -86,11 +86,20 @@ Elite Date a Tinder majú **vlastné add-ony** (jeden Chromium na kontajner) —
 ```bash
 # Na HAOS hoste (SSH / Samba do /addons):
 cd /addons
-git clone https://github.com/kotlas6667/haos_orchestrator_zoznamka.git haos_orchestrator
+git clone https://github.com/kotlas6667/HAOS_Orchestrator_Zoznamka.git haos_orchestrator
 
-# Samostatné dating boty — kópia priečinka = samostatný local add-on
-cp -a haos_orchestrator/elitedate_bot haos_elitedate
-cp -a haos_orchestrator/tinder_bot haos_tinder
+# Automatický sync (odporúčané namiesto ručného cp):
+bash haos_orchestrator/deploy/sync_local_addons.sh
+```
+
+**Podrobný návod:** [`deploy/HAOS_DEPLOY.md`](deploy/HAOS_DEPLOY.md) — inštalácia, aktualizácia, Tinder noVNC, riešenie problémov.
+
+```bash
+# Aktualizácia po git pull:
+bash /addons/haos_orchestrator/deploy/update_addons.sh
+
+# Tinder prihlásenie (noVNC):
+bash /addons/haos_orchestrator/deploy/tinder_session.sh begin-login <IP_HA>
 ```
 
 1. **Supervisor → Local add-ons** — nainštaluj a spusti `HAOS Orchestrator` (ľahký, bez Chromium).
@@ -101,7 +110,7 @@ cp -a haos_orchestrator/tinder_bot haos_tinder
    ```
 3. Nainštaluj dating boty podľa potreby (`HAOS Elite Date Bot` a/alebo `HAOS Tinder Bot`). Na i3 / 16 GB môžu bežať oba naraz.
 4. V bot add-one vyplň `/data/.env` (vznikne pri prvom boote) — credentials + `ORCHESTRATOR_URL=http://haos_orchestrator:8000`.
-5. Tinder: raz treba manuálne prihlásenie (`TINDER_HEADLESS=false`), session ostane v `/data/chrome-profile`.
+5. **Tinder:** prvé prihlásenie cez noVNC — [`deploy/HAOS_DEPLOY.md`](../deploy/HAOS_DEPLOY.md) alebo `bash deploy/tinder_session.sh begin-login <IP>`.
 
 ### Starý monolitický režim (už nie default)
 
