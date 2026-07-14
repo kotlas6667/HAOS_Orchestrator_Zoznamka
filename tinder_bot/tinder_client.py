@@ -474,12 +474,18 @@ class TinderClient:
                 "manually (phone OTP / Google / Facebook / Apple) so the session persists."
             )
 
+        # Manual OTP / Google / Facebook login needs far more than the normal
+        # Selenium step timeout (default 10s). Allow up to 10 minutes unless
+        # TINDER_LOGIN_WAIT_SEC overrides it.
+        login_wait = float(
+            __import__("os").environ.get("TINDER_LOGIN_WAIT_SEC", "600")
+        )
         print(
             "[tinder_bot] No saved session found. A Chrome window has opened — "
             "log in to Tinder there manually (phone OTP / Google / Facebook / Apple). "
-            f"Waiting up to {int(settings.wait_timeout_sec)}s for login to complete..."
+            f"Waiting up to {int(login_wait)}s for login to complete..."
         )
-        WebDriverWait(self.driver, int(settings.wait_timeout_sec)).until(EC.url_contains("/app/"))
+        WebDriverWait(self.driver, login_wait).until(EC.url_contains("/app/"))
         print("[tinder_bot] Login detected, session saved to TINDER_USER_DATA_DIR.")
         self._navigate_to_inbox(fast=True)
 
