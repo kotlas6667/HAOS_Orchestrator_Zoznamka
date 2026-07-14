@@ -1,7 +1,7 @@
 {
   "name": "HAOS Orchestrator",
-  "description": "AI orchestrator for Home Assistant - Gmail, Calendar, Weather, Discord and natural language smart home control. Elite Date a Tinder sú samostatné add-ony.",
-  "version": "1.1.1",
+  "description": "AI orchestrátor pre Home Assistant — Gmail, Kalendár, Počasie, Discord a smart home. Elite Date a Tinder sú samostatné add-ony.",
+  "version": "1.2.0",
   "slug": "haos_orchestrator",
   "init": false,
   "arch": ["amd64", "aarch64", "armv7"],
@@ -11,7 +11,7 @@
     "8000/tcp": 8000
   },
   "ports_description": {
-    "8000/tcp": "Orchestrator API and Web UI"
+    "8000/tcp": "Orchestrátor API a web dashboard"
   },
   "ingress": true,
   "ingress_port": 8000,
@@ -22,10 +22,38 @@
   "homeassistant_api": true,
   "host_network": false,
   "options": {
-    "log_level": "info"
+    "log_level": "info",
+    "openai_api_key": "",
+    "openai_model": "gpt-4o-mini",
+    "ha_url": "http://supervisor/core:8123",
+    "ha_token": "",
+    "weather_default_city": "Senica",
+    "openweather_api_key": "",
+    "discord_bot_enabled": false,
+    "discord_bot_token": "",
+    "discord_webhook_url": "",
+    "discord_bot_channel_id": "",
+    "elitedate_bot_url": "http://haos_elitedate:8600",
+    "tinder_bot_url": "http://haos_tinder:8601",
+    "elitedate_auto_send": false,
+    "tinder_auto_send": false
   },
   "schema": {
-    "log_level": "list(trace|debug|info|notice|warning|error|fatal)?"
+    "log_level": "list(trace|debug|info|notice|warning|error|fatal)?",
+    "openai_api_key": "password",
+    "openai_model": "str?",
+    "ha_url": "str",
+    "ha_token": "password",
+    "weather_default_city": "str?",
+    "openweather_api_key": "password",
+    "discord_bot_enabled": "bool",
+    "discord_bot_token": "password",
+    "discord_webhook_url": "str?",
+    "discord_bot_channel_id": "str?",
+    "elitedate_bot_url": "str",
+    "tinder_bot_url": "str",
+    "elitedate_auto_send": "bool",
+    "tinder_auto_send": "bool"
   },
   "url": "https://github.com/kotlas6667/HAOS_Orchestrator_Zoznamka",
   "maintainer": "kotlas <kotlas6667@gmail.com>",

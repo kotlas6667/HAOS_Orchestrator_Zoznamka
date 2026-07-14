@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0
+
+- Možnosti v HA UI: OpenAI, HA token, Discord, ED/Tinder URL, počasie
+- Sync `/data/options.json` → `/data/orchestrator/config/.env` pri štarte
+- Slovenské popisy polí v Nastaveniach (`translations/sk.yaml`)
+
 ## 1.1.1
 
 - Oprava Docker buildu: žiadny `COPY .env` (súbor nie je v gite)

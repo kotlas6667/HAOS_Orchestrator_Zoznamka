@@ -1,0 +1,71 @@
+configuration:
+  log_level:
+    name: Úroveň logu
+    description: >-
+      Podrobnosť logov add-onu. Pre bežnú prevádzku nechaj info.
+      Zapni debug len pri ladení problémov.
+  openai_api_key:
+    name: OpenAI API kľúč
+    description: >-
+      Kľúč z platform.openai.com — potrebný pre GPT routing a chat.
+      Vyplň v Nastaveniach, nemusíš ručne editovať .env.
+  openai_model:
+    name: OpenAI model
+    description: >-
+      Model pre routing a chat. Default gpt-4o-mini.
+  ha_url:
+    name: URL Home Assistant
+    description: >-
+      Adresa Home Assistant API. V HAOS add-one štandardne
+      http://supervisor/core:8123
+  ha_token:
+    name: HA long-lived token
+    description: >-
+      Long-lived access token z HA profilu. Potrebný pre ovládanie zariadení.
+  weather_default_city:
+    name: Predvolené mesto (počasie)
+    description: >-
+      Mesto pre počasie, keď v príkaze nie je uvedené iné.
+  openweather_api_key:
+    name: OpenWeather API kľúč
+    description: >-
+      Voliteľné — pre reálne počasie namiesto mock režimu.
+      Bez kľúča funguje mock provider.
+  discord_bot_enabled:
+    name: Discord bot zapnutý
+    description: >-
+      ZAPNUTÉ — orchestrátor počúva Discord kanál (potrebuje token nižšie).
+      VYPNUTÉ — Discord bot sa nespustí.
+  discord_bot_token:
+    name: Discord bot token
+    description: >-
+      Token bota z Discord Developer Portal. Zapni Message Content Intent.
+  discord_webhook_url:
+    name: Discord webhook URL
+    description: >-
+      Voliteľné — pre notifikácie cez webhook (ráno, emaily, ED/Tinder návrhy).
+  discord_bot_channel_id:
+    name: Discord kanál ID
+    description: >-
+      ID kanála kde bot počúva (voliteľné — prázdne = všetky kanály).
+  elitedate_bot_url:
+    name: URL Elite Date bota
+    description: >-
+      Adresa samostatného HAOS Elite Date Bot add-onu.
+      Štandardne http://haos_elitedate:8600
+  tinder_bot_url:
+    name: URL Tinder bota
+    description: >-
+      Adresa samostatného HAOS Tinder Bot add-onu.
+      Štandardne http://haos_tinder:8601
+  elitedate_auto_send:
+    name: Elite Date — auto odoslať
+    description: >-
+      ZAPNUTÉ — vybraná odpoveď sa aj odošle. VYPNUTÉ — len vloží do poľa.
+  tinder_auto_send:
+    name: Tinder — auto odoslať
+    description: >-
+      ZAPNUTÉ — vybraná odpoveď sa aj odošle. VYPNUTÉ — len vloží do poľa.
+
+network:
+  8000/tcp: Orchestrátor API, web dashboard a ingress
