@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1
+
+- Oprava DNS medzi add-onmi: `local-haos-*` namiesto neplatného `haos_*`
+- Auto-migrácia starých URL pri štarte (`run.sh`)
+
 ## 1.2.0
 
 - Možnosti v HA UI: OpenAI, HA token, Discord, ED/Tinder URL, počasie

@@ -15,7 +15,7 @@ class BotSettings(BaseSettings):
     bot_port: int = 8600
 
     # Where the orchestrator's FastAPI app listens (this bot calls that).
-    # Standalone HA add-on: http://haos_orchestrator:8000 via Nastavenia / .env.
+    # Standalone HA add-on: http://local-haos-orchestrator:8000 via Nastavenia / .env.
     orchestrator_url: str = "http://127.0.0.1:8000"
 
     # Polling

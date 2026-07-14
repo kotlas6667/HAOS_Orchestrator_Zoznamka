@@ -1,7 +1,7 @@
 {
   "name": "HAOS Elite Date Bot",
   "description": "Samostatný Selenium bot pre Elite Date. Prihlasovacie údaje a orchestrátor nastav v Nastaveniach add-onu.",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "slug": "haos_elitedate",
   "init": false,
   "arch": ["amd64", "aarch64"],
@@ -19,7 +19,7 @@
     "log_level": "info",
     "elitedate_email": "",
     "elitedate_password": "",
-    "orchestrator_url": "http://haos_orchestrator:8000",
+    "orchestrator_url": "http://local-haos-orchestrator:8000",
     "elitedate_login_url": "https://www.elitedate.sk/prihlaseni",
     "headless": true
   },

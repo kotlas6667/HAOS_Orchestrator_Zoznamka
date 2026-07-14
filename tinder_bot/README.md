@@ -24,7 +24,7 @@ bash /addons/haos_orchestrator/deploy/sync_local_addons.sh
 | Pole | Prvé prihlásenie | Bežná prevádzka |
 |------|------------------|-----------------|
 | `tinder_headless` | **false** (noVNC) | **true** |
-| `orchestrator_url` | `http://haos_orchestrator:8000` | rovnako |
+| `orchestrator_url` | `http://local-haos-orchestrator:8000` | rovnako |
 | `poll_enabled` | true | true |
 | `login_wait_sec` | 600 | 600 |
 | `tinder_phone` | voliteľné | voliteľné |

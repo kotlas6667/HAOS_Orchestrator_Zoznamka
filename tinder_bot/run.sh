@@ -47,7 +47,8 @@ TINDER_LOGIN_URL=https://tinder.com/app/login
 
 TINDER_BOT_HOST=0.0.0.0
 TINDER_BOT_PORT=8601
-ORCHESTRATOR_URL=http://haos_orchestrator:8000
+# HA lokálne add-ony: DNS = local-{slug} ( _ → - ), nie samotný slug
+ORCHESTRATOR_URL=http://local-haos-orchestrator:8000
 
 TINDER_POLL_ENABLED=true
 TINDER_POLL_INTERVAL_MIN_SEC=90
@@ -79,6 +80,15 @@ import os
 import re
 from pathlib import Path
 
+DNS_FIXES = {
+    "http://haos_orchestrator:8000": "http://local-haos-orchestrator:8000",
+    "http://haos_tinder:8601": "http://local-haos-tinder:8601",
+    "http://haos_elitedate:8600": "http://local-haos-elitedate:8600",
+}
+
+def fix_addon_dns(value: str) -> str:
+    return DNS_FIXES.get(value.strip(), value)
+
 options_path = Path("/data/options.json")
 env_path = Path("/data/.env")
 if not options_path.is_file():
@@ -108,13 +118,21 @@ for opt_key, env_key in mapping.items():
     if isinstance(val, bool):
         updates[env_key] = "true" if val else "false"
     else:
-        updates[env_key] = str(val)
+        raw = str(val)
+        fixed = fix_addon_dns(raw)
+        if fixed != raw:
+            print(f"[tinder_bot] DNS fix {env_key}: {raw} → {fixed}")
+        updates[env_key] = fixed
 
 if not updates:
     print("[tinder_bot] HA options: nothing to apply")
     raise SystemExit(0)
 
 text = env_path.read_text(encoding="utf-8") if env_path.is_file() else ""
+for old, new in DNS_FIXES.items():
+    if old in text:
+        text = text.replace(old, new)
+        print(f"[tinder_bot] Migrated .env DNS: {old} → {new}")
 for env_key, env_val in updates.items():
     pattern = re.compile(rf"(?m)^{re.escape(env_key)}=.*$")
     line = f"{env_key}={env_val}"

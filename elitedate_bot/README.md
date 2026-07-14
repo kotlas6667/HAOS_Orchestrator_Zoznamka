@@ -11,8 +11,8 @@ cp -a /addons/haos_orchestrator/elitedate_bot /addons/haos_elitedate
 ```
 
 1. V **Nastaveniach** add-onu vyplň `elitedate_email` a `elitedate_password`.
-2. Over `orchestrator_url` (default `http://haos_orchestrator:8000`).
-3. V orchestrátore nastav `ELITEDATE_BOT_URL=http://haos_elitedate:8600`.
+2. Over `orchestrator_url` (default `http://local-haos-orchestrator:8000`).
+3. V orchestrátore nastav `ELITEDATE_BOT_URL=http://local-haos-elitedate:8600`.
 
 ## Nastavenia (HA UI)
 

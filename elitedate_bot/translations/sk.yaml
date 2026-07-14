@@ -18,7 +18,8 @@ configuration:
     name: URL orchestrátora
     description: >-
       Adresa hlavného add-onu HAOS Orchestrator v Docker sieti HA.
-      Štandardne http://haos_orchestrator:8000 — nemeníš, ak bežia oba add-ony na tom istom HA.
+      Štandardne http://local-haos-orchestrator:8000 (nie haos_orchestrator —
+      HA DNS pre lokálne add-ony je local-{slug} s pomlčkami).
   elitedate_login_url:
     name: Login URL
     description: >-
