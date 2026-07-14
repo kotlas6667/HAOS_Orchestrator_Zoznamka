@@ -66,8 +66,11 @@ for candidate in \
   "/usr/bin/chromedriver" \
   "/snap/bin/chromium.chromedriver"; do
   if picked="$(pick_executable "$candidate")"; then
-    DRIVER_BIN="$picked"
-    break
+    if "$picked" --version >/dev/null 2>&1; then
+      DRIVER_BIN="$picked"
+      break
+    fi
+    echo "Chromedriver $picked nefunguje (snap wrapper?) — pouzijem Selenium Manager."
   fi
 done
 
