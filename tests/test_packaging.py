@@ -33,10 +33,17 @@ def test_elitedate_addon_manifest():
 
 
 def test_tinder_addon_manifest():
-    cfg = json.loads((ROOT / "tinder_bot" / "config.json").read_text(encoding="utf-8") )
+    cfg = json.loads((ROOT / "tinder_bot" / "config.json").read_text(encoding="utf-8"))
     assert cfg["slug"] == "haos_tinder"
     assert "8601/tcp" in cfg["ports"]
+    assert "6080/tcp" in cfg["ports"]
+    assert "tinder_headless" in cfg["options"]
+    assert "tinder_headless" in cfg["schema"]
+    assert "orchestrator_url" in cfg["schema"]
     assert "chromium" in (ROOT / "tinder_bot" / "Dockerfile").read_text(encoding="utf-8").lower()
+    run_sh = (ROOT / "tinder_bot" / "run.sh").read_text(encoding="utf-8")
+    assert "options.json" in run_sh
+    assert "apply_addon_options" in run_sh
 
 
 def test_orchestrator_manifest_no_shm_requirement():

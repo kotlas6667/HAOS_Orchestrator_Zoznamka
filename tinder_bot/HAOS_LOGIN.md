@@ -1,22 +1,22 @@
 # Prvé prihlásenie Tinder session na HAOS (Linux profil — funguje v add-one)
 
-Windows/WSL profil **nefunguje** na HAOS (iné šifrovanie cookies). Prihlás sa priamo v add-one cez **noVNC**.
+Windows/WSL profil **nefunguje** na HAOS (iné šifrovanie cookies). Prihlás sa priamo v add-one cez **noVNC**. Konfigurácia je v **Nastaveniach** add-onu (nie treba SSH do `.env`).
 
 ## Kroky
 
-### 1) Rebuild add-onu (po `git pull` v `/addons/haos_tinder`)
+### 1) Nastavenia (prvý bod)
 
-### 2) V `.env` add-onu (`local_haos_tinder/.env` na HAOS):
-```env
-TINDER_HEADLESS=false
-TINDER_USER_DATA_DIR=/data/chrome-profile
-TINDER_LOGIN_WAIT_SEC=600
-ORCHESTRATOR_URL=http://haos_orchestrator:8000
-```
+**Doplnky → HAOS Tinder Bot → Nastavenia → Možnosti:**
 
-### 3) Start add-onu
+- `tinder_headless` = **false**
+- `orchestrator_url` = `http://haos_orchestrator:8000`
+- `login_wait_sec` = `600`
 
-### 4) V prehliadači na PC otvor:
+**Sieť:** nechaj `8601` a `6080` → **Uložiť**.
+
+### 2) Rebuild / Start add-onu (verzia ≥ 1.2.0)
+
+### 3) V prehliadači na PC otvor:
 ```
 http://192.168.1.109:6080/vnc.html
 ```
@@ -24,16 +24,16 @@ alebo Tailscale: `http://100.82.143.35:6080/vnc.html`
 
 Uvidíš Chromium s Tinderom. Prihlás sa **telefónom + OTP** (nie Google).
 
-### 5) V logu add-onu počkaj:
+### 4) V logu add-onu počkaj:
 ```
 [tinder_bot] Login detected, session saved...
 ```
 
-### 6) Prepnúť na bežnú prevádzku:
-```env
-TINDER_HEADLESS=true
-```
-Restart add-onu. Port 6080 už nepotrebuješ.
+### 5) Prepnúť na bežnú prevádzku
+
+**Nastavenia → Možnosti → `tinder_headless` = true → Uložiť → Reštart.**
+
+Port 6080 / noVNC sa už nespustí. Session ostáva v `/data/chrome-profile`.
 
 ## Overenie
 ```bash

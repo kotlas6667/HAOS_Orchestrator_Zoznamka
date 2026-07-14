@@ -2,10 +2,10 @@
 # HAOS Tinder Bot add-on entrypoint (samostatný kontajner, jeden Chromium).
 #
 # Prvé prihlásenie (Linux session pre HAOS):
-#   1) v /data/.env nastav TINDER_HEADLESS=false
-#   2) Rebuild + Start add-onu
+#   1) Nastavenia add-onu → tinder_headless = false → Uložiť
+#   2) Spustiť add-on
 #   3) Otvor http://<IP_HA>:6080/vnc.html — prihlás sa telefónom+OTP
-#   4) Po "Login detected" v logu nastav TINDER_HEADLESS=true a reštartuj
+#   4) Po "Login detected" v logu: Nastavenia → tinder_headless = true → Reštart
 #
 set -e
 
@@ -46,11 +46,91 @@ fi
 
 ln -sf "$DATA/.env" /app/.env
 
-# Načítaj .env do shellu (inak run.sh nevidí TINDER_HEADLESS=false)
+# Synchronizuj Možnosti z HA UI (/data/options.json) → .env + export
+# (Nastavenia add-onu majú prednosť pred ručne editovaným .env)
+apply_addon_options() {
+    python3 - <<'PY'
+import json
+import os
+import re
+from pathlib import Path
+
+options_path = Path("/data/options.json")
+env_path = Path("/data/.env")
+if not options_path.is_file():
+    print("[tinder_bot] No /data/options.json — skipping HA options sync")
+    raise SystemExit(0)
+
+opts = json.loads(options_path.read_text(encoding="utf-8"))
+# HA option key → ENV key
+mapping = {
+    "tinder_headless": "TINDER_HEADLESS",
+    "orchestrator_url": "ORCHESTRATOR_URL",
+    "poll_enabled": "TINDER_POLL_ENABLED",
+    "login_wait_sec": "TINDER_LOGIN_WAIT_SEC",
+    "tinder_phone": "TINDER_PHONE",
+    "geolocation_enabled": "TINDER_GEOLOCATION_ENABLED",
+    "geolocation_lat": "TINDER_GEOLOCATION_LAT",
+    "geolocation_lon": "TINDER_GEOLOCATION_LON",
+}
+
+updates = {}
+for opt_key, env_key in mapping.items():
+    if opt_key not in opts:
+        continue
+    val = opts[opt_key]
+    if val is None:
+        continue
+    if isinstance(val, bool):
+        updates[env_key] = "true" if val else "false"
+    else:
+        updates[env_key] = str(val)
+
+if not updates:
+    print("[tinder_bot] HA options: nothing to apply")
+    raise SystemExit(0)
+
+text = env_path.read_text(encoding="utf-8") if env_path.is_file() else ""
+for env_key, env_val in updates.items():
+    pattern = re.compile(rf"(?m)^{re.escape(env_key)}=.*$")
+    line = f"{env_key}={env_val}"
+    if pattern.search(text):
+        text = pattern.sub(line, text)
+    else:
+        if text and not text.endswith("\n"):
+            text += "\n"
+        text += line + "\n"
+env_path.write_text(text, encoding="utf-8")
+
+# Export for this process (pydantic reads env first)
+export_lines = []
+for env_key, env_val in updates.items():
+    os.environ[env_key] = env_val
+    export_lines.append(f"{env_key}={env_val}")
+print("[tinder_bot] Applied HA Nastavenia → .env:")
+for line in export_lines:
+    print(f"  {line}")
+
+# Write a small file so bash can source exports
+Path("/tmp/ha_options_export.env").write_text(
+    "\n".join(export_lines) + "\n", encoding="utf-8"
+)
+PY
+    if [ -f /tmp/ha_options_export.env ]; then
+        set -a
+        # shellcheck disable=SC1091
+        source /tmp/ha_options_export.env
+        set +a
+    fi
+}
+
+# Najprv .env (seed / ručné hodnoty), potom HA Nastavenia majú prednosť
 set -a
 # shellcheck disable=SC1091
 source "$DATA/.env"
 set +a
+
+apply_addon_options
 
 [ -e "$DATA/.seen_messages.json" ] || echo "[]" > "$DATA/.seen_messages.json"
 mkdir -p /app/tinder_bot
@@ -89,7 +169,7 @@ start_novnc_if_needed() {
         echo "[tinder_bot]   (Tailscale napr. http://100.82.143.35:6080/vnc.html)"
         echo "[tinder_bot] Telefón + OTP (NIE Google). Po login v logu:"
         echo "[tinder_bot]   Login detected, session saved..."
-        echo "[tinder_bot] Potom TINDER_HEADLESS=true v .env a reštart."
+        echo "[tinder_bot] Potom Nastavenia → tinder_headless=true → Reštart."
         echo "[tinder_bot] =============================================="
     fi
 }

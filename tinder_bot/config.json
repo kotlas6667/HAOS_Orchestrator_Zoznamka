@@ -1,7 +1,7 @@
 {
   "name": "HAOS Tinder Bot",
-  "description": "Samostatný Selenium bot pre Tinder. Prvé prihlásenie cez noVNC (port 6080).",
-  "version": "1.1.0",
+  "description": "Samostatný Selenium bot pre Tinder. Prvé prihlásenie cez noVNC (port 6080) — nastav tinder_headless v Nastaveniach.",
+  "version": "1.2.0",
   "slug": "haos_tinder",
   "init": false,
   "arch": ["amd64", "aarch64"],
@@ -13,15 +13,31 @@
   },
   "ports_description": {
     "8601/tcp": "Tinder bot HTTP API (/send, /health)",
-    "6080/tcp": "noVNC — jednorazové prihlásenie (TINDER_HEADLESS=false)"
+    "6080/tcp": "noVNC — jednorazové prihlásenie (tinder_headless=false)"
   },
   "host_network": false,
   "shm_size": "512M",
   "options": {
-    "log_level": "info"
+    "log_level": "info",
+    "tinder_headless": false,
+    "orchestrator_url": "http://haos_orchestrator:8000",
+    "poll_enabled": true,
+    "login_wait_sec": 600,
+    "tinder_phone": "",
+    "geolocation_enabled": true,
+    "geolocation_lat": "48.1486",
+    "geolocation_lon": "17.1077"
   },
   "schema": {
-    "log_level": "list(trace|debug|info|notice|warning|error|fatal)?"
+    "log_level": "list(trace|debug|info|notice|warning|error|fatal)?",
+    "tinder_headless": "bool",
+    "orchestrator_url": "str",
+    "poll_enabled": "bool",
+    "login_wait_sec": "int(60,3600)",
+    "tinder_phone": "str?",
+    "geolocation_enabled": "bool",
+    "geolocation_lat": "str?",
+    "geolocation_lon": "str?"
   },
   "url": "https://github.com/kotlas6667/haos_orchestrator_zoznamka",
   "maintainer": "kotlas <kotlas6667@gmail.com>"
