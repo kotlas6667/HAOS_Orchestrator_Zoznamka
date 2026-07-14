@@ -438,6 +438,36 @@ class TinderClient:
             return False
         return True
 
+    def _cookie_file_path(self) -> "Path | None":
+        from pathlib import Path
+
+        if not settings.user_data_dir:
+            return None
+        base = Path(settings.user_data_dir) / "Default"
+        for name in ("Network/Cookies", "Cookies"):
+            p = base / name
+            if p.is_file():
+                return p
+        return None
+
+    def _headless_session_error(self) -> RuntimeError:
+        cookie = self._cookie_file_path()
+        if cookie is None:
+            return RuntimeError(
+                "V kontajneri chýba Chrome profil (/data/chrome-profile). "
+                "Over: docker exec addon_local_haos_tinder ls -la /data/chrome-profile/Default/Network/ "
+                "Host path: /mnt/data/supervisor/addons/data/local_haos_tinder/chrome-profile/ "
+                "Ak je profil na hoste ale nie v kontajneri, reštartuj add-on alebo Rebuild. "
+                "Prvé prihlásenie: Nastavenia → tinder_headless=false → noVNC :6080."
+            )
+        return RuntimeError(
+            f"Cookie súbor existuje ({cookie}, {cookie.stat().st_size} B), "
+            "ale Tinder session nie je aktívna v headless režime. "
+            "Pravdepodobne neúplné prihlásenie alebo expirovaná session. "
+            "Nastavenia → tinder_headless=false → Rebuild → noVNC login znova → "
+            "počkaj 'Login detected' v logu → tinder_headless=true → Reštart."
+        )
+
     def login(self) -> None:
         self.driver.get("https://tinder.com/app/recs")
         self._wait_for_document_ready()
@@ -468,18 +498,20 @@ class TinderClient:
             return
 
         if settings.headless:
-            raise RuntimeError(
-                "No email+password login form detected and no persisted session found. "
-                "Set TINDER_USER_DATA_DIR, run once with TINDER_HEADLESS=false, and log in "
-                "manually (phone OTP / Google / Facebook / Apple) so the session persists."
-            )
+            raise self._headless_session_error()
 
+        # Manual OTP / Google / Facebook login needs far more than the normal
+        # Selenium step timeout (default 10s). Allow up to 10 minutes unless
+        # TINDER_LOGIN_WAIT_SEC overrides it.
+        login_wait = float(
+            __import__("os").environ.get("TINDER_LOGIN_WAIT_SEC", "600")
+        )
         print(
             "[tinder_bot] No saved session found. A Chrome window has opened — "
             "log in to Tinder there manually (phone OTP / Google / Facebook / Apple). "
-            f"Waiting up to {int(settings.wait_timeout_sec)}s for login to complete..."
+            f"Waiting up to {int(login_wait)}s for login to complete..."
         )
-        WebDriverWait(self.driver, int(settings.wait_timeout_sec)).until(EC.url_contains("/app/"))
+        WebDriverWait(self.driver, login_wait).until(EC.url_contains("/app/"))
         print("[tinder_bot] Login detected, session saved to TINDER_USER_DATA_DIR.")
         self._navigate_to_inbox(fast=True)
 

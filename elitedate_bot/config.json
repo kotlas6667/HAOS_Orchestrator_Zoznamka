@@ -31,6 +31,6 @@
     "elitedate_login_url": "str?",
     "headless": "bool"
   },
-  "url": "https://github.com/kotlas6667/haos_orchestrator_zoznamka",
+  "url": "https://github.com/kotlas6667/HAOS_Orchestrator_Zoznamka",
   "maintainer": "kotlas <kotlas6667@gmail.com>"
 }
