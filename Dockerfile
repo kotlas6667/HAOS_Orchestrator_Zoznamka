@@ -44,6 +44,7 @@ WORKDIR /app
 # Copy application code and configuration
 COPY app/ /app/app/
 COPY chrome_lock.py /app/chrome_lock.py
+COPY chrome_cleanup.py /app/chrome_cleanup.py
 COPY elitedate_bot/ /app/elitedate_bot/
 COPY tinder_bot/ /app/tinder_bot/
 COPY data/orchestrator/config/tinder/chrome-profile/ /app/data/orchestrator/config/tinder/chrome-profile/
