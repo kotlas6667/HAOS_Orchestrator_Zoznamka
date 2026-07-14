@@ -38,6 +38,14 @@ V orchestrátore (`.env`):
 TINDER_BOT_URL=http://haos_tinder:8601
 ```
 
+### Aktualizácia lokálneho add-onu
+
+Po `git pull` + `cp` alebo `deploy/sync_local_addons.sh`:
+
+1. Supervisor reštart → Skontrolovať aktualizácie
+2. **Info → ⋮ → Rebuild** (nie dialóg „Aktualizovať“ — pri local add-onoch často ukazuje zlú verziu)
+3. Alebo SSH: `ha addons rebuild local_haos_tinder`
+
 ### 3) Prvé prihlásenie cez noVNC
 
 1. V **Nastaveniach** maj `tinder_headless = false` → Start add-onu.
