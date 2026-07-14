@@ -6,15 +6,16 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.edge.options import Options as EdgeOptions
 from selenium.webdriver.edge.service import Service as EdgeService
 
+from tinder_bot.chrome_lock import chrome_startup_lock
 from tinder_bot.config import settings
-from chrome_lock import chrome_startup_lock
+
 
 
 def build_driver() -> webdriver.Chrome | webdriver.Edge:
     """Build a browser driver for Tinder.
 
-    Supports Chrome/Chromium and Edge. Tuned for Raspberry Pi (limited RAM/CPU,
-    small /dev/shm) but works the same way on a regular desktop. Tinder's login
+    Supports Chrome/Chromium and Edge. Chrome flags are tuned for containers
+    (limited /dev/shm) on the HAOS host (i3 / 16 GB). Tinder's login
     usually requires solving a phone-OTP or captcha challenge that Selenium
     cannot drive reliably — see the note on `tinder_user_data_dir` in config.py.
     """
@@ -31,7 +32,7 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
         # separate one that can get OOM-killed ("tab crashed").
         options.add_argument("--headless")
 
-        # Raspberry Pi essentials: /dev/shm is tiny by default and Chrome will
+        # Container essentials: /dev/shm is often tiny and Chrome will
         # crash without --disable-dev-shm-usage; --single-process/--no-zygote
         # cut memory further. These are unstable for a *visible* desktop Chrome
         # window (crashes on Windows), so only apply them in headless mode —
@@ -58,10 +59,17 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
         # Tinder's desktop layout (Zhody/Správy tabs, message list) needs a wide window.
         options.add_argument("--start-maximized")
 
-    # Headed mode (manual login / dev): still avoid tiny /dev/shm issues on some setups.
+    # Headed mode (manual login / dev): hide automation fingerprints; on WSLg also
+    # disable GPU/sandbox quirks that cause a grey frozen window.
     if not settings.headless:
         options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--remote-debugging-port=9223")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
+        options.add_experimental_option("useAutomationExtension", False)
+        if __import__("os").name == "posix":
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--disable-software-rasterizer")
 
     # Skip loading images: cuts per-page memory a lot and this bot only reads
     # text (messages, sender names), never needs rendered images.
@@ -75,6 +83,9 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
         # Persistent profile so a manually-solved login/OTP/captcha survives
         # across restarts instead of re-triggering every time.
         options.add_argument(f"--user-data-dir={settings.user_data_dir}")
+
+    # Linux add-on / WSL capture: cookies must decrypt without OS keyring.
+    options.add_argument("--password-store=basic")
 
     if settings.user_agent:
         options.add_argument(f"--user-agent={settings.user_agent}")
@@ -92,6 +103,18 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
 
     driver.set_page_load_timeout(int(settings.wait_timeout_sec))
     if not settings.headless:
+        try:
+            driver.execute_cdp_cmd(
+                "Page.addScriptToEvaluateOnNewDocument",
+                {
+                    "source": (
+                        "Object.defineProperty(navigator, 'webdriver', "
+                        "{get: () => undefined});"
+                    )
+                },
+            )
+        except Exception:  # noqa: BLE001
+            pass
         try:
             driver.maximize_window()
         except Exception:  # noqa: BLE001

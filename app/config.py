@@ -73,12 +73,12 @@ class Settings(BaseSettings):
     ha_token: str | None = None
     ha_timeout_sec: float = 10.0
 
-    # Elite Date bot (separate local process, see elitedate_bot/)
-    elitedate_bot_url: str = "http://127.0.0.1:8600"
+    # Elite Date bot (samostatný HA add-on / proces, see elitedate_bot/)
+    elitedate_bot_url: str = "http://haos_elitedate:8600"
     elitedate_auto_send: bool = Field(default=False, validation_alias="ELITEDATE_AUTO_SEND")
 
-    # Tinder bot (separate local process, see tinder_bot/)
-    tinder_bot_url: str = "http://127.0.0.1:8601"
+    # Tinder bot (samostatný HA add-on / proces, see tinder_bot/)
+    tinder_bot_url: str = "http://haos_tinder:8601"
     tinder_auto_send: bool = Field(default=False, validation_alias="TINDER_AUTO_SEND")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")

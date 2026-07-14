@@ -1,7 +1,7 @@
 {
   "name": "HAOS Orchestrator",
-  "description": "AI orchestrator for Home Assistant - Gmail, Calendar, Weather, Discord and natural language smart home control",
-  "version": "1.0.1",
+  "description": "AI orchestrator for Home Assistant - Gmail, Calendar, Weather, Discord and natural language smart home control. Elite Date a Tinder sú samostatné add-ony.",
+  "version": "1.1.0",
   "slug": "haos_orchestrator",
   "init": false,
   "arch": ["amd64", "aarch64", "armv7"],
@@ -21,14 +21,13 @@
   "hassio_api": true,
   "homeassistant_api": true,
   "host_network": false,
-  "shm_size": "1024M",
   "options": {
     "log_level": "info"
   },
   "schema": {
     "log_level": "list(trace|debug|info|notice|warning|error|fatal)?"
   },
-  "url": "https://github.com/your-repo/haos_orchestrator",
+  "url": "https://github.com/kotlas6667/haos_orchestrator_zoznamka",
   "maintainer": "kotlas <kotlas6667@gmail.com>",
   "authors": ["kotlas"],
   "licenses": ["MIT"],
