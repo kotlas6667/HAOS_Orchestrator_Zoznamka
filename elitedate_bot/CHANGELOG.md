@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1
+
+- Oprava DNS na orchestrátor: `http://local-haos-orchestrator:8000`
+- Auto-migrácia starého `haos_orchestrator` hostname pri štarte
+
 ## 1.2.0
 
 - Možnosti v HA UI: `elitedate_email`, `elitedate_password`, `orchestrator_url`, `elitedate_login_url`, `headless`

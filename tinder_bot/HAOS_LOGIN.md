@@ -9,7 +9,7 @@ Windows/WSL profil **nefunguje** na HAOS (iné šifrovanie cookies). Prihlás sa
 **Doplnky → HAOS Tinder Bot → Nastavenia → Možnosti:**
 
 - `tinder_headless` = **false**
-- `orchestrator_url` = `http://haos_orchestrator:8000`
+- `orchestrator_url` = `http://local-haos-orchestrator:8000`
 - `login_wait_sec` = `600`
 
 **Sieť:** nechaj `8601` a `6080` → **Uložiť**.

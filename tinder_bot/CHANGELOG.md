@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.4
+
+- Oprava DNS na orchestrátor: `http://local-haos-orchestrator:8000`
+- Auto-migrácia starého `haos_orchestrator` hostname pri štarte
+
 ## 1.2.3
 
 - Lepšia diagnostika /data mountu a Cookies v logu

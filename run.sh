@@ -37,20 +37,32 @@ DISCORD_BOT_TOKEN=
 DISCORD_WEBHOOK_URL=
 DISCORD_BOT_CHANNEL_ID=
 
-ELITEDATE_BOT_URL=http://haos_elitedate:8600
+ELITEDATE_BOT_URL=http://local-haos-elitedate:8600
 ELITEDATE_AUTO_SEND=false
-TINDER_BOT_URL=http://haos_tinder:8601
+TINDER_BOT_URL=http://local-haos-tinder:8601
 TINDER_AUTO_SEND=false
 EOF
     echo "Seeded $CFG/.env — vyplň Nastavenia add-onu a reštartuj."
 fi
 
+# HA lokálne add-ony: DNS hostname = local-{slug} (podčiarkovníky → pomlčky).
+# Staré defaulty typu http://haos_tinder:8601 sa v DNS neriešia.
 apply_addon_options() {
     python3 - <<'PY'
 import json
 import os
 import re
 from pathlib import Path
+
+# Broken slug-only hosts → correct Home Assistant addon DNS names
+DNS_FIXES = {
+    "http://haos_orchestrator:8000": "http://local-haos-orchestrator:8000",
+    "http://haos_tinder:8601": "http://local-haos-tinder:8601",
+    "http://haos_elitedate:8600": "http://local-haos-elitedate:8600",
+}
+
+def fix_addon_dns(value: str) -> str:
+    return DNS_FIXES.get(value.strip(), value)
 
 options_path = Path("/data/options.json")
 env_path = Path("/data/orchestrator/config/.env")
@@ -87,13 +99,21 @@ for opt_key, env_key in mapping.items():
     if isinstance(val, bool):
         updates[env_key] = "true" if val else "false"
     else:
-        updates[env_key] = str(val)
+        raw = str(val)
+        fixed = fix_addon_dns(raw)
+        if fixed != raw:
+            print(f"[orchestrator] DNS fix {env_key}: {raw} → {fixed}")
+        updates[env_key] = fixed
 
 if not updates:
     print("[orchestrator] HA options: nothing to apply")
     raise SystemExit(0)
 
 text = env_path.read_text(encoding="utf-8") if env_path.is_file() else ""
+for old, new in DNS_FIXES.items():
+    if old in text:
+        text = text.replace(old, new)
+        print(f"[orchestrator] Migrated .env DNS: {old} → {new}")
 for env_key, env_val in updates.items():
     pattern = re.compile(rf"(?m)^{re.escape(env_key)}=.*$")
     line = f"{env_key}={env_val}"

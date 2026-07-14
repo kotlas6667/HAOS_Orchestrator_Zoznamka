@@ -52,12 +52,12 @@ configuration:
     name: URL Elite Date bota
     description: >-
       Adresa samostatného HAOS Elite Date Bot add-onu.
-      Štandardne http://haos_elitedate:8600
+      Štandardne http://local-haos-elitedate:8600
   tinder_bot_url:
     name: URL Tinder bota
     description: >-
       Adresa samostatného HAOS Tinder Bot add-onu.
-      Štandardne http://haos_tinder:8601
+      Štandardne http://local-haos-tinder:8601
   elitedate_auto_send:
     name: Elite Date — auto odoslať
     description: >-
