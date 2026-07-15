@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.8
+
+- URL orchestrátora podľa Supervisor slug (napr. `03146090-haos-orchestrator`), nie hardcoded `8c003d88`
+- Pozn.: neotváraj Elite Date web naraz so zapnutým botom — hrozí vyhodenie Selenium session
+
 ## 1.2.7
 
 - Stuck `ORCHESTRATOR_URL=http://haos_orchestrator:8000` sa pri štarte prepíše cez Supervisor na `http://8c003d88-haos-orchestrator:8000`

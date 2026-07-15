@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.9] / Elite Date [1.2.8] / Tinder [1.2.11] - 2026-07-15
+
+### Fixed
+- DNS hash sa berie zo **Supervisor** (skutočný slug, napr. `03146090-haos-*`), nie z hardcoded `8c003d88`.
+- Ak je v Nastaveniach iný hash než na HA, pri štarte sa prepíše podľa nainštalovaných add-onov.
+- Tip: nepoužívaj Elite Date / Tinder **web naraz** so zapnutým botom — server často vyhodí Selenium session.
+
 ## [1.2.8] / Elite Date [1.2.7] / Tinder [1.2.10] - 2026-07-15
 
 ### Fixed

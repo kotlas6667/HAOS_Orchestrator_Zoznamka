@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.11
+
+- URL orchestrátora podľa Supervisor slug (skutočný hash prefix), nie hardcoded `8c003d88`
+
 ## 1.2.10
 
 - Stuck `ORCHESTRATOR_URL=http://haos_orchestrator:8000` sa pri štarte prepíše cez Supervisor na `http://8c003d88-haos-orchestrator:8000`
