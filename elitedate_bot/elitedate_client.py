@@ -1036,8 +1036,68 @@ class EliteDateClient:
                 continue
         return ""
 
+    def _click_new_members_next_page(self) -> bool:
+        """Click „Ďalšie“ on Noví členovia pagination. Returns True if navigated."""
+        for by, selector in (
+            (By.CSS_SELECTOR, "a.btn-success[href*='novi-clenove'][href*='listFrom=']"),
+            (By.CSS_SELECTOR, "a.btn[href*='/ucet/novi-clenove?'][href*='listFrom=']"),
+            (By.XPATH, "//a[contains(@href,'novi-clenove') and contains(@href,'listFrom=') and contains(.,'Ďalšie')]"),
+            (By.XPATH, "//a[contains(@class,'btn-success') and contains(normalize-space(),'Ďalšie')]"),
+        ):
+            try:
+                el = self.driver.find_element(by, selector)
+            except Exception:  # noqa: BLE001
+                continue
+            href = (el.get_attribute("href") or "").strip()
+            if not self._safe_click(el):
+                if href:
+                    self.driver.get(href)
+                else:
+                    continue
+            time.sleep(1.0)
+            try:
+                self._wait.until(
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, "a.c-card[href*='/profil/'], a[href*='/profil/']")
+                    )
+                )
+            except TimeoutException:
+                pass
+            print(f"[elitedate_bot] Noví členovia → Ďalšie ({href or 'click'})")
+            return True
+        return False
+
+    def _harvest_visible_new_member_cards(
+        self, seen: set[str], profiles: list[dict[str, str]], limit: int
+    ) -> int:
+        """Append newly visible profile cards; return how many were added."""
+        links = self.driver.find_elements(By.CSS_SELECTOR, "a.c-card[href*='/profil/']")
+        if not links:
+            links = self.driver.find_elements(By.CSS_SELECTOR, "a[href*='/profil/']")
+        added = 0
+        for link in links:
+            if len(profiles) >= limit:
+                break
+            href = (link.get_attribute("href") or "").strip()
+            if "/profil/" not in href:
+                continue
+            profile_id = href.split("/profil/")[-1].split("?")[0].strip("/")
+            if not profile_id or profile_id in seen:
+                continue
+            name = ""
+            try:
+                name = self._name_from_heading_text(
+                    link.find_element(By.CSS_SELECTOR, "h4.card-heading, .card-heading").text or ""
+                )
+            except Exception:  # noqa: BLE001
+                pass
+            seen.add(profile_id)
+            profiles.append({"profile_id": profile_id, "url": href, "name": name})
+            added += 1
+        return added
+
     def _collect_new_member_profiles(self, limit: int = 40) -> list[dict[str, str]]:
-        """Collect unique profile id/url(/name) from the Noví členovia grid (a.c-card)."""
+        """Collect unique profile id/url(/name) across Noví členovia pages (Ďalšie)."""
         # Prefer staying on filtered results; only reload if cards are missing.
         if not self.driver.find_elements(By.CSS_SELECTOR, "a.c-card[href*='/profil/'], a[href*='/profil/']"):
             self.driver.get(self._new_members_url())
@@ -1051,40 +1111,40 @@ class EliteDateClient:
 
         seen: set[str] = set()
         profiles: list[dict[str, str]] = []
-        stagnant = 0
-        for _ in range(12):
-            links = self.driver.find_elements(By.CSS_SELECTOR, "a.c-card[href*='/profil/']")
-            if not links:
-                links = self.driver.find_elements(By.CSS_SELECTOR, "a[href*='/profil/']")
-            before = len(profiles)
-            for link in links:
-                href = (link.get_attribute("href") or "").strip()
-                if "/profil/" not in href:
-                    continue
-                profile_id = href.split("/profil/")[-1].split("?")[0].strip("/")
-                if not profile_id or profile_id in seen:
-                    continue
-                name = ""
-                try:
-                    name = self._name_from_heading_text(
-                        link.find_element(By.CSS_SELECTOR, "h4.card-heading, .card-heading").text or ""
-                    )
-                except Exception:  # noqa: BLE001
-                    pass
-                seen.add(profile_id)
-                profiles.append({"profile_id": profile_id, "url": href, "name": name})
+        # ~16 kariet / stránka; hard cap stránok proti nekonečnému klikaniu.
+        max_pages = max(3, min(25, (limit // 8) + 3))
+
+        for page_idx in range(max_pages):
+            stagnant = 0
+            for _ in range(8):
+                before = len(profiles)
+                self._harvest_visible_new_member_cards(seen, profiles, limit)
                 if len(profiles) >= limit:
+                    print(
+                        f"[elitedate_bot] Noví členovia collected {len(profiles)} "
+                        f"(page {page_idx + 1}/{max_pages})"
+                    )
                     return profiles
 
-            if len(profiles) == before:
-                stagnant += 1
-                if stagnant >= 2:
-                    break
-            else:
-                stagnant = 0
+                if len(profiles) == before:
+                    stagnant += 1
+                    if stagnant >= 2:
+                        break
+                else:
+                    stagnant = 0
 
-            self.driver.execute_script("window.scrollBy(0, Math.max(400, window.innerHeight * 0.85));")
-            time.sleep(0.35)
+                self.driver.execute_script("window.scrollBy(0, Math.max(400, window.innerHeight * 0.85));")
+                time.sleep(0.35)
+
+            if len(profiles) >= limit:
+                break
+
+            if not self._click_new_members_next_page():
+                print(
+                    f"[elitedate_bot] Noví členovia: no more Ďalšie "
+                    f"(collected {len(profiles)} on page {page_idx + 1})"
+                )
+                break
 
         return profiles
 

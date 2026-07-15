@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.6
+
+- Ranné pozdravy: po vyčerpaní kariet na stránke klikne **Ďalšie**
+  (`a.btn-success` s `listFrom=`) a načíta ďalšie profily
+
 ## 1.3.5
 
 - Nové nastavenie **Max. prehľadaných profilov** (`morning_greet_max_opens`, default 20)
