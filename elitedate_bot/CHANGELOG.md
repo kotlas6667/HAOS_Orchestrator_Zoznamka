@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.4
+
+- GitHub DNS: `ORCHESTRATOR_URL=http://8c003d88-haos-orchestrator:8000` (+ auto-discover)
+- `hassio_api` pre resolúciu hostname cez Supervisor
+
 ## 1.2.3
 
 - Detekcia nových správ cez JSON cache (`.conversation_previews.json`) ako Tinder — nie tučné písmo

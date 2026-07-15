@@ -1,10 +1,15 @@
 # Changelog
 
+## 1.2.5
+
+- **GitHub DNS fix:** hostname je `{repo_hash}-haos-*` (u nás `8c003d88-…`), nie `local-haos-*`
+- Auto-resolve cez Supervisor API + oprava `options.json` pri štarte
+- `local-haos-*` / `haos_*` sa považujú za neplatné a prepíšu sa
+
 ## 1.2.4
 
-- Force DNS migrácia `haos_*` → `local-haos-*` (aj zápis späť do `options.json`)
-- Startup banner `image version=…` — v logu hneď vidno, či beží nový image
-- Refuse start, ak dating URL stále ukazujú na neplatný host
+- Force DNS migrácia + startup banner `image version=…`
+- Refuse start pri zjavne zlých dating URL
 
 ## 1.2.3
 

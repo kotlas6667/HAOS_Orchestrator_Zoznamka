@@ -26,7 +26,7 @@ class BotSettings(BaseSettings):
     bot_port: int = Field(default=8601, validation_alias="TINDER_BOT_PORT")
 
     # Where the orchestrator's FastAPI app listens (this bot calls that)
-    orchestrator_url: str = "http://local-haos-orchestrator:8000"
+    orchestrator_url: str = "http://8c003d88-haos-orchestrator:8000"
 
     # Polling
     poll_enabled: bool = Field(default=True, validation_alias="TINDER_POLL_ENABLED")

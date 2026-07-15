@@ -31,7 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY app/ /app/app/
-COPY requirements.txt config.json run.sh /app/
+COPY requirements.txt config.json run.sh addon_dns.py /app/
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

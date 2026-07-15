@@ -34,7 +34,7 @@ RUN mkdir -p /app/tinder_bot
 COPY __init__.py browser.py chrome_lock.py config.py tinder_client.py \
      main.py poller.py server.py session.py shared_state.py \
      /app/tinder_bot/
-COPY run.sh /app/run.sh
+COPY run.sh addon_dns.py /app/
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
