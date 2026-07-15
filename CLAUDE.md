@@ -77,7 +77,8 @@ Mirrors `elitedate_bot/` — a separate Selenium process on Tinder web (`tinder.
 - **UI quirk:** Tinder opens on **Zhody** (matches grid) by default. `TinderClient._navigate_to_inbox()` always clicks the **Správy** tab first. Only list rows with a message preview count as conversations — Zhody match tiles (`a[href*='/app/messages/']` without preview) are ignored.
 - **New-message detection:** compares preview text per conversation against `tinder_bot/.conversation_previews.json`; opens a chat only when preview changes and last bubble is from them. Seeding (`previous_preview is None`) never opens chats.
 - **Debug endpoints:** `GET /health`, `GET /debug/inbox`, `POST /debug/poll` on port 8601 (default).
-- **Packaging:** bundled in `Dockerfile`/`run.sh` (`TINDER_BOT_ENABLED`, supervised restart). See `tinder_bot/README.md`.
+- **Packaging:** samostatný HA add-on (`tinder_bot/`, slug `haos_tinder`, DNS `local-haos-tinder:8601`). Orchestrátor → `TINDER_BOT_URL`. Rovnaká DNS migrácia `haos_*` → `local-haos-*` pri štarte. See `tinder_bot/README.md`.
+- Status v Discorde: tool `dating_status` (router) — otázky typu „správy na ed?“ / „ide Tinder?“ idú sem, nie do Gmailu.
 
 ## Notes for future edits to this file
 
