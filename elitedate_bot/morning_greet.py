@@ -2,7 +2,8 @@
 
 When enabled in settings, once per day at the configured hour the bot:
 1. opens /ucet/novi-clenove and applies the search filter if needed,
-2. walks unique profile cards (up to morning_greet_max_profiles),
+2. walks unique profile cards until it has *sent* morning_greet_max_profiles
+   greetings (empty chats only; history skips do not count toward the limit),
 3. opens „Napísať správu“ and sends „Ahoj :-)“ only when the thread is empty.
 
 Processed profile IDs are persisted so the same person is not re-opened forever.
@@ -69,7 +70,7 @@ async def morning_greet_loop() -> None:
     minute = max(0, min(59, int(settings.morning_greet_minute)))
     print(
         f"[elitedate_bot] Morning greet enabled — daily at {hour:02d}:{minute:02d}, "
-        f"max {settings.morning_greet_max_profiles} profiles."
+        f"target {settings.morning_greet_max_profiles} sent greetings."
     )
 
     while True:

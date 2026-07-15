@@ -1,7 +1,7 @@
 {
   "name": "HAOS Elite Date Bot",
   "description": "Samostatný Selenium bot pre Elite Date. Prihlasovacie údaje a orchestrátor nastav v Nastaveniach add-onu.",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "slug": "haos_elitedate",
   "init": false,
   "arch": ["amd64", "aarch64"],
