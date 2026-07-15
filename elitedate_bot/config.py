@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,9 +19,10 @@ class BotSettings(BaseSettings):
     # HA lokálne add-ony: DNS = local-{slug} s pomlčkami.
     orchestrator_url: str = "http://8c003d88-haos-orchestrator:8000"
 
-    # Polling
-    poll_interval_min_sec: float = 90.0
-    poll_interval_max_sec: float = 180.0
+    # Polling (parity with Tinder: poll_enabled in HA Nastavenia)
+    poll_enabled: bool = Field(default=True, validation_alias="POLL_ENABLED")
+    poll_interval_min_sec: float = Field(default=90.0, validation_alias="POLL_INTERVAL_MIN_SEC")
+    poll_interval_max_sec: float = Field(default=180.0, validation_alias="POLL_INTERVAL_MAX_SEC")
 
     # Browser
     browser: str = "chrome"  # supported: chrome, edge

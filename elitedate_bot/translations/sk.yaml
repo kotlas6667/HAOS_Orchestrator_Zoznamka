@@ -28,6 +28,13 @@ configuration:
     description: >-
       ZAPNUTÉ (true) — Chromium beží na pozadí bez okna (bežná prevádzka).
       VYPNUTÉ (false) — len pri ladení s pripojeným displejom / VNC.
+  poll_enabled:
+    name: Automatické sledovanie správ
+    description: >-
+      ZAPNUTÉ — bot pravidelne (cca 90–180 s) kontroluje nové Elite Date správy
+      a posiela ich orchestrátoru na Discord. VYPNUTÉ — nevyhľadáva inbox
+      (vhodné keď chceš ísť na web); Discord odpovede (/send) stále fungujú.
+      Pri silnom konflikte session web+bot aj tak zastav celý add-on.
 
 network:
   8600/tcp: HTTP API bota — /health, odoslanie odpovedí z Discordu

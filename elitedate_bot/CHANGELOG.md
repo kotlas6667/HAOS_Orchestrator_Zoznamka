@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.9
+
+- Prepínač **Automatické sledovanie správ** (`poll_enabled`) ako pri Tinderi
+- VYPNUTÉ = bot nekontroluje inbox (vhodné pri webe); `/send` z Discordu stále funguje
+- `/health` vracia `poll_enabled`
+
 ## 1.2.8
 
 - URL orchestrátora podľa Supervisor slug (napr. `03146090-haos-orchestrator`), nie hardcoded `8c003d88`

@@ -12,10 +12,13 @@ app = FastAPI(title="EliteDate Bot")
 
 @app.get("/health")
 async def health() -> dict:
+    from elitedate_bot.config import settings
+
     return {
         "status": "ok",
         "logged_in": shared_state.client is not None,
         "session_alive": session_alive(shared_state.client),
+        "poll_enabled": settings.poll_enabled,
     }
 
 

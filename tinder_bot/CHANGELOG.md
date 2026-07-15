@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.12
+
+- `/health` vracia `poll_enabled` (parity s Elite Date)
+
 ## 1.2.11
 
 - URL orchestrátora podľa Supervisor slug (skutočný hash prefix), nie hardcoded `8c003d88`

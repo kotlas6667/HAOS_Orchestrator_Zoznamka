@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.10] / Elite Date [1.2.9] / Tinder [1.2.12] - 2026-07-15
+
+### Added
+- Elite Date: prepínač **Automatické sledovanie správ** (`poll_enabled`) — rovnako ako Tinder.
+  VYPNUTÉ pri používaní webu; Discord `/send` ostáva aktívny.
+- `dating_status` zobrazí, keď je ED poll vypnutý.
+
 ## [1.2.9] / Elite Date [1.2.8] / Tinder [1.2.11] - 2026-07-15
 
 ### Fixed

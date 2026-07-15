@@ -23,6 +23,7 @@ BOT_PORT=8600
 # GitHub-store DNS = {repo_hash}-haos-orchestrator (nie local- / haos_)
 ORCHESTRATOR_URL=http://8c003d88-haos-orchestrator:8000
 
+POLL_ENABLED=true
 POLL_INTERVAL_MIN_SEC=90
 POLL_INTERVAL_MAX_SEC=180
 
@@ -60,6 +61,7 @@ if options_path.is_file():
         "elitedate_login_url": "ELITEDATE_LOGIN_URL",
         "orchestrator_url": "ORCHESTRATOR_URL",
         "headless": "HEADLESS",
+        "poll_enabled": "POLL_ENABLED",
     }
     for opt_key, env_key in mapping.items():
         if opt_key not in opts:
@@ -157,6 +159,7 @@ fi
 
 echo "[elitedate_bot] ORCHESTRATOR_URL=${ORCHESTRATOR_URL:-<unset>}"
 echo "[elitedate_bot] HEADLESS=${HEADLESS:-true}"
+echo "[elitedate_bot] POLL_ENABLED=${POLL_ENABLED:-true}"
 
 _shutdown() {
     echo "Shutting down Elite Date bot..."
