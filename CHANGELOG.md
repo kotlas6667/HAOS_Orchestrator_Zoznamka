@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.7] / Elite Date [1.2.6] / Tinder [1.2.9] - 2026-07-15
+
+### Fixed
+- Vrátené predvolené URL `http://8c003d88-haos-*` (ako v 1.2.5) — prázdne „auto“ polia z 1.2.6 späť neplatia.
+- Ak už máš fill-in hostname a boty bežia, nič nemen. Po update stačí restart orchestratora.
+
 ## 1.2.5
 
 - **GitHub DNS fix:** hostname je `{repo_hash}-haos-*` (u nás `8c003d88-…`), nie `local-haos-*`
