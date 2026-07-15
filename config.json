@@ -1,7 +1,7 @@
 {
   "name": "HAOS Orchestrator",
   "description": "AI orchestrátor pre Home Assistant — Gmail, Kalendár, Počasie, Discord a smart home. Elite Date a Tinder sú samostatné add-ony.",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "slug": "haos_orchestrator",
   "init": false,
   "arch": ["amd64", "aarch64", "armv7"],
@@ -33,8 +33,8 @@
     "discord_bot_token": "",
     "discord_webhook_url": "",
     "discord_bot_channel_id": "",
-    "elitedate_bot_url": "http://8c003d88-haos-elitedate:8600",
-    "tinder_bot_url": "http://8c003d88-haos-tinder:8601",
+    "elitedate_bot_url": "",
+    "tinder_bot_url": "",
     "elitedate_auto_send": false,
     "tinder_auto_send": false
   },
@@ -50,8 +50,8 @@
     "discord_bot_token": "password",
     "discord_webhook_url": "str?",
     "discord_bot_channel_id": "str?",
-    "elitedate_bot_url": "str",
-    "tinder_bot_url": "str",
+    "elitedate_bot_url": "str?",
+    "tinder_bot_url": "str?",
     "elitedate_auto_send": "bool",
     "tinder_auto_send": "bool"
   },
