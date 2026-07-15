@@ -79,9 +79,16 @@ async def poll_loop() -> None:
             new_count += 1
             try:
                 await _notify_orchestrator(msg)
+                print(
+                    f"[elitedate_bot] Notified orchestrator: {msg.get('sender')} "
+                    f"— {str(msg.get('message') or '')[:80]}"
+                )
             except Exception as exc:  # noqa: BLE001
                 print(f"[elitedate_bot] Failed to notify orchestrator: {exc}")
                 seen.discard(key)  # retry next cycle
 
         if new_count:
             _save_seen(seen)
+        elif messages:
+            # Deduped against .seen_messages.json — still useful in logs.
+            print(f"[elitedate_bot] {len(messages)} candidate(s) already in seen cache")

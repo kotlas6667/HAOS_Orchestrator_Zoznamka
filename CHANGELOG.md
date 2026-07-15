@@ -1,5 +1,10 @@
 # Changelog
 
+## Elite Date [1.3.2] - 2026-07-15
+
+### Fixed
+- ED poll ako Tinder: detekcia nových správ cez plain preview cache + otvorenie chatu podľa ID (oprava stale DOM / stratených notifikácií).
+
 ## Elite Date [1.3.1] - 2026-07-15
 
 ### Fixed

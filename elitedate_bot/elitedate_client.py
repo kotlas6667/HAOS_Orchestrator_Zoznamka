@@ -400,9 +400,17 @@ class EliteDateClient:
     def _last_message_is_received(self) -> bool:
         bubbles = self.driver.find_elements(By.CSS_SELECTOR, "section.conversation-section-message .message")
         if not bubbles:
+            bubbles = self.driver.find_elements(By.CSS_SELECTOR, ".message")
+        if not bubbles:
             return False
-        cls = bubbles[-1].get_attribute("class") or ""
-        return "message-receiver" in cls
+        cls = (bubbles[-1].get_attribute("class") or "").lower()
+        # Elite Date uses message-receiver for their bubbles; also accept common aliases.
+        if "message-receiver" in cls or "message-received" in cls or "incoming" in cls:
+            return True
+        if "message-sender" in cls or "outgoing" in cls:
+            return False
+        # Unknown class: treat as theirs if we can read a received bubble text.
+        return bool(self._latest_received_message())
 
     def _load_preview_cache(self) -> dict[str, Any]:
         if _PREVIEW_CACHE_FILE.exists():
@@ -417,9 +425,57 @@ class EliteDateClient:
         _PREVIEW_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
         _PREVIEW_CACHE_FILE.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    @staticmethod
+    def _cached_preview_text(previous: Any) -> str | None:
+        """Normalize cache entry → plain preview string (Tinder stores strings)."""
+        if previous is None:
+            return None
+        if isinstance(previous, str):
+            return previous
+        if isinstance(previous, dict):
+            return str(previous.get("inbox_preview") or "")
+        return str(previous)
+
     def _conversation_inbox_preview(self, card) -> str:
-        """Stable-ish text snapshot of the inbox row (name + preview snippet)."""
-        return (card.text or "").strip()
+        """Message preview snippet (Tinder-style) — not the whole card text.
+
+        Full card.text also contains relative times ("pred 5 min") that change
+        without a new message and used to cause stale/false opens.
+        """
+        name = self._conversation_sender_name(card).strip()
+        for selector in (
+            ".message-preview",
+            ".col-message-text",
+            ".conversation-preview",
+            "p",
+            "span",
+        ):
+            try:
+                nodes = card.find_elements(By.CSS_SELECTOR, selector)
+            except Exception:  # noqa: BLE001
+                continue
+            for node in nodes:
+                snippet = (node.text or "").strip()
+                if not snippet:
+                    continue
+                if name and snippet.lower() == name.lower():
+                    continue
+                if re.fullmatch(r"(pred\s+)?\d+\s*(min|h|hod|d|dňami|dni|minútami)?\.?", snippet, re.I):
+                    continue
+                if re.fullmatch(r"\d{1,2}\.\s*\d{1,2}\.?(?:\s*\d{1,2}:\d{2})?", snippet):
+                    continue
+                return snippet
+
+        full = (card.text or "").strip()
+        if name and full.lower().startswith(name.lower()):
+            full = full[len(name) :].strip()
+        lines = [ln.strip() for ln in full.splitlines() if ln.strip()]
+        while lines and (
+            re.fullmatch(r"(pred\s+)?\d+\s*(min|h|hod|d|dňami|dni|minútami)?\.?", lines[0], re.I)
+            or re.fullmatch(r"\d{1,2}\.\s*\d{1,2}\.?(?:\s*\d{1,2}:\d{2})?", lines[0])
+        ):
+            lines.pop(0)
+        return " ".join(lines).strip() or full
 
     def _collect_conversation_cards(self, *, scroll_all: bool = False) -> list:
         """Return inbox cards; optionally scroll virtualized list to seed every thread."""
@@ -527,64 +583,107 @@ class EliteDateClient:
             self.driver.get(self._messages_url())
             self._wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".conversation-section-list")))
 
-    def check_new_messages(self) -> list[dict[str, Any]]:
-        """Return conversations whose inbox preview changed and last bubble is from them.
+    def _list_inbox_rows(self, *, scroll_all: bool = False) -> list[dict[str, str]]:
+        """Snapshot inbox as plain dicts (no live WebElements — avoids stale refs like Tinder)."""
+        cards = self._collect_conversation_cards(scroll_all=scroll_all)
+        rows: list[dict[str, str]] = []
+        seen: set[str] = set()
+        for card in cards:
+            conversation_id = self._conversation_profile_id(card)
+            if not conversation_id or conversation_id in seen:
+                continue
+            seen.add(conversation_id)
+            preview = self._conversation_inbox_preview(card)
+            if not preview:
+                continue
+            rows.append(
+                {
+                    "conversation_id": conversation_id,
+                    "sender": self._conversation_sender_name(card) or "Neznámy",
+                    "preview": preview,
+                }
+            )
+        return rows
 
-        Persists per-thread state in `.conversation_previews.json` (same idea as Tinder):
-        - first sight (or empty cache after restart): seed preview + last bubble, **no** notify
-        - later polls: inbox preview changed → open chat → notify only if their new message
+    def _open_conversation_by_id(self, conversation_id: str) -> None:
+        """Re-open inbox and click a fresh card for `conversation_id` (Tinder opens by URL)."""
+        target = (conversation_id or "").strip()
+        if not target:
+            raise RuntimeError("empty conversation_id")
+        # Always reload inbox so we never reuse a stale WebElement from the scan pass.
+        self.driver.get(self._messages_url())
+        time.sleep(0.4)
+        item = self._find_conversation_item(target)
+        if item is None:
+            raise RuntimeError(f"conversation card not found for id={target!r}")
+        self._click_conversation(item)
+        time.sleep(0.5)
+        try:
+            self._wait.until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, "section.conversation-section-message .message, textarea.message-send-input")
+                )
+            )
+        except TimeoutException:
+            pass
+
+    def check_new_messages(self) -> list[dict[str, Any]]:
+        """Return conversations whose preview changed and last bubble is from them.
+
+        Aligned with Tinder:
+        - seed / unchanged preview → update cache only, never open chat
+        - preview changed → open chat by id (fresh DOM), notify if last msg is from them
+        - message text falls back to inbox preview if bubble text is empty
         """
         cache = self._load_preview_cache()
         seeding = not cache
-        cards = self._collect_conversation_cards(scroll_all=seeding)
-        updated_cache = dict(cache)
+        rows = self._list_inbox_rows(scroll_all=seeding)
+        updated_cache: dict[str, Any] = dict(cache)
         results: list[dict[str, Any]] = []
+        changed = 0
 
-        for card in cards:
-            conversation_id = self._conversation_profile_id(card)
-            if not conversation_id:
+        for row in rows:
+            conversation_id = row["conversation_id"]
+            sender = row["sender"]
+            preview = row["preview"]
+            previous_preview = self._cached_preview_text(cache.get(conversation_id))
+            updated_cache[conversation_id] = preview
+
+            # First sighting or unchanged — seed only (Tinder never opens on seed).
+            if previous_preview is None or previous_preview == preview:
                 continue
 
-            sender = self._conversation_sender_name(card) or "Neznámy"
-            inbox_preview = self._conversation_inbox_preview(card)
-            previous = cache.get(conversation_id)
+            changed += 1
+            try:
+                self._open_conversation_by_id(conversation_id)
+                if not self._last_message_is_received():
+                    print(f"[elitedate_bot] Preview changed but last bubble is ours: {sender}")
+                    continue
 
-            # Unchanged preview — skip without opening the chat.
-            if isinstance(previous, dict) and previous.get("inbox_preview") == inbox_preview:
+                message_text = self._latest_received_message() or preview
+                my_last_message = self._latest_sent_message()
+                if not message_text:
+                    continue
+
+                results.append(
+                    {
+                        "conversation_id": conversation_id,
+                        "sender": sender,
+                        "message": message_text,
+                        "my_last_message": my_last_message,
+                    }
+                )
+                print(f"[elitedate_bot] New message from {sender}")
+            except Exception as exc:  # noqa: BLE001
+                # One broken thread must not abort the whole poll (stale refs used to).
+                print(f"[elitedate_bot] check_new_messages skip {conversation_id}: {exc}")
                 continue
-            # Backward compatible: older cache stored plain preview strings.
-            if isinstance(previous, str) and previous == inbox_preview:
-                continue
-
-            self._click_conversation(card)
-            time.sleep(0.5)
-            snapshot = self._snapshot_conversation(sender, inbox_preview)
-
-            if previous is None:
-                # Seed only — never spam Discord with the whole inbox after restart.
-                updated_cache[conversation_id] = snapshot
-                continue
-
-            if snapshot.get("from_them"):
-                message_text = str(snapshot.get("last_message") or "").strip()
-                if isinstance(previous, dict):
-                    old_message = str(previous.get("last_message") or "").strip()
-                else:
-                    old_message = ""
-                if message_text and message_text != old_message:
-                    results.append(
-                        {
-                            "conversation_id": conversation_id,
-                            "sender": sender,
-                            "message": message_text,
-                            "my_last_message": snapshot.get("my_last_message", ""),
-                        }
-                    )
-                    print(f"[elitedate_bot] New message from {sender}")
-
-            updated_cache[conversation_id] = snapshot
 
         self._save_preview_cache(updated_cache)
+        print(
+            f"[elitedate_bot] Poll done: rows={len(rows)} preview_changes={changed} "
+            f"new={len(results)} seeding={seeding}"
+        )
         return results
 
     def send_reply(

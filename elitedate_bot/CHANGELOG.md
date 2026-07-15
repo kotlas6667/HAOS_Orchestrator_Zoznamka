@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.2
+
+- Poll zarovnaný s Tinderom: seed bez otvárania chatu, otvorenie podľa ID (žiadne stale WebElementy)
+- Preview = text správy (nie celá karta s „pred 5 min“)
+- Per-thread try/except + log `Poll done: rows=… preview_changes=… new=…`
+
 ## 1.3.1
 
 - **Kritická oprava:** `morning_greet.py` sa kopíruje do Docker image (1.3.0 by padol pri štarte)
