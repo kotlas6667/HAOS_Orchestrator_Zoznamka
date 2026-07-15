@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.5
+
+- Robustná DNS migrácia ORCHESTRATOR_URL (`haos_*` → `local-haos-*`)
+- Vždy force `TINDER_BOT_HOST=0.0.0.0` pri štarte
+
 ## 1.2.4
 
 - Oprava DNS na orchestrátor: `http://local-haos-orchestrator:8000`

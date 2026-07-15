@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.2
+
+- Robustná DNS migrácia hostnamov (`haos_*` → `local-haos-*`) pri každom štarte
+- Startup probe Elite Date / Tinder (`/health`) — jasný log ak DNS/URL zlyhá
+- Nový tool `dating_status` (Discord: „správy na ed?“ už nejde do Gmailu)
+
 ## 1.2.1
 
 - Oprava DNS medzi add-onmi: `local-haos-*` namiesto neplatného `haos_*`

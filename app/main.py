@@ -193,6 +193,30 @@ async def lifespan(app: FastAPI):
     else:
         print("[INFO] Gmail background tasks disabled (missing OAuth credentials file or provider not oauth).")
 
+    # Probe dating bots once at startup — wrong DNS shows up immediately in logs.
+    async def _probe_dating_bots() -> None:
+        import httpx
+
+        targets = (
+            ("Elite Date", settings.elitedate_bot_url),
+            ("Tinder", settings.tinder_bot_url),
+        )
+        for label, base in targets:
+            url = f"{base.rstrip('/')}/health"
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    r = await client.get(url)
+                    r.raise_for_status()
+                    body = r.json() if r.content else {}
+                print(
+                    f"[dating] {label} OK @ {base} "
+                    f"(logged_in={body.get('logged_in')} session_alive={body.get('session_alive')})"
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(f"[dating] {label} NEDOSTUPNÝ @ {base} — {exc}")
+
+    asyncio.create_task(_probe_dating_bots())
+
     # Start Discord bot if enabled
     discord_task = None
     if settings.discord_bot_enabled and settings.discord_bot_token and _acquire_discord_bot_lock():

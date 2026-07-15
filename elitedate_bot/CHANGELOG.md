@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.2
+
+- Robustná DNS migrácia ORCHESTRATOR_URL (`haos_*` → `local-haos-*`)
+- Default `BOT_HOST=0.0.0.0` a `ORCHESTRATOR_URL=http://local-haos-orchestrator:8000`
+
 ## 1.2.1
 
 - Oprava DNS na orchestrátor: `http://local-haos-orchestrator:8000`

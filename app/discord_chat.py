@@ -334,6 +334,10 @@ def build_discord_reply(prompt: str, response: PromptResponse) -> str:
     if tool == "gmail":
         return trim_to_discord_limit(_format_gmail(result))
 
+    if tool == "dating_status":
+        reply = str(result.get("reply", "")).strip()
+        return trim_to_discord_limit(reply or "Stav zoznamiek nie je dostupný.")
+
     # Fallback pre ostatne tooly
     lines: list[str] = []
     for key, value in result.items():

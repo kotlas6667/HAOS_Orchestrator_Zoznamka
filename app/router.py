@@ -18,6 +18,7 @@ Available tools:
 - homeassistant: Control smart home devices and automations. Params: {"action": "get_state|list_entities|turn_on|turn_off|toggle|call_service|list_automations|trigger_automation", "search": "<room/device keywords, e.g. 'svetlo pracovna'>", "domain": "<domain, only for call_service>", "service": "<service name, only for call_service>"}
 - todo: Personal task/TODO list. Params: {"action": "add|list|complete|remove|clear_done", "task": "<task text for add>", "id": <task number for complete/remove>}
 - messages: Send a message via Discord/Slack/webhook. Params: {"destination": "<channel>", "message": "<text>"}
+- dating_status: Check Elite Date / Tinder bot online status and pending reply queues. Params: {"service": "elitedate|tinder|both"}
 - chat: General conversation, questions, help. Params: {}
 
 Rules:
@@ -28,6 +29,11 @@ Rules:
 - If the user asks for a forecast/prediction for multiple days (e.g. "predpoveď na 3 dni", "počasie na zajtra a pozajtra", "zobraz +3 dni", "počasie na týždeň"), use action: "forecast" with the appropriate number of days. Keywords: predpoveď, forecast, +Xdní, nasledujúce dni, tento týždeň (weather context).
 - If the user just asks "aké je počasie?" or "koľko stupňov?" without mentioning multiple days, use action: "current".
 - If the user asks about emails, inbox, or wants to send email — use "gmail".
+- If the user asks about Elite Date / Tinder dating bots (status, online, new messages, "správy na ed", "elite date", "elite dáte", "elitedate", "tinder") — use "dating_status", NOT gmail.
+  - "Žiadne správy na ed?" / "máme správy na Elite Date?" → service: "elitedate"
+  - " Ide Tinder?" / "správy na tinderi" → service: "tinder"
+  - "fungujú zoznamky?" / "ed a tinder" → service: "both"
+  - Keywords: ed (only with správy/elite/date context), elite date, elite dáte, elitedate, tinder, zoznamka bots.
 - If the user asks about calendar, schedule, meetings, events, "čo mám dnes", "kedy mám meeting", or wants to create/add an event — use "calendar".
   - "čo mám dnes v kalendári?" → action: "today"
   - "čo mám tento týždeň?" → action: "upcoming", days: 7
