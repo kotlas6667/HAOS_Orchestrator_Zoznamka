@@ -1,5 +1,10 @@
 # Changelog
 
+## Elite Date [1.3.6] - 2026-07-15
+
+### Added
+- Ranné pozdravy: paginácia **Ďalšie** na Noví členovia — po prvej stránke načíta ďalšie karty.
+
 ## Elite Date [1.3.5] / Orchestrátor [1.2.11] - 2026-07-15
 
 ### Added

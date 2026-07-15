@@ -28,7 +28,8 @@ Voliteľný denný cyklus o **07:00** (lokálny čas kontajnera):
 2. Otvorí filter (`button.btn-partner-filter`) ak formulár nie je viditeľný
 3. Nastaví filter (ak ešte nie je): `#search_filter_form_ageFrom/To` 34–41, `heightTo` 166, 75 km (noUiSlider), potvrdí `#search_filter_form_submit`
 4. Prechádza karty `a.c-card`, kým neodošle `morning_greet_max_profiles` pozdravov
-   **alebo** kým neotvorí `morning_greet_max_opens` profilov (default 20 — anti-loop)
+   **alebo** kým neotvorí `morning_greet_max_opens` profilov (default 20 — anti-loop).
+   Keď dojdú karty na stránke, klikne **Ďalšie** a načíta ďalšiu stránku.
 5. Klikne `a.send-message-btn` — ak je chat prázdny, pošle `Ahoj :-)`; ak už sú `.message` bubliny, preskočí
 6. Ak niekoho pozdravil → Discord súhrn (mená + sent/checked) cez orchestrátor
 
