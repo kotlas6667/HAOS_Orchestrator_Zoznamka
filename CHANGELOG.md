@@ -1,5 +1,12 @@
 # Changelog
 
+## Elite Date [1.3.3] - 2026-07-15
+
+### Fixed
+- Ranné pozdravy: reálne DOM selektory (`btn-partner-filter`, `#search_filter_form_*`,
+  `#search_filter_form_submit`, `a.c-card`, `a.send-message-btn`) — oprava
+  „Filtrovať button not found“ (text v nested span + omylom zatvorený filter panel).
+
 ## Elite Date [1.3.2] - 2026-07-15
 
 ### Fixed

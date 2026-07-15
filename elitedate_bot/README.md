@@ -25,9 +25,10 @@ Manuálny test: `POST http://local-haos-elitedate:8600/debug/poll`.
 Voliteľný denný cyklus o **07:00** (lokálny čas kontajnera):
 
 1. Otvorí `https://www.elitedate.sk/ucet/novi-clenove`
-2. Nastaví filter (ak ešte nie je): vek 34–41, výška do 166, vzdelanie/fajčiar/deti = nezáleží, iba s fotkou, 75 km
-3. Prejde až `morning_greet_max_profiles` unikátnych profilov
-4. Klikne **Napísať správu** — ak je chat prázdny, pošle `Ahoj :-)`; ak už sú správy, preskočí
+2. Otvorí filter (`button.btn-partner-filter`) ak formulár nie je viditeľný
+3. Nastaví filter (ak ešte nie je): `#search_filter_form_ageFrom/To` 34–41, `heightTo` 166, 75 km (noUiSlider), potvrdí `#search_filter_form_submit`
+4. Prejde až `morning_greet_max_profiles` unikátnych kariet `a.c-card`
+5. Klikne `a.send-message-btn` — ak je chat prázdny, pošle `Ahoj :-)`; ak už sú `.message` bubliny, preskočí
 
 Spracované profilové ID sú v `/data/.morning_greeted.json` (neopakujú sa).
 Manuálny test: `POST http://local-haos-elitedate:8600/debug/morning_greet`.

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.3
+
+- Ranné pozdravy: stabilné DOM selektory z Elite Date SK
+  (`button.btn-partner-filter`, `#search_filter_form_*`, `#search_filter_form_submit`,
+  `a.c-card`, `a.send-message-btn`, noUiSlider vzdialenosť)
+- Filter panel sa už omylom nezatvára (toggle len keď formulár nie je viditeľný)
+- Submit „Filtrovať“ cez ID + JS click fallback (text je v nested `<span>`)
+
 ## 1.3.2
 
 - Poll zarovnaný s Tinderom: seed bez otvárania chatu, otvorenie podľa ID (žiadne stale WebElementy)
