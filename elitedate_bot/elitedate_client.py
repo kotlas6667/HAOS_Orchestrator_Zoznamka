@@ -1125,6 +1125,9 @@ class EliteDateClient:
     ) -> dict[str, Any]:
         """Apply Noví členovia filter and greet empty conversations.
 
+        `max_profiles` = koľko prázdnych chatov má dostať pozdrav (odoslaných správ).
+        Profily s históriou sa len preskočia a nepočítajú do limitu.
+
         Anti-loop:
         - skip profile IDs in `already_greeted` (persisted across days),
         - mark each opened profile as processed (sent or skipped-with-history),
@@ -1142,12 +1145,24 @@ class EliteDateClient:
         }
 
         self.ensure_new_members_filter()
-        # Collect more candidates than max so known IDs can be skipped.
-        candidates = self._collect_new_member_profiles(limit=max(max_profiles * 4, max_profiles + 5))
-        print(f"[elitedate_bot] Morning greet candidates: {len(candidates)} (max={max_profiles})")
+        # Zbieraj viac kandidátov — veľa môže mať históriu; limit je počet ODOSLANÝCH.
+        collect_limit = max(max_profiles * 12, 40)
+        # Hard cap: koľko profilov max otvoriť v jednom behu (ochrana pred nekonečným skrolovaním).
+        max_opens = max(max_profiles * 20, 60)
+        candidates = self._collect_new_member_profiles(limit=collect_limit)
+        print(
+            f"[elitedate_bot] Morning greet candidates: {len(candidates)} "
+            f"(target_sent={max_profiles}, max_opens={max_opens})"
+        )
 
         for profile in candidates:
-            if stats["checked"] >= max_profiles:
+            if stats["sent"] >= max_profiles:
+                break
+            if stats["checked"] >= max_opens:
+                print(
+                    f"[elitedate_bot] Morning greet stop: open cap {max_opens} "
+                    f"(sent={stats['sent']}/{max_profiles})"
+                )
                 break
 
             profile_id = profile["profile_id"]
@@ -1176,7 +1191,10 @@ class EliteDateClient:
                 stats["sent"] += 1
                 processed.append(profile_id)
                 known.add(profile_id)
-                print(f"[elitedate_bot] Morning greet sent to {profile_id}")
+                print(
+                    f"[elitedate_bot] Morning greet sent to {profile_id} "
+                    f"({stats['sent']}/{max_profiles})"
+                )
                 time.sleep(0.8)
             except Exception as exc:  # noqa: BLE001
                 stats["errors"] += 1

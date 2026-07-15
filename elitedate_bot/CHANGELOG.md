@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.4
+
+- Ranné pozdravy: `morning_greet_max_profiles` = počet **odoslaných** pozdravov
+  (profily s históriou sa preskočia a do limitu sa nepočítajú)
+
 ## 1.3.3
 
 - Ranné pozdravy: stabilné DOM selektory z Elite Date SK

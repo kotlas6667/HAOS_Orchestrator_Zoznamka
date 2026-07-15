@@ -1,5 +1,11 @@
 # Changelog
 
+## Elite Date [1.3.4] - 2026-07-15
+
+### Changed
+- Ranné pozdravy: `morning_greet_max_profiles` počíta len **odoslané** „Ahoj :-)“.
+  Profily s históriou sa preskakujú, kým sa nenájde cieľový počet prázdnych chatov.
+
 ## Elite Date [1.3.3] - 2026-07-15
 
 ### Fixed
