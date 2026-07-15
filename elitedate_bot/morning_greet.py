@@ -4,7 +4,9 @@ When enabled in settings, once per day at the configured hour the bot:
 1. opens /ucet/novi-clenove and applies the search filter if needed,
 2. walks unique profile cards until it has *sent* morning_greet_max_profiles
    greetings (empty chats only; history skips do not count toward the limit),
-3. opens „Napísať správu“ and sends „Ahoj :-)“ only when the thread is empty.
+   or until morning_greet_max_opens profiles have been opened (anti-loop),
+3. opens „Napísať správu“ and sends „Ahoj :-)“ only when the thread is empty,
+4. posts a Discord summary via the orchestrator when at least one greeting was sent.
 
 Processed profile IDs are persisted so the same person is not re-opened forever.
 """
@@ -15,6 +17,8 @@ import asyncio
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
+
+import httpx
 
 from elitedate_bot import shared_state
 from elitedate_bot.config import settings
@@ -60,6 +64,31 @@ def already_ran_today(today: str | None = None) -> bool:
     return _load_state().get("last_run_date") == day
 
 
+async def _notify_orchestrator_summary(result: dict) -> None:
+    """Pošli súhrn na Discord cez orchestrátor — len ak niekoho pozdravil."""
+    sent = int(result.get("sent") or 0)
+    if sent <= 0:
+        return
+    payload = {
+        "sent": sent,
+        "checked": int(result.get("checked") or 0),
+        "skipped_history": int(result.get("skipped_history") or 0),
+        "skipped_known": int(result.get("skipped_known") or 0),
+        "errors": int(result.get("errors") or 0),
+        "max_profiles": int(result.get("max_profiles") or settings.morning_greet_max_profiles),
+        "max_opens": int(result.get("max_opens") or settings.morning_greet_max_opens),
+        "sent_names": list(result.get("sent_names") or []),
+    }
+    url = f"{settings.orchestrator_url.rstrip('/')}/api/elitedate/morning_greet"
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+        print(f"[elitedate_bot] Morning greet Discord summary sent ({sent} names).")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[elitedate_bot] Morning greet Discord summary failed: {exc}")
+
+
 async def morning_greet_loop() -> None:
     """Wait until the configured morning hour, then run one greet cycle per day."""
     if not settings.morning_greet_enabled:
@@ -70,7 +99,8 @@ async def morning_greet_loop() -> None:
     minute = max(0, min(59, int(settings.morning_greet_minute)))
     print(
         f"[elitedate_bot] Morning greet enabled — daily at {hour:02d}:{minute:02d}, "
-        f"target {settings.morning_greet_max_profiles} sent greetings."
+        f"target {settings.morning_greet_max_profiles} sent / "
+        f"max {settings.morning_greet_max_opens} opens."
     )
 
     while True:
@@ -117,10 +147,12 @@ async def run_morning_greet_once() -> dict:
     """Run one greet cycle under the shared Selenium lock (for scheduler + debug)."""
     already = load_greeted_ids()
     max_profiles = max(1, int(settings.morning_greet_max_profiles))
+    max_opens = max(1, int(settings.morning_greet_max_opens))
     async with shared_state.driver_lock:
         result = await run_client_method(
             "run_morning_greet",
             max_profiles=max_profiles,
+            max_opens=max_opens,
             already_greeted=already,
             greeting_text=settings.morning_greet_message,
         )
@@ -128,4 +160,6 @@ async def run_morning_greet_once() -> dict:
     processed = set(result.get("processed_ids") or [])
     if processed:
         mark_greeted(processed)
+    # Debug endpoint should also notify Discord when greetings were sent.
+    await _notify_orchestrator_summary(result)
     return result

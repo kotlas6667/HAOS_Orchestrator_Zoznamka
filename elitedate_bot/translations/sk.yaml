@@ -40,12 +40,19 @@ configuration:
     description: >-
       ZAPNUTÉ — každý deň o 07:00 bot otvorí Noví členovia, nastaví filter
       (vek 34–41, výška do 166, 75 km, iba s fotkou) a pošle „Ahoj :-)“
-      profilom bez existujúcej konverzácie. VYPNUTÉ — predvolené.
+      profilom bez existujúcej konverzácie. Po behu pošle súhrn na Discord
+      (ak niekoho pozdravil). VYPNUTÉ — predvolené.
   morning_greet_max_profiles:
-    name: Počet profilov na ráno
+    name: Počet odoslaných pozdravov
     description: >-
-      Koľko profilov skontrolovať v jednom rannom cykle (1–50).
-      Už spracované profilové ID sa neopakujú (ochrana pred zacyklením).
+      Koľko prázdnych chatov má dostať „Ahoj :-)“ v jednom rannom cykle (1–50).
+      Profily, ktoré už majú históriu, sa do tohto čísla nepočítajú.
+  morning_greet_max_opens:
+    name: Max. prehľadaných profilov
+    description: >-
+      Horný strop — koľko profilov najviac otvoriť/prekuknúť v jednom behu
+      (default 20, max 100). Zabraňuje zacykleniu, keď veľa kariet už má chat.
+      Beh sa zastaví skôr, ak stihne odoslať cieľový počet pozdravov.
 
 network:
   8600/tcp: HTTP API bota — /health, odoslanie odpovedí z Discordu

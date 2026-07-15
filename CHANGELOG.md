@@ -1,5 +1,12 @@
 # Changelog
 
+## Elite Date [1.3.5] / Orchestrátor [1.2.11] - 2026-07-15
+
+### Added
+- ED: nastavenie **Max. prehľadaných profilov** (`morning_greet_max_opens`, default 20).
+- ED → Orchestrátor → Discord: ranný súhrn s menami a počtom pozdravených / prehľadaných.
+- Endpoint `POST /api/elitedate/morning_greet`.
+
 ## Elite Date [1.3.4] - 2026-07-15
 
 ### Changed

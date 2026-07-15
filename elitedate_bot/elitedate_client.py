@@ -1011,8 +1011,33 @@ class EliteDateClient:
         print("[elitedate_bot] Noví členovia filter applied.")
         return True
 
+    def _name_from_heading_text(self, raw: str) -> str:
+        """„Natalia, 36“ → „Natalia“."""
+        text = (raw or "").strip()
+        if not text:
+            return ""
+        return text.split(",")[0].strip()
+
+    def _profile_display_name(self) -> str:
+        """Best-effort name from an open profile / card page."""
+        for selector in (
+            "h4.card-heading",
+            ".card-heading",
+            "h1.profile-name",
+            ".profile-name",
+            "h1",
+        ):
+            try:
+                el = self.driver.find_element(By.CSS_SELECTOR, selector)
+                name = self._name_from_heading_text(el.text or "")
+                if name:
+                    return name
+            except Exception:  # noqa: BLE001
+                continue
+        return ""
+
     def _collect_new_member_profiles(self, limit: int = 40) -> list[dict[str, str]]:
-        """Collect unique profile id/url pairs from the Noví členovia grid (a.c-card)."""
+        """Collect unique profile id/url(/name) from the Noví členovia grid (a.c-card)."""
         # Prefer staying on filtered results; only reload if cards are missing.
         if not self.driver.find_elements(By.CSS_SELECTOR, "a.c-card[href*='/profil/'], a[href*='/profil/']"):
             self.driver.get(self._new_members_url())
@@ -1039,8 +1064,15 @@ class EliteDateClient:
                 profile_id = href.split("/profil/")[-1].split("?")[0].strip("/")
                 if not profile_id or profile_id in seen:
                     continue
+                name = ""
+                try:
+                    name = self._name_from_heading_text(
+                        link.find_element(By.CSS_SELECTOR, "h4.card-heading, .card-heading").text or ""
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
                 seen.add(profile_id)
-                profiles.append({"profile_id": profile_id, "url": href})
+                profiles.append({"profile_id": profile_id, "url": href, "name": name})
                 if len(profiles) >= limit:
                     return profiles
 
@@ -1120,13 +1152,15 @@ class EliteDateClient:
         self,
         *,
         max_profiles: int = 10,
+        max_opens: int = 20,
         already_greeted: set[str] | None = None,
         greeting_text: str = "Ahoj :-)",
     ) -> dict[str, Any]:
         """Apply Noví členovia filter and greet empty conversations.
 
         `max_profiles` = koľko prázdnych chatov má dostať pozdrav (odoslaných správ).
-        Profily s históriou sa len preskočia a nepočítajú do limitu.
+        `max_opens` = max. koľko profilov otvoriť/prehľadať (ochrana pred zacyklením).
+        Profily s históriou sa len preskočia a nepočítajú do `max_profiles`.
 
         Anti-loop:
         - skip profile IDs in `already_greeted` (persisted across days),
@@ -1135,6 +1169,9 @@ class EliteDateClient:
         """
         known = set(already_greeted or ())
         processed: list[str] = []
+        sent_names: list[str] = []
+        target_sent = max(1, int(max_profiles))
+        open_cap = max(1, int(max_opens))
         stats = {
             "checked": 0,
             "sent": 0,
@@ -1142,26 +1179,27 @@ class EliteDateClient:
             "skipped_known": 0,
             "errors": 0,
             "processed_ids": processed,
+            "sent_names": sent_names,
+            "max_profiles": target_sent,
+            "max_opens": open_cap,
         }
 
         self.ensure_new_members_filter()
-        # Zbieraj viac kandidátov — veľa môže mať históriu; limit je počet ODOSLANÝCH.
-        collect_limit = max(max_profiles * 12, 40)
-        # Hard cap: koľko profilov max otvoriť v jednom behu (ochrana pred nekonečným skrolovaním).
-        max_opens = max(max_profiles * 20, 60)
+        # Zbieraj aspoň toľko kariet, koľko smieme otvoriť (+ rezerva na known skip).
+        collect_limit = max(open_cap + 10, target_sent * 3, 20)
         candidates = self._collect_new_member_profiles(limit=collect_limit)
         print(
             f"[elitedate_bot] Morning greet candidates: {len(candidates)} "
-            f"(target_sent={max_profiles}, max_opens={max_opens})"
+            f"(target_sent={target_sent}, max_opens={open_cap})"
         )
 
         for profile in candidates:
-            if stats["sent"] >= max_profiles:
+            if stats["sent"] >= target_sent:
                 break
-            if stats["checked"] >= max_opens:
+            if stats["checked"] >= open_cap:
                 print(
-                    f"[elitedate_bot] Morning greet stop: open cap {max_opens} "
-                    f"(sent={stats['sent']}/{max_profiles})"
+                    f"[elitedate_bot] Morning greet stop: open cap {open_cap} "
+                    f"(sent={stats['sent']}/{target_sent})"
                 )
                 break
 
@@ -1171,9 +1209,12 @@ class EliteDateClient:
                 continue
 
             stats["checked"] += 1
+            display_name = (profile.get("name") or "").strip()
             try:
                 self.driver.get(profile["url"])
                 time.sleep(0.7)
+                if not display_name:
+                    display_name = self._profile_display_name()
                 self._open_write_message()
                 time.sleep(0.6)
                 self._wait.until(
@@ -1191,9 +1232,11 @@ class EliteDateClient:
                 stats["sent"] += 1
                 processed.append(profile_id)
                 known.add(profile_id)
+                label = display_name or profile_id
+                sent_names.append(label)
                 print(
-                    f"[elitedate_bot] Morning greet sent to {profile_id} "
-                    f"({stats['sent']}/{max_profiles})"
+                    f"[elitedate_bot] Morning greet sent to {label} "
+                    f"({stats['sent']}/{target_sent})"
                 )
                 time.sleep(0.8)
             except Exception as exc:  # noqa: BLE001

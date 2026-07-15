@@ -436,6 +436,13 @@ async def elitedate_incoming(request: Request):
     return {"status": "success", "entry": entry}
 
 
+@app.post("/api/elitedate/morning_greet")
+async def elitedate_morning_greet(request: Request):
+    """Súhrn ranných pozdravov z elitedate_bot → Discord (len keď niekoho pozdravil)."""
+    data = await request.json()
+    return await elitedate_dispatch.handle_morning_greet_summary(data)
+
+
 # Tinder bot integration endpoint
 from app.tools import tinder_dispatch
 

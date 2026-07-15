@@ -28,8 +28,9 @@ Voliteľný denný cyklus o **07:00** (lokálny čas kontajnera):
 2. Otvorí filter (`button.btn-partner-filter`) ak formulár nie je viditeľný
 3. Nastaví filter (ak ešte nie je): `#search_filter_form_ageFrom/To` 34–41, `heightTo` 166, 75 km (noUiSlider), potvrdí `#search_filter_form_submit`
 4. Prechádza karty `a.c-card`, kým neodošle `morning_greet_max_profiles` pozdravov
-   (profily s históriou sa preskočia a do limitu sa nepočítajú)
+   **alebo** kým neotvorí `morning_greet_max_opens` profilov (default 20 — anti-loop)
 5. Klikne `a.send-message-btn` — ak je chat prázdny, pošle `Ahoj :-)`; ak už sú `.message` bubliny, preskočí
+6. Ak niekoho pozdravil → Discord súhrn (mená + sent/checked) cez orchestrátor
 
 Spracované profilové ID sú v `/data/.morning_greeted.json` (neopakujú sa).
 Manuálny test: `POST http://local-haos-elitedate:8600/debug/morning_greet`.
@@ -46,6 +47,7 @@ Manuálny test: `POST http://local-haos-elitedate:8600/debug/morning_greet`.
 | `poll_enabled` | Automatické sledovanie inboxu (default `true`) |
 | `morning_greet_enabled` | Zapnúť ranné pozdravy (default `false`) |
 | `morning_greet_max_profiles` | Koľko **odoslaných** pozdravov za jeden beh (1–50, default 10) |
+| `morning_greet_max_opens` | Max. **prehľadaných/otvorených** profilov (1–100, default 20) — ochrana pred zacyklením |
 
 ## Lokálny / systemd beh (bez HA)
 

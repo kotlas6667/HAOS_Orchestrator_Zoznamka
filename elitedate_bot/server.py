@@ -21,6 +21,7 @@ async def health() -> dict:
         "poll_enabled": settings.poll_enabled,
         "morning_greet_enabled": settings.morning_greet_enabled,
         "morning_greet_max_profiles": settings.morning_greet_max_profiles,
+        "morning_greet_max_opens": settings.morning_greet_max_opens,
     }
 
 
