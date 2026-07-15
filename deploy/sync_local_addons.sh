@@ -29,7 +29,7 @@ cp -a "$REPO/tinder_bot" /addons/haos_tinder
 
 echo ""
 echo "Verzie na disku (/addons/*):"
-grep '"version"' /addons/haos_elitedate/config.json /addons/haos_tinder/config.json
+grep '"version"' "$REPO/config.json" /addons/haos_elitedate/config.json /addons/haos_tinder/config.json
 echo ""
 echo "Poznámka: koreň $REPO = HAOS Orchestrator (local). Pre GitHub Obchod doplnkov"
 echo "          tento sync nie je potrebný — stačí push na main + Aktualizovať v UI."
@@ -41,7 +41,11 @@ if command -v ha >/dev/null 2>&1; then
 fi
 
 echo ""
-echo "Hotovo. Ďalej:"
+echo "Hotovo. Rebuild všetkých troch (nová ED JSON cache + DNS fix):"
+echo "  ha addons rebuild local_haos_orchestrator"
 echo "  ha addons rebuild local_haos_elitedate"
 echo "  ha addons rebuild local_haos_tinder"
-echo "  (orchestrátor: Rebuild local_haos_orchestrator alebo z Obchodu)"
+echo ""
+echo "Po štarte v logu orchestrátora hľadaj:"
+echo "  [dating] Elite Date OK / Tinder OK"
+echo "  DNS fix … → http://local-haos-…"

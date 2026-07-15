@@ -80,59 +80,91 @@ import os
 import re
 from pathlib import Path
 
-DNS_FIXES = {
-    "http://haos_orchestrator:8000": "http://local-haos-orchestrator:8000",
-    "http://haos_tinder:8601": "http://local-haos-tinder:8601",
-    "http://haos_elitedate:8600": "http://local-haos-elitedate:8600",
+_HOST_MAP = {
+    "haos_orchestrator": "local-haos-orchestrator",
+    "haos_tinder": "local-haos-tinder",
+    "haos_elitedate": "local-haos-elitedate",
 }
 
 def fix_addon_dns(value: str) -> str:
-    return DNS_FIXES.get(value.strip(), value)
+    s = (value or "").strip()
+    if not s:
+        return s
+
+    def _repl(match: re.Match[str]) -> str:
+        scheme, host, rest = match.group(1), match.group(2), match.group(3) or ""
+        new_host = _HOST_MAP.get(host, host)
+        return f"{scheme}{new_host}{rest}"
+
+    return re.sub(r"(https?://)([^/\s:]+)(\S*)", _repl, s, count=1)
+
+def migrate_env_hosts(text: str) -> tuple[str, list[str]]:
+    notes: list[str] = []
+    out_lines: list[str] = []
+    for line in text.splitlines(keepends=True):
+        raw = line.rstrip("\n")
+        if "=" not in raw or raw.lstrip().startswith("#"):
+            out_lines.append(line)
+            continue
+        key, _, val = raw.partition("=")
+        fixed = fix_addon_dns(val)
+        if fixed != val:
+            notes.append(f"{key.strip()}: {val.strip()} → {fixed}")
+            nl = "\n" if line.endswith("\n") else ""
+            out_lines.append(f"{key}={fixed}{nl}")
+        else:
+            out_lines.append(line)
+    return "".join(out_lines), notes
 
 options_path = Path("/data/options.json")
 env_path = Path("/data/.env")
-if not options_path.is_file():
-    print("[tinder_bot] No /data/options.json — skipping HA options sync")
-    raise SystemExit(0)
-
-opts = json.loads(options_path.read_text(encoding="utf-8"))
-# HA option key → ENV key
-mapping = {
-    "tinder_headless": "TINDER_HEADLESS",
-    "orchestrator_url": "ORCHESTRATOR_URL",
-    "poll_enabled": "TINDER_POLL_ENABLED",
-    "login_wait_sec": "TINDER_LOGIN_WAIT_SEC",
-    "tinder_phone": "TINDER_PHONE",
-    "geolocation_enabled": "TINDER_GEOLOCATION_ENABLED",
-    "geolocation_lat": "TINDER_GEOLOCATION_LAT",
-    "geolocation_lon": "TINDER_GEOLOCATION_LON",
-}
-
-updates = {}
-for opt_key, env_key in mapping.items():
-    if opt_key not in opts:
-        continue
-    val = opts[opt_key]
-    if val is None:
-        continue
-    if isinstance(val, bool):
-        updates[env_key] = "true" if val else "false"
-    else:
-        raw = str(val)
-        fixed = fix_addon_dns(raw)
-        if fixed != raw:
-            print(f"[tinder_bot] DNS fix {env_key}: {raw} → {fixed}")
-        updates[env_key] = fixed
-
-if not updates:
-    print("[tinder_bot] HA options: nothing to apply")
-    raise SystemExit(0)
 
 text = env_path.read_text(encoding="utf-8") if env_path.is_file() else ""
-for old, new in DNS_FIXES.items():
-    if old in text:
-        text = text.replace(old, new)
-        print(f"[tinder_bot] Migrated .env DNS: {old} → {new}")
+text, env_notes = migrate_env_hosts(text)
+for note in env_notes:
+    print(f"[tinder_bot] Migrated .env DNS: {note}")
+
+updates = {}
+if options_path.is_file():
+    opts = json.loads(options_path.read_text(encoding="utf-8"))
+    mapping = {
+        "tinder_headless": "TINDER_HEADLESS",
+        "orchestrator_url": "ORCHESTRATOR_URL",
+        "poll_enabled": "TINDER_POLL_ENABLED",
+        "login_wait_sec": "TINDER_LOGIN_WAIT_SEC",
+        "tinder_phone": "TINDER_PHONE",
+        "geolocation_enabled": "TINDER_GEOLOCATION_ENABLED",
+        "geolocation_lat": "TINDER_GEOLOCATION_LAT",
+        "geolocation_lon": "TINDER_GEOLOCATION_LON",
+    }
+    for opt_key, env_key in mapping.items():
+        if opt_key not in opts:
+            continue
+        val = opts[opt_key]
+        if val is None:
+            continue
+        if isinstance(val, bool):
+            updates[env_key] = "true" if val else "false"
+        else:
+            raw = str(val)
+            fixed = fix_addon_dns(raw)
+            if fixed != raw:
+                print(f"[tinder_bot] DNS fix {env_key}: {raw} → {fixed}")
+            updates[env_key] = fixed
+else:
+    print("[tinder_bot] No /data/options.json — keeping .env defaults")
+
+orch = updates.get("ORCHESTRATOR_URL")
+if orch is None:
+    m = re.search(r"(?m)^ORCHESTRATOR_URL=(.*)$", text)
+    orch = m.group(1).strip() if m else ""
+orch = fix_addon_dns(orch) if orch else "http://local-haos-orchestrator:8000"
+for bad, good in _HOST_MAP.items():
+    if bad in orch:
+        orch = orch.replace(bad, good)
+updates["ORCHESTRATOR_URL"] = orch or "http://local-haos-orchestrator:8000"
+updates["TINDER_BOT_HOST"] = "0.0.0.0"
+
 for env_key, env_val in updates.items():
     pattern = re.compile(rf"(?m)^{re.escape(env_key)}=.*$")
     line = f"{env_key}={env_val}"
@@ -144,7 +176,6 @@ for env_key, env_val in updates.items():
         text += line + "\n"
 env_path.write_text(text, encoding="utf-8")
 
-# Export for this process (pydantic reads env first)
 export_lines = []
 for env_key, env_val in updates.items():
     os.environ[env_key] = env_val
@@ -153,7 +184,6 @@ print("[tinder_bot] Applied HA Nastavenia → .env:")
 for line in export_lines:
     print(f"  {line}")
 
-# Write a small file so bash can source exports
 Path("/tmp/ha_options_export.env").write_text(
     "\n".join(export_lines) + "\n", encoding="utf-8"
 )
@@ -175,8 +205,10 @@ set +a
 apply_addon_options
 
 [ -e "$DATA/.seen_messages.json" ] || echo "[]" > "$DATA/.seen_messages.json"
+[ -e "$DATA/.conversation_previews.json" ] || echo "{}" > "$DATA/.conversation_previews.json"
 mkdir -p /app/tinder_bot
 ln -sf "$DATA/.seen_messages.json" /app/tinder_bot/.seen_messages.json
+ln -sf "$DATA/.conversation_previews.json" /app/tinder_bot/.conversation_previews.json
 
 export TINDER_BROWSER=chrome
 export TINDER_BROWSER_BINARY=/usr/bin/chromium

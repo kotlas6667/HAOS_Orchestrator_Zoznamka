@@ -14,6 +14,10 @@ cp -a /addons/haos_orchestrator/elitedate_bot /addons/haos_elitedate
 2. Over `orchestrator_url` (default `http://local-haos-orchestrator:8000`).
 3. V orchestrátore nastav `ELITEDATE_BOT_URL=http://local-haos-elitedate:8600`.
 
+Nové správy: poller porovnáva inbox preview v `/data/.conversation_previews.json`
+(seed po reštarte neposiela Discord; notifikácia až pri zmene + posledná správa od nich).
+Manuálny test: `POST http://local-haos-elitedate:8600/debug/poll`.
+
 ## Nastavenia (HA UI)
 
 | Možnosť | Popis |
