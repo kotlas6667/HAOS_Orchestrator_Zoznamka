@@ -4,6 +4,7 @@
 
 - Elite Date: detekcia správ cez JSON preview cache (ako Tinder)
 - Perzistentné `.conversation_previews.json` pre ED aj Tinder v `/data`
+- Aktualizácia len cez GitHub Obchod (`deploy/UPDATE_VIA_GITHUB.md`) — bez `/addons` sync
 
 ## 1.2.2
 

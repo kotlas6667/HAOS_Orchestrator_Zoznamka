@@ -63,7 +63,7 @@ A second process — `elitedate_bot/` — automates a personal Elite Date accoun
 - **Selenium DOM selectors are placeholders.** `elitedate_client.py`'s `login()`, `check_new_messages()`, and `send_reply()` need real CSS selectors filled in from Elite Date's actual DOM (inspect via browser DevTools) — Elite Date's markup isn't something to guess at.
 - **Session recovery:** `elitedate_bot/session.py` rebuilds Chrome and re-logs in on `invalid session id` / dead browser; poller and `/send` use `run_with_recovery()`.
 - The Selenium `webdriver.Chrome` instance is not safe for concurrent use — both the poll loop and incoming `/send` calls acquire `elitedate_bot/shared_state.driver_lock` before touching it, and blocking Selenium calls are run via `asyncio.to_thread`.
-- **Packaging:** Elite Date beží ako **samostatný HA add-on** (`elitedate_bot/`, slug `haos_elitedate`, DNS `local-haos-elitedate:8600`). Orchestrátor ho volá cez `ELITEDATE_BOT_URL` (Nastavenia / `.env`). `run.sh` pri štarte migruje staré hostname `haos_*` → `local-haos-*`. Hlavný orchestrátor už bundlovaný Chromium nespúšťa.
+- **Packaging:** Elite Date beží ako **samostatný HA add-on** (`elitedate_bot/`, slug `haos_elitedate`, DNS `local-haos-elitedate:8600`). Orchestrátor ho volá cez `ELITEDATE_BOT_URL` (Nastavenia / `.env`). `run.sh` pri štarte migruje staré hostname `haos_*` → `local-haos-*`. Hlavný orchestrátor už bundlovaný Chromium nespúšťa. Inštalácia/aktualizácia: **iba GitHub Obchod** (`deploy/UPDATE_VIA_GITHUB.md`) — lokálny `/addons` sync nie je podporovaný.
 - Elite Date's ToS almost certainly prohibits automated/scripted use of the account — this is a known, accepted risk (account ban), not a technical concern to engineer around.
 
 ## Tinder integration (tinder_bot/)

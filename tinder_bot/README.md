@@ -1,25 +1,20 @@
 # Tinder bot — návod na spustenie a obnovu
 
-Tento bot (`tinder_bot/`) je **samostatný HA add-on / proces**. Drží prihlásenú
+Tento bot (`tinder_bot/`) je **samostatný HA add-on**. Drží prihlásenú
 Selenium session na Tinderi, sleduje nové správy a odosiela vybrané odpovede.
 S orchestrátorom sa rozpráva cez HTTP (`ORCHESTRATOR_URL` / `TINDER_BOT_URL`).
 
 Beží ako **samostatný HA add-on** (vlastný Chromium, slug `haos_tinder`).
-Na i3 / 16 GB môže bežať naraz s Elite Date add-onom — oddelenie je kvôli
-izolácii, nie kvôli RAM.
 
-## Inštalácia ako HA add-on
+## Inštalácia / aktualizácia
 
-**Kompletný návod:** [`deploy/HAOS_DEPLOY.md`](../deploy/HAOS_DEPLOY.md)
+Len cez **GitHub Obchod** — pozri [`deploy/UPDATE_VIA_GITHUB.md`](../deploy/UPDATE_VIA_GITHUB.md).
 
-```bash
-bash /addons/haos_orchestrator/deploy/sync_local_addons.sh
-# Supervisor → Local add-ons → HAOS Tinder Bot → Install
-```
+Repo: `https://github.com/kotlas6667/HAOS_Orchestrator_Zoznamka`
 
 ### 1) Nastavenia (prvý krok — ešte pred Start)
 
-**Doplnky → HAOS Tinder Bot → Nastavenia → Možnosti** (popisy pri každom poli, jazyk HA = sk):
+**Doplnky → HAOS Tinder Bot → Nastavenia → Možnosti**:
 
 | Pole | Prvé prihlásenie | Bežná prevádzka |
 |------|------------------|-----------------|
@@ -31,73 +26,39 @@ bash /addons/haos_orchestrator/deploy/sync_local_addons.sh
 
 **Sieť:** porty `8601` (API) a `6080` (noVNC) nechaj predvolené → **Uložiť**.
 
-Tieto Možnosti sa pri štarte syncnú do `/data/.env` (majú prednosť pred ručnou editáciou `.env`).
-
 ### 2) Orchestrátor
 
-V orchestrátore (`.env`):
-```env
-TINDER_BOT_URL=http://haos_tinder:8601
+V Nastaveniach orchestrátora:
+
 ```
-
-### Aktualizácia lokálneho add-onu
-
-```bash
-bash /addons/haos_orchestrator/deploy/update_addons.sh --only tinder
+tinder_bot_url = http://local-haos-tinder:8601
 ```
-
-Detail: [`deploy/HAOS_DEPLOY.md`](../deploy/HAOS_DEPLOY.md). Vždy **Rebuild**, nie dialóg Aktualizovať.
 
 ### 3) Prvé prihlásenie cez noVNC
 
-Automaticky:
+1. `tinder_headless=false` → Uložiť → Štart
+2. Otvor `http://<IP_HA>:6080/vnc.html` — prihlás sa telefónom + OTP
+3. V logu počkaj na `Login detected, session saved...`
+4. `tinder_headless=true` → Uložiť → Reštart
 
-```bash
-bash /addons/haos_orchestrator/deploy/tinder_session.sh begin-login <IP_HA>
-# noVNC → wait-login → finish-login
-```
+Detail: [`tinder_bot/HAOS_LOGIN.md`](HAOS_LOGIN.md).
 
-Ručne:
+## Detekcia správ
 
-1. V **Nastaveniach** maj `tinder_headless = false` → Start add-onu.
-2. V prehliadači na PC otvor: `http://<IP_HA>:6080/vnc.html`
-3. Prihlás sa **telefónom + OTP** (nie Google).
-4. V logu počkaj: `Login detected, session saved...`
-5. **Nastavenia** → `tinder_headless = true` → **Uložiť** → Reštart.
+Poller porovnáva preview v `/data/.conversation_previews.json`.
+Seed po reštarte Discord nezahlcuje; notifikácia až pri zmene preview
+a poslednej bunke od nich.
 
-Chrome profil (session) je v `/data/chrome-profile`.
+Debug: `POST http://local-haos-tinder:8601/debug/poll`
+Manuálny push: `POST …/debug/push-discord` s `{"sender":"latest"}`.
 
-Zdravie: `http://<host>:8601/health` → `{"status":"ok","logged_in":true}`
+## Env (referencia)
 
-Lokálne (dev):
-```
-python -m tinder_bot.main
-```
-
-## Bežné spustenie
-
-Headless (`tinder_headless=true`), session z `/data/chrome-profile`.
-Poll interval `TINDER_POLL_INTERVAL_MIN_SEC` / `MAX` (default 90–180s) — v `.env`.
-
-## Keď sa niečo pokazí
-
-**Session vypršala:** Nastavenia → `tinder_headless=false` → noVNC login → späť `true`.
-
-**Reset profilu:** zmaž `/data/chrome-profile`.
-
-**Chrome crash loop:** add-on `run.sh` restartuje proces (max 8× / 10 min).
-Ak nestačí, pozri logy add-onu — často treba väčší `shm_size`.
-
-**Vypnúť bota:** stop/uninstall add-onu `haos_tinder`. Orchestrátor beží ďalej.
-
-## Env / Možnosti
-
-| Nastavenie (UI) / ENV | Účel |
-|---|---|
-| `tinder_headless` / `TINDER_HEADLESS` | `false` = noVNC prihlásenie, `true` = prevádzka |
-| `orchestrator_url` / `ORCHESTRATOR_URL` | Hlavný add-on |
-| `poll_enabled` / `TINDER_POLL_ENABLED` | Periodické čítanie správ |
-| `login_wait_sec` / `TINDER_LOGIN_WAIT_SEC` | Timeout čakania na login |
-| `tinder_phone` / `TINDER_PHONE` | Voliteľné predvyplnenie |
-| `/data/chrome-profile` | Trvalý Chrome profil = session |
+| Premenná | Význam |
+|----------|--------|
 | `TINDER_BOT_HOST` / `TINDER_BOT_PORT` | HTTP server (default `0.0.0.0:8601`) |
+| `ORCHESTRATOR_URL` | `http://local-haos-orchestrator:8000` |
+| `TINDER_USER_DATA_DIR` | Chrome profil (v add-one `/data/chrome-profile`) |
+| `TINDER_HEADLESS` | `true` v bežnej prevádzke |
+
+**Vypnúť bota:** Stop / Uninstall add-onu `haos_tinder`. Orchestrátor beží ďalej.
