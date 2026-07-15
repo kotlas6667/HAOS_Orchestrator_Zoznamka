@@ -40,10 +40,10 @@ DISCORD_BOT_TOKEN=
 DISCORD_WEBHOOK_URL=
 DISCORD_BOT_CHANNEL_ID=
 
-# GitHub-store DNS = {repo_hash}-haos-* (nie local-haos-*, ani haos_*)
-ELITEDATE_BOT_URL=http://8c003d88-haos-elitedate:8600
+# Prázdne = auto-discover cez Supervisor pri štarte (žiadny hardcoded hash)
+ELITEDATE_BOT_URL=
 ELITEDATE_AUTO_SEND=false
-TINDER_BOT_URL=http://8c003d88-haos-tinder:8601
+TINDER_BOT_URL=
 TINDER_AUTO_SEND=false
 EOF
     echo "Seeded $CFG/.env — vyplň Nastavenia add-onu a reštartuj."
