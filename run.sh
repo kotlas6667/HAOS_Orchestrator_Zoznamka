@@ -58,7 +58,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, "/app")
-from addon_dns import is_broken_url, resolve_url  # noqa: E402
+from addon_dns import is_broken_url, persist_self_options, resolve_url  # noqa: E402
 
 options_path = Path("/data/options.json")
 env_path = Path("/data/orchestrator/config/.env")
@@ -120,7 +120,8 @@ td = resolve_url(
 updates["ELITEDATE_BOT_URL"] = ed
 updates["TINDER_BOT_URL"] = td
 
-# Persist corrected URLs into options.json (fixes HA UI stuck on local-haos-*)
+# Persist corrected URLs into options.json + Supervisor (HA UI often stuck on haos_*)
+ui_patch = {}
 if opts and options_path.is_file():
     ui_changed = False
     for opt_key, env_key in (
@@ -130,9 +131,12 @@ if opts and options_path.is_file():
         if env_key in updates and str(opts.get(opt_key) or "") != updates[env_key]:
             print(f"[orchestrator] Patch options.json {opt_key} → {updates[env_key]}")
             opts[opt_key] = updates[env_key]
+            ui_patch[opt_key] = updates[env_key]
             ui_changed = True
     if ui_changed:
         options_path.write_text(json.dumps(opts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+if ui_patch:
+    persist_self_options(ui_patch)
 
 for env_key, env_val in updates.items():
     pattern = re.compile(rf"(?m)^{re.escape(env_key)}=.*$")

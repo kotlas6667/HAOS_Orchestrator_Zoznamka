@@ -21,6 +21,25 @@ from app.schemas import PromptResponse, ToolExecution
 LOGGER = logging.getLogger("orchestrator.discord_bot")
 
 _ELITEDATE_CHOICE_RE = re.compile(r"^\s*[123](?:[.):,]|\uFE0F\u20E3|\u20E3|\uFE0F)?(?:\s.*)?\s*$")
+_ELITE_DATE_RE = re.compile(r"elite\s*d[aáä]te|elitedate", re.IGNORECASE)
+# "správy na ed", "ed?", "stav ed" — nie bežné slová obsahujúce "ed"
+_ED_WORD_RE = re.compile(
+    r"(?:^|[\s,.;:])(?:na\s+)?ed(?:[\s?!.:,]|$)|(?:^|[\s])ed(?:\?|$)",
+    re.IGNORECASE,
+)
+
+
+def _dating_status_service(prompt: str) -> str | None:
+    """Ak prompt hovorí o Elite Date / ED / Tinder, vráť service pre dating_status."""
+    lowered = prompt.lower().strip()
+    has_elite = bool(_ELITE_DATE_RE.search(lowered))
+    has_ed = bool(_ED_WORD_RE.search(lowered))
+    has_tinder = "tinder" in lowered
+    if has_elite or has_ed:
+        return "both" if has_tinder else "elitedate"
+    if has_tinder:
+        return "tinder"
+    return None
 
 
 def _looks_like_numeric_fallback(text: str) -> bool:
@@ -179,8 +198,29 @@ class OrchestratorDiscordClient(discord.Client):
 
             # Check if this is a navigation request (next/previous email)
             nav = self._is_navigation_request(prompt)
+            dating_service = _dating_status_service(prompt)
             if nav:
                 result = await self._handle_email_navigation(message.author.id, nav)
+                reply = build_discord_reply(prompt, result)
+            elif dating_service:
+                # Intercept pred LLM — inak GPT často mapuje "správy na ed" na Gmail.
+                from app.tools.dating_status_tool import DatingStatusTool
+
+                LOGGER.info("Dating-status intercept (service=%s): %s", dating_service, prompt)
+                tool_result = await DatingStatusTool().run(
+                    prompt, context={"service": dating_service}
+                )
+                result = PromptResponse(
+                    route="dating_status",
+                    summary=str(tool_result.get("reply") or ""),
+                    executions=[
+                        ToolExecution(
+                            tool="dating_status",
+                            reason="discord dating-status keyword intercept",
+                            result=tool_result,
+                        )
+                    ],
+                )
                 reply = build_discord_reply(prompt, result)
             else:
                 # Get conversation history for this user

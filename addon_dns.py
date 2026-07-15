@@ -17,11 +17,14 @@ import urllib.request
 REPO_URL = "https://github.com/kotlas6667/HAOS_Orchestrator_Zoznamka"
 REPO_HASH = hashlib.sha1(REPO_URL.lower().encode()).hexdigest()[:8]
 
-# Bare slug (wrong) and mistaken "local-" for GitHub installs.
+# Hosts that NEVER work on this GitHub-store install (slug alone / wrong prefix).
 _BROKEN_HOSTS = {
     "haos_orchestrator",
     "haos_elitedate",
     "haos_tinder",
+    "haos-orchestrator",
+    "haos-elitedate",
+    "haos-tinder",
     "local-haos-orchestrator",
     "local-haos-elitedate",
     "local-haos-tinder",
@@ -51,10 +54,11 @@ def is_broken_url(url: str) -> bool:
         return True
     if host in _BROKEN_HOSTS:
         return True
-    # bare slug-style without repo prefix
-    if host.startswith("haos-") and not host[0:8].isalnum():
-        return True
-    if host in {"haos-orchestrator", "haos-elitedate", "haos-tinder"}:
+    # slug-style without repo hash / local- prefix
+    if host.startswith("haos_") or host.startswith("haos-"):
+        # valid GitHub form: 8c003d88-haos-elitedate (hash- first)
+        if len(host) >= 14 and host[8] == "-" and host[:8].isalnum():
+            return False
         return True
     return False
 
@@ -91,6 +95,31 @@ def discover_url(slug_suffix: str, port: int) -> str | None:
     return None
 
 
+def persist_self_options(options_patch: dict) -> bool:
+    """Write corrected options into Supervisor (HA UI), not only /data/options.json."""
+    token = os.environ.get("SUPERVISOR_TOKEN", "").strip()
+    if not token or not options_patch:
+        return False
+    body = json.dumps({"options": options_patch}).encode("utf-8")
+    req = urllib.request.Request(
+        "http://supervisor/addons/self/options",
+        data=body,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8.0) as resp:
+            resp.read()
+        print(f"[addon_dns] Supervisor options updated: {list(options_patch.keys())}")
+        return True
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        print(f"[addon_dns] Supervisor options update failed: {exc}")
+        return False
+
+
 def resolve_url(
     current: str,
     *,
@@ -101,16 +130,20 @@ def resolve_url(
     """Return a usable URL: keep good current, else supervisor discover, else hash default."""
     cur = (current or "").strip()
     prefix = f"[{label}] " if label else ""
+    slug = slug_suffix if slug_suffix.startswith("haos_") else f"haos_{slug_suffix}"
 
     if cur and not is_broken_url(cur):
         print(f"{prefix}keep URL: {cur}")
         return cur
+
+    if cur:
+        print(f"{prefix}BROKEN URL detected: {cur}")
 
     discovered = discover_url(slug_suffix, port)
     if discovered:
         print(f"{prefix}supervisor discover: {cur or '(empty)'} → {discovered}")
         return discovered
 
-    fallback = default_url(slug_suffix if slug_suffix.startswith("haos_") else f"haos_{slug_suffix}", port)
+    fallback = default_url(slug, port)
     print(f"{prefix}fallback hash DNS: {cur or '(empty)'} → {fallback}")
     return fallback

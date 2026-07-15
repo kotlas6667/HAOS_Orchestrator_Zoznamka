@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.8] / Elite Date [1.2.7] / Tinder [1.2.10] - 2026-07-15
+
+### Fixed
+- Stuck `http://haos_elitedate:8600` / `haos_tinder` v Nastaveniach: pri štarte sa prepíšu cez Supervisor API na `http://8c003d88-haos-*`.
+- Discord: „správy na ed?“ / „elite dáte“ už nejde do Gmailu (keyword intercept → `dating_status`).
+- Pri štarte Discord alert, ak dating boty majú zlú URL alebo sú nedostupné.
+
 ## [1.2.7] / Elite Date [1.2.6] / Tinder [1.2.9] - 2026-07-15
 
 ### Fixed

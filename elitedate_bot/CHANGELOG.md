@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.7
+
+- Stuck `ORCHESTRATOR_URL=http://haos_orchestrator:8000` sa pri štarte prepíše cez Supervisor na `http://8c003d88-haos-orchestrator:8000`
+- Bez správnej URL orchestrátor nedostane nové správy z pollera
+
 ## 1.2.4
 
 - GitHub DNS: `ORCHESTRATOR_URL=http://8c003d88-haos-orchestrator:8000` (+ auto-discover)
