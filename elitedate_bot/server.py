@@ -66,6 +66,20 @@ async def debug_poll() -> dict:
     return {"status": "ok", "new_messages": len(messages), "messages": messages}
 
 
+@app.post("/debug/morning_greet")
+async def debug_morning_greet() -> dict:
+    """Manually run one morning-greet cycle (ignores schedule / already-ran-today)."""
+    if shared_state.client is None:
+        return {"status": "error", "error": "not logged in"}
+    from elitedate_bot.morning_greet import run_morning_greet_once
+
+    try:
+        result = await run_morning_greet_once()
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "error", "error": str(exc)}
+    return {"status": "ok", **result}
+
+
 @app.post("/conversation/find")
 async def find_conversation(request: Request) -> dict:
     """Find an existing EliteDate conversation by sender/date and return context."""

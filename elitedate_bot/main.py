@@ -10,6 +10,7 @@ from elitedate_bot import shared_state
 from elitedate_bot.browser import build_driver
 from elitedate_bot.config import settings
 from elitedate_bot.elitedate_client import EliteDateClient
+from elitedate_bot.morning_greet import morning_greet_loop
 from elitedate_bot.poller import poll_loop
 from elitedate_bot.server import app as inner_app
 
@@ -57,10 +58,12 @@ async def lifespan(app: FastAPI):
     print("[elitedate_bot] Logged in, starting poll loop.")
 
     poll_task = asyncio.create_task(poll_loop())
+    greet_task = asyncio.create_task(morning_greet_loop())
 
     yield
 
     poll_task.cancel()
+    greet_task.cancel()
     if driver is not None:
         await asyncio.to_thread(driver.quit)
 

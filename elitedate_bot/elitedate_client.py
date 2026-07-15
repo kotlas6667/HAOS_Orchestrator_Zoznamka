@@ -10,7 +10,7 @@ from selenium.common.exceptions import ElementClickInterceptedException, Timeout
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.ui import Select, WebDriverWait
 
 from elitedate_bot.config import settings
 
@@ -66,11 +66,17 @@ class EliteDateClient:
         submit_button = self._wait.until(EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Prihlásiť sa']")))
         return email_input, password_input, submit_button
 
-    def _messages_url(self) -> str:
+    def _site_base(self) -> str:
         base = settings.elitedate_login_url.rstrip("/")
         if base.endswith("/prihlaseni"):
-            return base.removesuffix("/prihlaseni") + "/ucet/zpravy"
-        return base + "/ucet/zpravy"
+            return base.removesuffix("/prihlaseni")
+        return base
+
+    def _messages_url(self) -> str:
+        return self._site_base() + "/ucet/zpravy"
+
+    def _new_members_url(self) -> str:
+        return self._site_base() + "/ucet/novi-clenove"
 
     def _conversation_profile_id(self, item) -> str:
         try:
@@ -641,3 +647,373 @@ class EliteDateClient:
             send_button = self._wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.btn-send-message")))
             send_button.click()
         return True
+
+    # --- Morning greet („Noví členovia“) ---------------------------------
+
+    def _open_filter_panel(self) -> None:
+        """Ensure the filter form on Noví členovia is visible."""
+        # Already open if age inputs are present.
+        if self.driver.find_elements(By.XPATH, "//*[contains(normalize-space(),'Vek')]/following::input[1]"):
+            return
+        for by, selector in (
+            (By.XPATH, "//*[normalize-space()='Filter' or contains(normalize-space(),'Filter')]"),
+            (By.CSS_SELECTOR, "button.filter, .filter-toggle, [class*='filter']"),
+            (By.XPATH, "//button[contains(., 'Filter') or contains(., 'filter')]"),
+        ):
+            if self._click_if_present(by, selector):
+                time.sleep(0.4)
+                break
+
+    def _find_range_inputs_near_label(self, label: str) -> tuple[Any | None, Any | None]:
+        """Return (od, do) number inputs near a Slovak label like Vek / Výška."""
+        try:
+            block = self.driver.find_element(
+                By.XPATH,
+                f"//*[normalize-space()='{label}' or starts-with(normalize-space(),'{label}')]"
+                "/ancestor::*[.//input][1]",
+            )
+        except Exception:  # noqa: BLE001
+            return None, None
+        inputs = block.find_elements(By.CSS_SELECTOR, "input[type='number'], input[type='text'], input:not([type])")
+        visible = [el for el in inputs if el.is_displayed()]
+        if len(visible) >= 2:
+            return visible[0], visible[1]
+        if len(visible) == 1:
+            return visible[0], None
+        return None, None
+
+    def _set_input_value(self, element, value: str | int) -> None:
+        text = str(value)
+        try:
+            element.clear()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            element.send_keys(Keys.CONTROL, "a")
+            element.send_keys(Keys.BACKSPACE)
+        except Exception:  # noqa: BLE001
+            pass
+        self.driver.execute_script(
+            "var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;"
+            "setter.call(arguments[0], arguments[1]);"
+            "arguments[0].dispatchEvent(new Event('input', { bubbles: true }));"
+            "arguments[0].dispatchEvent(new Event('change', { bubbles: true }));",
+            element,
+            text,
+        )
+
+    def _input_matches(self, element, expected: str | int | None) -> bool:
+        if expected is None:
+            return True
+        current = (element.get_attribute("value") or "").strip()
+        return current == str(expected)
+
+    def _select_dropdown_near_label(self, label: str, option_text: str) -> bool:
+        try:
+            block = self.driver.find_element(
+                By.XPATH,
+                f"//*[normalize-space()='{label}' or starts-with(normalize-space(),'{label}')]"
+                "/ancestor::*[.//select or .//button][1]",
+            )
+        except Exception:  # noqa: BLE001
+            return False
+
+        selects = block.find_elements(By.TAG_NAME, "select")
+        for sel in selects:
+            try:
+                Select(sel).select_by_visible_text(option_text)
+                return True
+            except Exception:  # noqa: BLE001
+                continue
+
+        # Custom dropdowns: open and click the option.
+        for btn in block.find_elements(By.CSS_SELECTOR, "button, [role='button'], .dropdown-toggle"):
+            try:
+                current = (btn.text or "").strip().lower()
+                if option_text.lower() in current:
+                    return True
+                btn.click()
+                time.sleep(0.2)
+                opt = self.driver.find_element(
+                    By.XPATH,
+                    f"//*[normalize-space()='{option_text}' or contains(normalize-space(),'{option_text}')]",
+                )
+                opt.click()
+                return True
+            except Exception:  # noqa: BLE001
+                continue
+        return False
+
+    def _ensure_photo_only_toggle(self) -> None:
+        """Activate „Iba s fotkou“ when it is not already on."""
+        for xpath in (
+            "//*[contains(normalize-space(),'Iba s fotkou')]",
+            "//button[contains(.,'Iba s fotkou')]",
+            "//label[contains(.,'Iba s fotkou')]",
+        ):
+            try:
+                el = self.driver.find_element(By.XPATH, xpath)
+            except Exception:  # noqa: BLE001
+                continue
+            cls = (el.get_attribute("class") or "").lower()
+            aria = (el.get_attribute("aria-pressed") or "").lower()
+            checked = (el.get_attribute("aria-checked") or "").lower()
+            already_on = (
+                "active" in cls
+                or "checked" in cls
+                or "selected" in cls
+                or aria == "true"
+                or checked == "true"
+            )
+            if already_on:
+                return
+            try:
+                el.click()
+            except Exception:  # noqa: BLE001
+                self.driver.execute_script("arguments[0].click();", el)
+            return
+
+    def _set_distance_km(self, km: int) -> bool:
+        """Set distance slider / range input to `km` (e.g. 75)."""
+        # Native range input
+        for el in self.driver.find_elements(By.CSS_SELECTOR, "input[type='range']"):
+            try:
+                self._set_input_value(el, km)
+                return True
+            except Exception:  # noqa: BLE001
+                continue
+
+        # Click a tick / label with the exact km value near „Vzdialenosť“.
+        for xpath in (
+            f"//*[contains(.,'Vzdialenosť')]/following::*[normalize-space()='{km}'][1]",
+            f"//*[normalize-space()='{km}' and (self::button or self::span or self::div or self::li)]",
+        ):
+            try:
+                tick = self.driver.find_element(By.XPATH, xpath)
+                tick.click()
+                return True
+            except Exception:  # noqa: BLE001
+                continue
+        return False
+
+    def _filter_already_matches(self) -> bool:
+        age_from, age_to = self._find_range_inputs_near_label("Vek")
+        height_from, height_to = self._find_range_inputs_near_label("Výška")
+        if age_from is None or age_to is None or height_to is None:
+            return False
+        return (
+            self._input_matches(age_from, settings.morning_greet_age_from)
+            and self._input_matches(age_to, settings.morning_greet_age_to)
+            and self._input_matches(height_to, settings.morning_greet_height_to)
+        )
+
+    def ensure_new_members_filter(self) -> bool:
+        """Open Noví členovia, apply filter when needed, click Filtrovať.
+
+        Returns True when Filtrovať was clicked (filter changed), False if already OK.
+        """
+        self.driver.get(self._new_members_url())
+        time.sleep(0.8)
+        self._dismiss_cookie_banner()
+        self._open_filter_panel()
+        time.sleep(0.3)
+
+        if self._filter_already_matches():
+            print("[elitedate_bot] Noví členovia filter already matches — skipping apply.")
+            return False
+
+        age_from, age_to = self._find_range_inputs_near_label("Vek")
+        if age_from is not None:
+            self._set_input_value(age_from, settings.morning_greet_age_from)
+        if age_to is not None:
+            self._set_input_value(age_to, settings.morning_greet_age_to)
+
+        _height_from, height_to = self._find_range_inputs_near_label("Výška")
+        if height_to is not None:
+            self._set_input_value(height_to, settings.morning_greet_height_to)
+
+        for label in ("Minimálne vzdelanie", "Fajčiar", "Chce deti"):
+            self._select_dropdown_near_label(label, "nezáleží")
+
+        self._ensure_photo_only_toggle()
+        self._set_distance_km(settings.morning_greet_distance_km)
+
+        clicked = False
+        for by, selector in (
+            (By.XPATH, "//button[normalize-space()='Filtrovať']"),
+            (By.XPATH, "//button[contains(.,'Filtrovať')]"),
+            (By.CSS_SELECTOR, "button.btn-filter, button[type='submit']"),
+        ):
+            if self._click_if_present(by, selector):
+                clicked = True
+                break
+        if not clicked:
+            raise RuntimeError("Filtrovať button not found on Noví členovia")
+
+        time.sleep(1.0)
+        print("[elitedate_bot] Noví členovia filter applied.")
+        return True
+
+    def _collect_new_member_profiles(self, limit: int = 40) -> list[dict[str, str]]:
+        """Collect unique profile id/url pairs from the Noví členovia grid."""
+        self.driver.get(self._new_members_url())
+        time.sleep(0.8)
+        try:
+            self._wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "a[href*='/profil/']")))
+        except TimeoutException:
+            pass
+
+        seen: set[str] = set()
+        profiles: list[dict[str, str]] = []
+        stagnant = 0
+        for _ in range(12):
+            links = self.driver.find_elements(By.CSS_SELECTOR, "a[href*='/profil/']")
+            before = len(profiles)
+            for link in links:
+                href = (link.get_attribute("href") or "").strip()
+                if "/profil/" not in href:
+                    continue
+                profile_id = href.split("/profil/")[-1].split("?")[0].strip("/")
+                if not profile_id or profile_id in seen:
+                    continue
+                seen.add(profile_id)
+                profiles.append({"profile_id": profile_id, "url": href})
+                if len(profiles) >= limit:
+                    return profiles
+
+            if len(profiles) == before:
+                stagnant += 1
+                if stagnant >= 2:
+                    break
+            else:
+                stagnant = 0
+
+            self.driver.execute_script("window.scrollBy(0, Math.max(400, window.innerHeight * 0.85));")
+            time.sleep(0.35)
+
+        return profiles
+
+    def _conversation_has_history(self) -> bool:
+        """True when the open chat already contains any message bubbles."""
+        bubbles = self.driver.find_elements(
+            By.CSS_SELECTOR,
+            "section.conversation-section-message .message, "
+            ".message.message-receiver, .message.message-sender",
+        )
+        for bubble in bubbles:
+            text = self._clean_chat_message_text(bubble.text or "")
+            if text:
+                return True
+        # Fallback: non-empty textarea means draft — treat as history to avoid overwrite.
+        try:
+            ta = self.driver.find_element(By.CSS_SELECTOR, "textarea.message-send-input")
+            if (ta.get_attribute("value") or "").strip():
+                return True
+        except Exception:  # noqa: BLE001
+            pass
+        return False
+
+    def _open_write_message(self) -> None:
+        for by, selector in (
+            (By.XPATH, "//*[normalize-space()='Napísať správu']"),
+            (By.XPATH, "//a[contains(.,'Napísať správu') or contains(.,'Napísať')]"),
+            (By.XPATH, "//button[contains(.,'Napísať správu')]"),
+            (By.CSS_SELECTOR, "a[href*='zpravy'], a[href*='message'], button.btn-write-message"),
+        ):
+            try:
+                el = self._wait.until(EC.element_to_be_clickable((by, selector)))
+                try:
+                    el.click()
+                except Exception:  # noqa: BLE001
+                    self.driver.execute_script("arguments[0].click();", el)
+                return
+            except Exception:  # noqa: BLE001
+                continue
+        raise RuntimeError("„Napísať správu“ button not found on profile")
+
+    def _send_greeting_in_open_chat(self, text: str) -> None:
+        message_input = self._wait.until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "textarea.message-send-input"))
+        )
+        self.driver.execute_script(
+            "var setter = Object.getOwnPropertyDescriptor("
+            "window.HTMLTextAreaElement.prototype, 'value').set;"
+            "setter.call(arguments[0], arguments[1]);"
+            "arguments[0].dispatchEvent(new Event('input', { bubbles: true }));",
+            message_input,
+            text,
+        )
+        send_button = self._wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.btn-send-message")))
+        send_button.click()
+        time.sleep(0.5)
+
+    def run_morning_greet(
+        self,
+        *,
+        max_profiles: int = 10,
+        already_greeted: set[str] | None = None,
+        greeting_text: str = "Ahoj :-)",
+    ) -> dict[str, Any]:
+        """Apply Noví členovia filter and greet empty conversations.
+
+        Anti-loop:
+        - skip profile IDs in `already_greeted` (persisted across days),
+        - mark each opened profile as processed (sent or skipped-with-history),
+        - walk a pre-collected unique URL list instead of re-clicking the same card.
+        """
+        known = set(already_greeted or ())
+        processed: list[str] = []
+        stats = {
+            "checked": 0,
+            "sent": 0,
+            "skipped_history": 0,
+            "skipped_known": 0,
+            "errors": 0,
+            "processed_ids": processed,
+        }
+
+        self.ensure_new_members_filter()
+        # Collect more candidates than max so known IDs can be skipped.
+        candidates = self._collect_new_member_profiles(limit=max(max_profiles * 4, max_profiles + 5))
+        print(f"[elitedate_bot] Morning greet candidates: {len(candidates)} (max={max_profiles})")
+
+        for profile in candidates:
+            if stats["checked"] >= max_profiles:
+                break
+
+            profile_id = profile["profile_id"]
+            if profile_id in known or profile_id in processed:
+                stats["skipped_known"] += 1
+                continue
+
+            stats["checked"] += 1
+            try:
+                self.driver.get(profile["url"])
+                time.sleep(0.7)
+                self._open_write_message()
+                time.sleep(0.6)
+                self._wait.until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "textarea.message-send-input"))
+                )
+
+                if self._conversation_has_history():
+                    stats["skipped_history"] += 1
+                    processed.append(profile_id)
+                    known.add(profile_id)
+                    print(f"[elitedate_bot] Morning greet skip (has history): {profile_id}")
+                    continue
+
+                self._send_greeting_in_open_chat(greeting_text)
+                stats["sent"] += 1
+                processed.append(profile_id)
+                known.add(profile_id)
+                print(f"[elitedate_bot] Morning greet sent to {profile_id}")
+                time.sleep(0.8)
+            except Exception as exc:  # noqa: BLE001
+                stats["errors"] += 1
+                # Still mark as processed so a broken profile cannot trap the loop.
+                processed.append(profile_id)
+                known.add(profile_id)
+                print(f"[elitedate_bot] Morning greet error on {profile_id}: {exc}")
+
+        return stats

@@ -34,6 +34,19 @@ class BotSettings(BaseSettings):
 
     seen_messages_file: str = "elitedate_bot/.seen_messages.json"
 
+    # Morning greet on „Noví členovia“ (disabled by default).
+    morning_greet_enabled: bool = False
+    morning_greet_max_profiles: int = 10
+    morning_greet_hour: int = 7
+    morning_greet_minute: int = 0
+    morning_greet_message: str = "Ahoj :-)"
+
+    # Filter defaults matching the user's „Noví členovia“ UI preset.
+    morning_greet_age_from: int = 34
+    morning_greet_age_to: int = 41
+    morning_greet_height_to: int = 166
+    morning_greet_distance_km: int = 75
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", env_prefix="", extra="ignore")
 
 

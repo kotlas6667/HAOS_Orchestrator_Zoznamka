@@ -60,6 +60,8 @@ if options_path.is_file():
         "elitedate_login_url": "ELITEDATE_LOGIN_URL",
         "orchestrator_url": "ORCHESTRATOR_URL",
         "headless": "HEADLESS",
+        "morning_greet_enabled": "MORNING_GREET_ENABLED",
+        "morning_greet_max_profiles": "MORNING_GREET_MAX_PROFILES",
     }
     for opt_key, env_key in mapping.items():
         if opt_key not in opts:
@@ -133,12 +135,14 @@ set +a
 
 apply_addon_options
 
-# Seen-messages + inbox preview cache (JSON) survive rebuilds.
+# Seen-messages + inbox preview + morning-greet cache (JSON) survive rebuilds.
 [ -e "$DATA/.seen_messages.json" ] || echo "[]" > "$DATA/.seen_messages.json"
 [ -e "$DATA/.conversation_previews.json" ] || echo "{}" > "$DATA/.conversation_previews.json"
+[ -e "$DATA/.morning_greeted.json" ] || echo '{"profile_ids":[],"last_run_date":""}' > "$DATA/.morning_greeted.json"
 mkdir -p /app/elitedate_bot
 ln -sf "$DATA/.seen_messages.json" /app/elitedate_bot/.seen_messages.json
 ln -sf "$DATA/.conversation_previews.json" /app/elitedate_bot/.conversation_previews.json
+ln -sf "$DATA/.morning_greeted.json" /app/elitedate_bot/.morning_greeted.json
 
 # Force in-image Chromium (ignore Windows paths that may leak from a shared .env).
 export BROWSER=chrome
