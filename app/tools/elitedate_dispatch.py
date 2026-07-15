@@ -52,6 +52,52 @@ async def _notify_discord(text: str) -> str | None:
         return None
 
 
+def format_morning_greet_summary(payload: dict[str, Any]) -> str:
+    """Pekný Discord súhrn po rannom cykle Noví členovia."""
+    sent = int(payload.get("sent") or 0)
+    checked = int(payload.get("checked") or 0)
+    skipped_history = int(payload.get("skipped_history") or 0)
+    max_opens = int(payload.get("max_opens") or 0)
+    max_profiles = int(payload.get("max_profiles") or 0)
+    names = [str(n).strip() for n in (payload.get("sent_names") or []) if str(n).strip()]
+
+    if names:
+        if len(names) == 1:
+            names_line = f"Pozdravená: **{names[0]}**"
+        elif len(names) <= 8:
+            names_line = "Pozdravené: **" + "**, **".join(names) + "**"
+        else:
+            shown = "**, **".join(names[:8])
+            names_line = f"Pozdravené: **{shown}** … (+{len(names) - 8})"
+    else:
+        names_line = "Pozdravené: —"
+
+    scope = f"{checked}"
+    if max_opens:
+        scope = f"{checked}/{max_opens}"
+
+    return (
+        f"☀️ **Dobré ráno — Elite Date (Noví členovia)**\n"
+        f"Z prehľadaných **{scope}** profilov som doplnil pozdrav u **{sent}**"
+        + (f" (cieľ {max_profiles})" if max_profiles else "")
+        + ".\n"
+        f"{names_line}\n"
+        f"Preskočené (už mali chat): **{skipped_history}**"
+    )
+
+
+async def handle_morning_greet_summary(payload: dict[str, Any]) -> dict[str, Any]:
+    """Send morning-greet Discord summary; no-op when nothing was sent."""
+    sent = int(payload.get("sent") or 0)
+    if sent <= 0:
+        return {"status": "skipped", "reason": "nothing_sent"}
+    text = format_morning_greet_summary(payload)
+    message_id = await _notify_discord(text)
+    if not message_id:
+        return {"status": "error", "error": "discord_notify_failed"}
+    return {"status": "success", "message_id": message_id, "text": text}
+
+
 async def handle_incoming(
     conversation_id: str,
     sender: str,

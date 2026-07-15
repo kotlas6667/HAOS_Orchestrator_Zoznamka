@@ -1,7 +1,7 @@
 {
   "name": "HAOS Elite Date Bot",
   "description": "Samostatný Selenium bot pre Elite Date. Prihlasovacie údaje a orchestrátor nastav v Nastaveniach add-onu.",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "slug": "haos_elitedate",
   "init": false,
   "arch": ["amd64", "aarch64"],
@@ -25,7 +25,8 @@
     "headless": true,
     "poll_enabled": true,
     "morning_greet_enabled": false,
-    "morning_greet_max_profiles": 10
+    "morning_greet_max_profiles": 10,
+    "morning_greet_max_opens": 20
   },
   "schema": {
     "log_level": "list(trace|debug|info|notice|warning|error|fatal)?",
@@ -36,7 +37,8 @@
     "headless": "bool",
     "poll_enabled": "bool",
     "morning_greet_enabled": "bool?",
-    "morning_greet_max_profiles": "int(1,50)?"
+    "morning_greet_max_profiles": "int(1,50)?",
+    "morning_greet_max_opens": "int(1,100)?"
   },
   "url": "https://github.com/kotlas6667/HAOS_Orchestrator_Zoznamka",
   "maintainer": "kotlas <kotlas6667@gmail.com>"

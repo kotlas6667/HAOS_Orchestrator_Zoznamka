@@ -38,7 +38,10 @@ class BotSettings(BaseSettings):
 
     # Morning greet on „Noví členovia“ (disabled by default).
     morning_greet_enabled: bool = False
+    # Koľko prázdnych chatov má dostať pozdrav (odoslaných správ).
     morning_greet_max_profiles: int = 10
+    # Max. koľko profilov otvoriť/prehľadať v jednom behu (ochrana pred zacyklením).
+    morning_greet_max_opens: int = 20
     morning_greet_hour: int = 7
     morning_greet_minute: int = 0
     morning_greet_message: str = "Ahoj :-)"

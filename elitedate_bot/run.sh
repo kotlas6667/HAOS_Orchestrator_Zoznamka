@@ -64,6 +64,7 @@ if options_path.is_file():
         "poll_enabled": "POLL_ENABLED",
         "morning_greet_enabled": "MORNING_GREET_ENABLED",
         "morning_greet_max_profiles": "MORNING_GREET_MAX_PROFILES",
+        "morning_greet_max_opens": "MORNING_GREET_MAX_OPENS",
     }
     for opt_key, env_key in mapping.items():
         if opt_key not in opts:

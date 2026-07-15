@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.5
+
+- Nové nastavenie **Max. prehľadaných profilov** (`morning_greet_max_opens`, default 20)
+  — horný strop otvorení, ochrana pred zacyklením
+- Po úspešnom behu (aspoň 1 pozdrav) Discord súhrn cez orchestrátor: mená + sent/checked
+- `morning_greet_max_profiles` = stále počet **odoslaných** pozdravov
+
 ## 1.3.4
 
 - Ranné pozdravy: `morning_greet_max_profiles` = počet **odoslaných** pozdravov
