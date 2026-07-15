@@ -33,10 +33,22 @@ class EliteDateClient:
 
     def _click_if_present(self, by: By, selector: str) -> bool:
         try:
-            self.driver.find_element(by, selector).click()
-            return True
+            el = self.driver.find_element(by, selector)
+            return self._safe_click(el)
         except Exception:  # noqa: BLE001
             return False
+
+    def _safe_click(self, element) -> bool:
+        """Click with JS fallback when the normal click is intercepted/hidden."""
+        try:
+            element.click()
+            return True
+        except Exception:  # noqa: BLE001
+            try:
+                self.driver.execute_script("arguments[0].click();", element)
+                return True
+            except Exception:  # noqa: BLE001
+                return False
 
     def _dismiss_cookie_banner(self) -> None:
         # The consent banner is present on first load and blocks the form.
@@ -748,38 +760,58 @@ class EliteDateClient:
         return True
 
     # --- Morning greet („Noví členovia“) ---------------------------------
+    # Real DOM (Elite Date SK):
+    #   Filter toggle: button.btn-partner-filter (.active = panel open)
+    #   Age: #search_filter_form_ageFrom / #search_filter_form_ageTo
+    #   Height to: #search_filter_form_heightTo
+    #   Distance: .noUi-handle[role=slider] (noUiSlider)
+    #   Submit: #search_filter_form_submit (text in nested span)
+    #   Cards: a.c-card[href*='/profil/']
+    #   Write: a.send-message-btn
+
+    def _filter_form_visible(self) -> bool:
+        try:
+            el = self.driver.find_element(By.ID, "search_filter_form_ageFrom")
+            return el.is_displayed()
+        except Exception:  # noqa: BLE001
+            return False
 
     def _open_filter_panel(self) -> None:
-        """Ensure the filter form on Noví členovia is visible."""
-        # Already open if age inputs are present.
-        if self.driver.find_elements(By.XPATH, "//*[contains(normalize-space(),'Vek')]/following::input[1]"):
+        """Ensure the filter form on Noví členovia is visible — never toggle it closed."""
+        if self._filter_form_visible():
             return
-        for by, selector in (
-            (By.XPATH, "//*[normalize-space()='Filter' or contains(normalize-space(),'Filter')]"),
-            (By.CSS_SELECTOR, "button.filter, .filter-toggle, [class*='filter']"),
-            (By.XPATH, "//button[contains(., 'Filter') or contains(., 'filter')]"),
-        ):
-            if self._click_if_present(by, selector):
-                time.sleep(0.4)
-                break
 
-    def _find_range_inputs_near_label(self, label: str) -> tuple[Any | None, Any | None]:
-        """Return (od, do) number inputs near a Slovak label like Vek / Výška."""
-        try:
-            block = self.driver.find_element(
-                By.XPATH,
-                f"//*[normalize-space()='{label}' or starts-with(normalize-space(),'{label}')]"
-                "/ancestor::*[.//input][1]",
-            )
-        except Exception:  # noqa: BLE001
-            return None, None
-        inputs = block.find_elements(By.CSS_SELECTOR, "input[type='number'], input[type='text'], input:not([type])")
-        visible = [el for el in inputs if el.is_displayed()]
-        if len(visible) >= 2:
-            return visible[0], visible[1]
-        if len(visible) == 1:
-            return visible[0], None
-        return None, None
+        toggle = None
+        for by, selector in (
+            (By.CSS_SELECTOR, "button.btn-partner-filter"),
+            (By.XPATH, "//button[contains(@class,'btn-partner-filter')]"),
+            (By.XPATH, "//button[contains(.,'Filter')]"),
+        ):
+            try:
+                toggle = self.driver.find_element(by, selector)
+                break
+            except Exception:  # noqa: BLE001
+                continue
+
+        if toggle is None:
+            raise RuntimeError("Filter toggle (btn-partner-filter) not found on Noví členovia")
+
+        cls = (toggle.get_attribute("class") or "").lower()
+        if "active" in cls and self._filter_form_visible():
+            return
+
+        if not self._safe_click(toggle):
+            raise RuntimeError("Could not open Filter panel on Noví členovia")
+        time.sleep(0.5)
+
+        if not self._filter_form_visible():
+            # Toggle may have closed an already-open panel — open once more.
+            cls = (toggle.get_attribute("class") or "").lower()
+            if "active" not in cls:
+                self._safe_click(toggle)
+                time.sleep(0.5)
+        if not self._filter_form_visible():
+            raise RuntimeError("Filter form inputs not visible after opening Filter panel")
 
     def _set_input_value(self, element, value: str | int) -> None:
         text = str(value)
@@ -831,13 +863,14 @@ class EliteDateClient:
                 current = (btn.text or "").strip().lower()
                 if option_text.lower() in current:
                     return True
-                btn.click()
+                if not self._safe_click(btn):
+                    continue
                 time.sleep(0.2)
                 opt = self.driver.find_element(
                     By.XPATH,
                     f"//*[normalize-space()='{option_text}' or contains(normalize-space(),'{option_text}')]",
                 )
-                opt.click()
+                self._safe_click(opt)
                 return True
             except Exception:  # noqa: BLE001
                 continue
@@ -866,39 +899,46 @@ class EliteDateClient:
             )
             if already_on:
                 return
-            try:
-                el.click()
-            except Exception:  # noqa: BLE001
-                self.driver.execute_script("arguments[0].click();", el)
+            self._safe_click(el)
             return
 
     def _set_distance_km(self, km: int) -> bool:
-        """Set distance slider / range input to `km` (e.g. 75)."""
-        # Native range input
-        for el in self.driver.find_elements(By.CSS_SELECTOR, "input[type='range']"):
-            try:
-                self._set_input_value(el, km)
-                return True
-            except Exception:  # noqa: BLE001
-                continue
-
-        # Click a tick / label with the exact km value near „Vzdialenosť“.
-        for xpath in (
-            f"//*[contains(.,'Vzdialenosť')]/following::*[normalize-space()='{km}'][1]",
-            f"//*[normalize-space()='{km}' and (self::button or self::span or self::div or self::li)]",
-        ):
-            try:
-                tick = self.driver.find_element(By.XPATH, xpath)
-                tick.click()
-                return True
-            except Exception:  # noqa: BLE001
-                continue
-        return False
+        """Set noUiSlider (Vzdialenosť) / range input to `km` (e.g. 75)."""
+        ok = self.driver.execute_script(
+            """
+            var km = arguments[0];
+            var targets = document.querySelectorAll('.noUi-target');
+            for (var i = 0; i < targets.length; i++) {
+                if (targets[i].noUiSlider) {
+                    try { targets[i].noUiSlider.set(km); return true; } catch (e) {}
+                }
+            }
+            var handle = document.querySelector('.noUi-handle[role="slider"]');
+            if (handle) {
+                var now = parseFloat(handle.getAttribute('aria-valuenow') || '');
+                if (!isNaN(now) && Math.abs(now - km) < 0.5) return true;
+            }
+            var ranges = document.querySelectorAll('input[type="range"]');
+            for (var j = 0; j < ranges.length; j++) {
+                var setter = Object.getOwnPropertyDescriptor(
+                    window.HTMLInputElement.prototype, 'value').set;
+                setter.call(ranges[j], String(km));
+                ranges[j].dispatchEvent(new Event('input', { bubbles: true }));
+                ranges[j].dispatchEvent(new Event('change', { bubbles: true }));
+                return true;
+            }
+            return false;
+            """,
+            km,
+        )
+        return bool(ok)
 
     def _filter_already_matches(self) -> bool:
-        age_from, age_to = self._find_range_inputs_near_label("Vek")
-        height_from, height_to = self._find_range_inputs_near_label("Výška")
-        if age_from is None or age_to is None or height_to is None:
+        try:
+            age_from = self.driver.find_element(By.ID, "search_filter_form_ageFrom")
+            age_to = self.driver.find_element(By.ID, "search_filter_form_ageTo")
+            height_to = self.driver.find_element(By.ID, "search_filter_form_heightTo")
+        except Exception:  # noqa: BLE001
             return False
         return (
             self._input_matches(age_from, settings.morning_greet_age_from)
@@ -906,13 +946,30 @@ class EliteDateClient:
             and self._input_matches(height_to, settings.morning_greet_height_to)
         )
 
+    def _click_filter_submit(self) -> None:
+        """Click #search_filter_form_submit (text is inside a nested span)."""
+        for by, selector in (
+            (By.ID, "search_filter_form_submit"),
+            (By.CSS_SELECTOR, "button.btn-search[type='submit']"),
+            (By.CSS_SELECTOR, "button#search_filter_form_submit"),
+            (By.XPATH, "//button[@type='submit'][.//span[contains(normalize-space(),'Filtrovať')]]"),
+            (By.XPATH, "//button[contains(.,'Filtrovať')]"),
+        ):
+            try:
+                el = self.driver.find_element(by, selector)
+            except Exception:  # noqa: BLE001
+                continue
+            if self._safe_click(el):
+                return
+        raise RuntimeError("Filtrovať button (#search_filter_form_submit) not found on Noví členovia")
+
     def ensure_new_members_filter(self) -> bool:
         """Open Noví členovia, apply filter when needed, click Filtrovať.
 
         Returns True when Filtrovať was clicked (filter changed), False if already OK.
         """
         self.driver.get(self._new_members_url())
-        time.sleep(0.8)
+        time.sleep(1.0)
         self._dismiss_cookie_banner()
         self._open_filter_panel()
         time.sleep(0.3)
@@ -921,44 +978,49 @@ class EliteDateClient:
             print("[elitedate_bot] Noví členovia filter already matches — skipping apply.")
             return False
 
-        age_from, age_to = self._find_range_inputs_near_label("Vek")
-        if age_from is not None:
+        try:
+            age_from = self.driver.find_element(By.ID, "search_filter_form_ageFrom")
             self._set_input_value(age_from, settings.morning_greet_age_from)
-        if age_to is not None:
+        except Exception as exc:  # noqa: BLE001
+            print(f"[elitedate_bot] ageFrom not set: {exc}")
+        try:
+            age_to = self.driver.find_element(By.ID, "search_filter_form_ageTo")
             self._set_input_value(age_to, settings.morning_greet_age_to)
-
-        _height_from, height_to = self._find_range_inputs_near_label("Výška")
-        if height_to is not None:
+        except Exception as exc:  # noqa: BLE001
+            print(f"[elitedate_bot] ageTo not set: {exc}")
+        try:
+            height_to = self.driver.find_element(By.ID, "search_filter_form_heightTo")
             self._set_input_value(height_to, settings.morning_greet_height_to)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[elitedate_bot] heightTo not set: {exc}")
 
         for label in ("Minimálne vzdelanie", "Fajčiar", "Chce deti"):
             self._select_dropdown_near_label(label, "nezáleží")
 
         self._ensure_photo_only_toggle()
-        self._set_distance_km(settings.morning_greet_distance_km)
+        if not self._set_distance_km(settings.morning_greet_distance_km):
+            print("[elitedate_bot] Distance slider not set (continuing anyway).")
 
-        clicked = False
-        for by, selector in (
-            (By.XPATH, "//button[normalize-space()='Filtrovať']"),
-            (By.XPATH, "//button[contains(.,'Filtrovať')]"),
-            (By.CSS_SELECTOR, "button.btn-filter, button[type='submit']"),
-        ):
-            if self._click_if_present(by, selector):
-                clicked = True
-                break
-        if not clicked:
-            raise RuntimeError("Filtrovať button not found on Noví členovia")
-
-        time.sleep(1.0)
+        self._click_filter_submit()
+        time.sleep(1.2)
+        # Wait for profile cards after filter apply.
+        try:
+            self._wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "a.c-card[href*='/profil/']")))
+        except TimeoutException:
+            pass
         print("[elitedate_bot] Noví členovia filter applied.")
         return True
 
     def _collect_new_member_profiles(self, limit: int = 40) -> list[dict[str, str]]:
-        """Collect unique profile id/url pairs from the Noví členovia grid."""
-        self.driver.get(self._new_members_url())
-        time.sleep(0.8)
+        """Collect unique profile id/url pairs from the Noví členovia grid (a.c-card)."""
+        # Prefer staying on filtered results; only reload if cards are missing.
+        if not self.driver.find_elements(By.CSS_SELECTOR, "a.c-card[href*='/profil/'], a[href*='/profil/']"):
+            self.driver.get(self._new_members_url())
+            time.sleep(1.0)
         try:
-            self._wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "a[href*='/profil/']")))
+            self._wait.until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "a.c-card[href*='/profil/'], a[href*='/profil/']"))
+            )
         except TimeoutException:
             pass
 
@@ -966,7 +1028,9 @@ class EliteDateClient:
         profiles: list[dict[str, str]] = []
         stagnant = 0
         for _ in range(12):
-            links = self.driver.find_elements(By.CSS_SELECTOR, "a[href*='/profil/']")
+            links = self.driver.find_elements(By.CSS_SELECTOR, "a.c-card[href*='/profil/']")
+            if not links:
+                links = self.driver.find_elements(By.CSS_SELECTOR, "a[href*='/profil/']")
             before = len(profiles)
             for link in links:
                 href = (link.get_attribute("href") or "").strip()
@@ -994,13 +1058,20 @@ class EliteDateClient:
 
     def _conversation_has_history(self) -> bool:
         """True when the open chat already contains any message bubbles."""
+        # React-virtualized chat: .message.message-sender / .message-receiver with <p>
         bubbles = self.driver.find_elements(
             By.CSS_SELECTOR,
+            ".message.message-receiver, .message.message-sender, "
             "section.conversation-section-message .message, "
-            ".message.message-receiver, .message.message-sender",
+            ".ReactVirtualized__Grid .message",
         )
         for bubble in bubbles:
-            text = self._clean_chat_message_text(bubble.text or "")
+            # Prefer inner <p> text; fall back to whole bubble (minus timestamp bar).
+            try:
+                p = bubble.find_element(By.CSS_SELECTOR, "p")
+                text = self._clean_chat_message_text(p.text or "")
+            except Exception:  # noqa: BLE001
+                text = self._clean_chat_message_text(bubble.text or "")
             if text:
                 return True
         # Fallback: non-empty textarea means draft — treat as history to avoid overwrite.
@@ -1014,21 +1085,20 @@ class EliteDateClient:
 
     def _open_write_message(self) -> None:
         for by, selector in (
+            (By.CSS_SELECTOR, "a.send-message-btn"),
+            (By.CSS_SELECTOR, "a.btn-profile.send-message-btn"),
+            (By.CSS_SELECTOR, "a[href*='/ucet/zpravy?username=']"),
+            (By.XPATH, "//a[contains(@class,'send-message-btn')]"),
+            (By.XPATH, "//a[.//span[contains(normalize-space(),'Napísať správu')]]"),
             (By.XPATH, "//*[normalize-space()='Napísať správu']"),
-            (By.XPATH, "//a[contains(.,'Napísať správu') or contains(.,'Napísať')]"),
-            (By.XPATH, "//button[contains(.,'Napísať správu')]"),
-            (By.CSS_SELECTOR, "a[href*='zpravy'], a[href*='message'], button.btn-write-message"),
         ):
             try:
                 el = self._wait.until(EC.element_to_be_clickable((by, selector)))
-                try:
-                    el.click()
-                except Exception:  # noqa: BLE001
-                    self.driver.execute_script("arguments[0].click();", el)
-                return
+                if self._safe_click(el):
+                    return
             except Exception:  # noqa: BLE001
                 continue
-        raise RuntimeError("„Napísať správu“ button not found on profile")
+        raise RuntimeError("„Napísať správu“ button (a.send-message-btn) not found on profile")
 
     def _send_greeting_in_open_chat(self, text: str) -> None:
         message_input = self._wait.until(
