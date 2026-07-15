@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     chromium \
     chromium-driver \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -29,13 +30,15 @@ WORKDIR /app
 # Package layout so ``python -m elitedate_bot.main`` works
 RUN mkdir -p /app/elitedate_bot
 COPY __init__.py browser.py chrome_lock.py config.py elitedate_client.py \
-     main.py poller.py server.py session.py shared_state.py \
+     main.py morning_greet.py poller.py server.py session.py shared_state.py \
      /app/elitedate_bot/
 COPY run.sh addon_dns.py /app/
 
+# Ranný cyklus o 07:00 = lokálny čas SK (kontajner inak často UTC).
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    TZ=Europe/Bratislava
 
 RUN chmod +x /app/run.sh
 

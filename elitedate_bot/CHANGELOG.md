@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1
+
+- **Kritická oprava:** `morning_greet.py` sa kopíruje do Docker image (1.3.0 by padol pri štarte)
+- `TZ=Europe/Bratislava` — 07:00 = skutočné ráno v SK, nie UTC
+- `/health` vracia `morning_greet_enabled` / `morning_greet_max_profiles`
+
 ## 1.3.0
 
 - Ranné pozdravy na **Noví členovia** (`/ucet/novi-clenove`):

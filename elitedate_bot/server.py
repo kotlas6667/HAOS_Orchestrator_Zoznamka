@@ -19,6 +19,8 @@ async def health() -> dict:
         "logged_in": shared_state.client is not None,
         "session_alive": session_alive(shared_state.client),
         "poll_enabled": settings.poll_enabled,
+        "morning_greet_enabled": settings.morning_greet_enabled,
+        "morning_greet_max_profiles": settings.morning_greet_max_profiles,
     }
 
 

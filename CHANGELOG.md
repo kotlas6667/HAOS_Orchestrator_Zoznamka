@@ -1,5 +1,11 @@
 # Changelog
 
+## Elite Date [1.3.1] - 2026-07-15
+
+### Fixed
+- Docker image teraz obsahuje `morning_greet.py` (inak import crash pri štarte).
+- `TZ=Europe/Bratislava` pre ranný beh o 07:00 lokálne.
+
 ## [1.2.10] / Elite Date [1.2.9] / Tinder [1.2.12] - 2026-07-15
 
 ### Added
