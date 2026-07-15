@@ -52,12 +52,11 @@ configuration:
     name: URL Elite Date bota
     description: >-
       Adresa samostatného HAOS Elite Date Bot add-onu.
-      GitHub store: http://8c003d88-haos-elitedate:8600 (Info add-onu → Hostname). Nie local-haos-* ani haos_*.
+      Info add-onu → Hostname, napr. http://XXXXXXX-haos-elitedate:8600 (hash je z tvojho Obchodu, nie vždy 8c003d88). Nie haos_elitedate.
   tinder_bot_url:
     name: URL Tinder bota
     description: >-
-      Adresa samostatného HAOS Tinder Bot add-onu.
-      GitHub store: http://8c003d88-haos-tinder:8601 (Info add-onu → Hostname). Nie local-haos-* ani haos_*.
+      Info add-onu → Hostname, napr. http://XXXXXXX-haos-tinder:8601. Nie haos_tinder ani local-haos-*.
   elitedate_auto_send:
     name: Elite Date — auto odoslať
     description: >-

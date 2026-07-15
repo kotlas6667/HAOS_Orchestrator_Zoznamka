@@ -2,7 +2,11 @@
 
 HA DNS hostname = {REPO}_{SLUG} with underscores → dashes.
 - local install: local-haos-elitedate
-- GitHub store:  {sha1(repo_url)[:8]}-haos-elitedate
+- GitHub store:  {sha1(exact_store_repo_url)[:8]}-haos-elitedate
+
+The repo hash depends on the EXACT URL string used when adding the store
+repository — so we never trust a hardcoded hash. Prefer Supervisor discovery
+(installed add-on slug → hostname).
 
 This module is copied into each add-on image and also used by run.sh.
 """
@@ -11,26 +15,33 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 
+# Only a last-resort guess when Supervisor is unavailable.
 REPO_URL = "https://github.com/kotlas6667/HAOS_Orchestrator_Zoznamka"
 REPO_HASH = hashlib.sha1(REPO_URL.lower().encode()).hexdigest()[:8]
 
-# Bare slug (wrong) and mistaken "local-" for GitHub installs.
+# Hosts that NEVER work (bare slug / wrong family).
 _BROKEN_HOSTS = {
     "haos_orchestrator",
     "haos_elitedate",
     "haos_tinder",
+    "haos-orchestrator",
+    "haos-elitedate",
+    "haos-tinder",
     "local-haos-orchestrator",
     "local-haos-elitedate",
     "local-haos-tinder",
 }
 
+_HASH_PREFIX_RE = re.compile(r"^([0-9a-f]{8})-haos-", re.IGNORECASE)
+
 
 def dns_host_for_slug(addon_slug: str, *, repo_hash: str | None = None) -> str:
-    """addon_slug like haos_elitedate → 8c003d88-haos-elitedate (or local-…)."""
-    prefix = repo_hash if repo_hash is not None else REPO_HASH
+    """addon_slug like haos_elitedate → {hash}-haos-elitedate."""
+    prefix = repo_hash if repo_hash is not None else (live_repo_hash() or REPO_HASH)
     return f"{prefix}-{addon_slug.replace('_', '-')}"
 
 
@@ -51,20 +62,20 @@ def is_broken_url(url: str) -> bool:
         return True
     if host in _BROKEN_HOSTS:
         return True
-    # bare slug-style without repo prefix
-    if host.startswith("haos-") and not host[0:8].isalnum():
-        return True
-    if host in {"haos-orchestrator", "haos-elitedate", "haos-tinder"}:
+    if host.startswith("haos_") or host.startswith("haos-"):
+        # valid form: <8hex>-haos-elitedate
+        if len(host) >= 14 and host[8] == "-" and all(c in "0123456789abcdef" for c in host[:8].lower()):
+            return False
         return True
     return False
 
 
-def list_installed_addons(timeout: float = 5.0) -> list[dict]:
+def _supervisor_get(path: str, timeout: float = 5.0) -> dict | None:
     token = os.environ.get("SUPERVISOR_TOKEN", "").strip()
     if not token:
-        return []
+        return None
     req = urllib.request.Request(
-        "http://supervisor/addons",
+        f"http://supervisor{path}",
         headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -74,14 +85,37 @@ def list_installed_addons(timeout: float = 5.0) -> list[dict]:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             payload = json.loads(resp.read().decode("utf-8"))
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
-        return []
+        return None
     data = payload.get("data") if isinstance(payload, dict) else None
-    addons = data.get("addons") if isinstance(data, dict) else None
+    return data if isinstance(data, dict) else None
+
+
+def list_installed_addons(timeout: float = 5.0) -> list[dict]:
+    data = _supervisor_get("/addons", timeout=timeout)
+    if not data:
+        return []
+    addons = data.get("addons")
     return addons if isinstance(addons, list) else []
 
 
+def live_repo_hash() -> str | None:
+    """Read hash prefix from this add-on's own Supervisor slug (e.g. 03146090)."""
+    info = _supervisor_get("/addons/self/info")
+    if not info:
+        return None
+    slug = str(info.get("slug") or "")
+    # 03146090_haos_elitedate → 03146090
+    if "_" in slug:
+        prefix = slug.split("_", 1)[0]
+        if len(prefix) == 8 and all(c in "0123456789abcdef" for c in prefix.lower()):
+            return prefix.lower()
+    if slug.startswith("local_"):
+        return "local"
+    return None
+
+
 def discover_url(slug_suffix: str, port: int) -> str | None:
-    """Find installed add-on whose slug ends with _{slug_suffix} and build http URL."""
+    """Find installed add-on whose slug ends with the wanted haos_* suffix."""
     wanted = slug_suffix if slug_suffix.startswith("haos_") else f"haos_{slug_suffix}"
     for addon in list_installed_addons():
         slug = str(addon.get("slug") or "")
@@ -91,6 +125,31 @@ def discover_url(slug_suffix: str, port: int) -> str | None:
     return None
 
 
+def persist_self_options(options_patch: dict) -> bool:
+    """Write corrected options into Supervisor (HA UI), not only /data/options.json."""
+    token = os.environ.get("SUPERVISOR_TOKEN", "").strip()
+    if not token or not options_patch:
+        return False
+    body = json.dumps({"options": options_patch}).encode("utf-8")
+    req = urllib.request.Request(
+        "http://supervisor/addons/self/options",
+        data=body,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8.0) as resp:
+            resp.read()
+        print(f"[addon_dns] Supervisor options updated: {list(options_patch.keys())}")
+        return True
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        print(f"[addon_dns] Supervisor options update failed: {exc}")
+        return False
+
+
 def resolve_url(
     current: str,
     *,
@@ -98,19 +157,28 @@ def resolve_url(
     port: int,
     label: str = "",
 ) -> str:
-    """Return a usable URL: keep good current, else supervisor discover, else hash default."""
+    """Prefer Supervisor discovery; never keep a wrong hash like 8c003d88 vs 03146090."""
     cur = (current or "").strip()
     prefix = f"[{label}] " if label else ""
-
-    if cur and not is_broken_url(cur):
-        print(f"{prefix}keep URL: {cur}")
-        return cur
+    slug = slug_suffix if slug_suffix.startswith("haos_") else f"haos_{slug_suffix}"
 
     discovered = discover_url(slug_suffix, port)
     if discovered:
+        if cur and extract_host(cur) == extract_host(discovered):
+            print(f"{prefix}keep URL (matches Supervisor): {cur}")
+            return cur
         print(f"{prefix}supervisor discover: {cur or '(empty)'} → {discovered}")
         return discovered
 
-    fallback = default_url(slug_suffix if slug_suffix.startswith("haos_") else f"haos_{slug_suffix}", port)
-    print(f"{prefix}fallback hash DNS: {cur or '(empty)'} → {fallback}")
+    if cur and not is_broken_url(cur):
+        # No Supervisor list (token missing) — keep user's filled host (e.g. 03146090-…).
+        print(f"{prefix}keep URL (no Supervisor discovery): {cur}")
+        return cur
+
+    if cur:
+        print(f"{prefix}BROKEN URL detected: {cur}")
+
+    live = live_repo_hash()
+    fallback = default_url(slug, port, repo_hash=live)
+    print(f"{prefix}fallback DNS: {cur or '(empty)'} → {fallback} (hash={live or REPO_HASH})")
     return fallback

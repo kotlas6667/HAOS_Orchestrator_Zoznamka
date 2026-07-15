@@ -41,6 +41,7 @@ Manuálny test: `POST http://local-haos-elitedate:8600/debug/morning_greet`.
 | `orchestrator_url` | `http://local-haos-orchestrator:8000` |
 | `elitedate_login_url` | Login stránka (default SK) |
 | `headless` | `true` pre bežnú prevádzku na pozadí |
+| `poll_enabled` | Automatické sledovanie inboxu (default `true`) |
 | `morning_greet_enabled` | Zapnúť ranné pozdravy (default `false`) |
 | `morning_greet_max_profiles` | Koľko profilov skontrolovať za jeden beh (1–50, default 10) |
 

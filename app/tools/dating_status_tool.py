@@ -82,8 +82,10 @@ class DatingStatusTool(Tool):
             elif not ed.get("session_alive"):
                 lines.append("⚠️ **Elite Date:** prihlásený, ale Selenium session je mŕtva")
             else:
+                poll_on = ed.get("raw", {}).get("poll_enabled", True)
+                poll_note = "" if poll_on else " · poll vypnutý"
                 lines.append(
-                    f"✅ **Elite Date:** online (fronta odpovedí: {ed_queue})"
+                    f"✅ **Elite Date:** online (fronta odpovedí: {ed_queue}{poll_note})"
                 )
 
         if wanted in {"tinder", "both"}:
@@ -98,7 +100,9 @@ class DatingStatusTool(Tool):
             elif not td.get("session_alive"):
                 lines.append("⚠️ **Tinder:** prihlásený, ale Selenium session je mŕtva")
             else:
-                lines.append(f"✅ **Tinder:** online (fronta odpovedí: {tinder_queue})")
+                poll_on = td.get("raw", {}).get("poll_enabled", True)
+                poll_note = "" if poll_on else " · poll vypnutý"
+                lines.append(f"✅ **Tinder:** online (fronta odpovedí: {tinder_queue}{poll_note})")
 
         if wanted == "elitedate" and ed_queue == 0 and result.get("elitedate", {}).get("reachable"):
             lines.append("Žiadne nové správy na Elite Date nečakajú na výber odpovede.")

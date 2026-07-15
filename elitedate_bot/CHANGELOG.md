@@ -9,6 +9,22 @@
 - Ochrana pred zacyklením: `/data/.morning_greeted.json` (spracované profilové ID + dátum behu)
 - Manuálny test: `POST /debug/morning_greet`
 
+## 1.2.9
+
+- Prepínač **Automatické sledovanie správ** (`poll_enabled`) ako pri Tinderi
+- VYPNUTÉ = bot nekontroluje inbox (vhodné pri webe); `/send` z Discordu stále funguje
+- `/health` vracia `poll_enabled`
+
+## 1.2.8
+
+- URL orchestrátora podľa Supervisor slug (napr. `03146090-haos-orchestrator`), nie hardcoded `8c003d88`
+- Pozn.: neotváraj Elite Date web naraz so zapnutým botom — hrozí vyhodenie Selenium session
+
+## 1.2.7
+
+- Stuck `ORCHESTRATOR_URL=http://haos_orchestrator:8000` sa pri štarte prepíše cez Supervisor na `http://8c003d88-haos-orchestrator:8000`
+- Bez správnej URL orchestrátor nedostane nové správy z pollera
+
 ## 1.2.4
 
 - GitHub DNS: `ORCHESTRATOR_URL=http://8c003d88-haos-orchestrator:8000` (+ auto-discover)

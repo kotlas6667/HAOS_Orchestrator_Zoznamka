@@ -23,6 +23,7 @@
     "orchestrator_url": "http://8c003d88-haos-orchestrator:8000",
     "elitedate_login_url": "https://www.elitedate.sk/prihlaseni",
     "headless": true,
+    "poll_enabled": true,
     "morning_greet_enabled": false,
     "morning_greet_max_profiles": 10
   },
@@ -33,6 +34,7 @@
     "orchestrator_url": "str",
     "elitedate_login_url": "str?",
     "headless": "bool",
+    "poll_enabled": "bool",
     "morning_greet_enabled": "bool?",
     "morning_greet_max_profiles": "int(1,50)?"
   },

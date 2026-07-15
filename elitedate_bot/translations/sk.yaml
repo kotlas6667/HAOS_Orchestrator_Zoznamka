@@ -17,9 +17,8 @@ configuration:
   orchestrator_url:
     name: URL orchestrátora
     description: >-
-      Adresa hlavného add-onu HAOS Orchestrator v Docker sieti HA.
-      Z GitHub Obchodu: http://8c003d88-haos-orchestrator:8000
-      (pozri aj Info add-onu → Hostname). Nie haos_orchestrator ani local-haos-*.
+      Info orchestrátora → Hostname (napr. http://03146090-haos-orchestrator:8000).
+      Hash prefix závisí od URL tvojho Obchodu — nie vždy 8c003d88. Nie haos_orchestrator.
   elitedate_login_url:
     name: Login URL
     description: >-
@@ -29,6 +28,13 @@ configuration:
     description: >-
       ZAPNUTÉ (true) — Chromium beží na pozadí bez okna (bežná prevádzka).
       VYPNUTÉ (false) — len pri ladení s pripojeným displejom / VNC.
+  poll_enabled:
+    name: Automatické sledovanie správ
+    description: >-
+      ZAPNUTÉ — bot pravidelne (cca 90–180 s) kontroluje nové Elite Date správy
+      a posiela ich orchestrátoru na Discord. VYPNUTÉ — nevyhľadáva inbox
+      (vhodné keď chceš ísť na web); Discord odpovede (/send) stále fungujú.
+      Pri silnom konflikte session web+bot aj tak zastav celý add-on.
   morning_greet_enabled:
     name: Ranné pozdravy (Noví členovia)
     description: >-

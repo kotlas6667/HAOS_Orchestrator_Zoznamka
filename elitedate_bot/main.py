@@ -55,14 +55,19 @@ async def lifespan(app: FastAPI):
         raise last_exc or RuntimeError("elitedate_bot startup failed")
 
     shared_state.client = client
-    print("[elitedate_bot] Logged in, starting poll loop.")
+    poll_task = None
+    if settings.poll_enabled:
+        print("[elitedate_bot] Logged in, starting poll loop.")
+        poll_task = asyncio.create_task(poll_loop())
+    else:
+        print("[elitedate_bot] Logged in, poll loop disabled (POLL_ENABLED=false).")
 
-    poll_task = asyncio.create_task(poll_loop())
     greet_task = asyncio.create_task(morning_greet_loop())
 
     yield
 
-    poll_task.cancel()
+    if poll_task is not None:
+        poll_task.cancel()
     greet_task.cancel()
     if driver is not None:
         await asyncio.to_thread(driver.quit)

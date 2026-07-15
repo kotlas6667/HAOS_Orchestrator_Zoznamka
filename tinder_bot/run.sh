@@ -82,7 +82,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, "/app")
-from addon_dns import resolve_url  # noqa: E402
+from addon_dns import persist_self_options, resolve_url  # noqa: E402
 
 options_path = Path("/data/options.json")
 env_path = Path("/data/.env")
@@ -132,6 +132,7 @@ if opts and options_path.is_file() and str(opts.get("orchestrator_url") or "") !
     opts["orchestrator_url"] = orch
     options_path.write_text(json.dumps(opts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"[tinder_bot] Patch options.json orchestrator_url → {orch}")
+    persist_self_options({"orchestrator_url": orch})
 
 for env_key, env_val in updates.items():
     pattern = re.compile(rf"(?m)^{re.escape(env_key)}=.*$")

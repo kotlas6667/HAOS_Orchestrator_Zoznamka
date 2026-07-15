@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.2.10] / Elite Date [1.2.9] / Tinder [1.2.12] - 2026-07-15
+
+### Added
+- Elite Date: prepínač **Automatické sledovanie správ** (`poll_enabled`) — rovnako ako Tinder.
+  VYPNUTÉ pri používaní webu; Discord `/send` ostáva aktívny.
+- `dating_status` zobrazí, keď je ED poll vypnutý.
+
+## [1.2.9] / Elite Date [1.2.8] / Tinder [1.2.11] - 2026-07-15
+
+### Fixed
+- DNS hash sa berie zo **Supervisor** (skutočný slug, napr. `03146090-haos-*`), nie z hardcoded `8c003d88`.
+- Ak je v Nastaveniach iný hash než na HA, pri štarte sa prepíše podľa nainštalovaných add-onov.
+- Tip: nepoužívaj Elite Date / Tinder **web naraz** so zapnutým botom — server často vyhodí Selenium session.
+
+## [1.2.8] / Elite Date [1.2.7] / Tinder [1.2.10] - 2026-07-15
+
+### Fixed
+- Stuck `http://haos_elitedate:8600` / `haos_tinder` v Nastaveniach: pri štarte sa prepíšu cez Supervisor API na `http://8c003d88-haos-*`.
+- Discord: „správy na ed?“ / „elite dáte“ už nejde do Gmailu (keyword intercept → `dating_status`).
+- Pri štarte Discord alert, ak dating boty majú zlú URL alebo sú nedostupné.
+
 ## [1.2.7] / Elite Date [1.2.6] / Tinder [1.2.9] - 2026-07-15
 
 ### Fixed

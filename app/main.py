@@ -193,20 +193,32 @@ async def lifespan(app: FastAPI):
     else:
         print("[INFO] Gmail background tasks disabled (missing OAuth credentials file or provider not oauth).")
 
-    # Probe dating bots once at startup — wrong DNS shows up immediately in logs.
+    # Probe dating bots once at startup — wrong DNS shows up immediately in logs + Discord.
     async def _probe_dating_bots() -> None:
         import httpx
+
+        from addon_dns import default_url, is_broken_url
 
         print(
             f"[dating] configured URLs: elitedate={settings.elitedate_bot_url} "
             f"tinder={settings.tinder_bot_url}"
         )
         targets = (
-            ("Elite Date", settings.elitedate_bot_url),
-            ("Tinder", settings.tinder_bot_url),
+            ("Elite Date", settings.elitedate_bot_url, "haos_elitedate", 8600),
+            ("Tinder", settings.tinder_bot_url, "haos_tinder", 8601),
         )
-        for label, base in targets:
+        failures: list[str] = []
+        for label, base, slug, port in targets:
             url = f"{base.rstrip('/')}/health"
+            hint = default_url(slug, port)
+            if is_broken_url(base):
+                msg = (
+                    f"[dating] {label} URL je rozbitá: {base} "
+                    f"— nastav Nastavenia na {hint} a reštartuj"
+                )
+                print(msg)
+                failures.append(f"❌ **{label}:** zlá URL `{base}` → použi `{hint}`")
+                continue
             try:
                 async with httpx.AsyncClient(timeout=5.0) as client:
                     r = await client.get(url)
@@ -218,6 +230,22 @@ async def lifespan(app: FastAPI):
                 )
             except Exception as exc:  # noqa: BLE001
                 print(f"[dating] {label} NEDOSTUPNÝ @ {base} — {exc}")
+                failures.append(
+                    f"❌ **{label}:** nedostupný `{base}` — {exc}. "
+                    f"Skontroluj, že add-on beží a URL je `{hint}`."
+                )
+
+        if failures and settings.discord_webhook_url:
+            try:
+                from app.tools.discord_notifier import DiscordNotifier
+
+                await DiscordNotifier().send_message(
+                    "**Dating boty — problém pri štarte orchestratora**\n"
+                    + "\n".join(failures)
+                    + "\n\nBez správnej DNS URL nepríde notifikácia o novej správe z ED/Tinder."
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(f"[dating] Discord alert failed: {exc}")
 
     asyncio.create_task(_probe_dating_bots())
 

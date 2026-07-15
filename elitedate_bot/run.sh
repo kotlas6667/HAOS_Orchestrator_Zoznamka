@@ -23,6 +23,7 @@ BOT_PORT=8600
 # GitHub-store DNS = {repo_hash}-haos-orchestrator (nie local- / haos_)
 ORCHESTRATOR_URL=http://8c003d88-haos-orchestrator:8000
 
+POLL_ENABLED=true
 POLL_INTERVAL_MIN_SEC=90
 POLL_INTERVAL_MAX_SEC=180
 
@@ -44,7 +45,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, "/app")
-from addon_dns import resolve_url  # noqa: E402
+from addon_dns import persist_self_options, resolve_url  # noqa: E402
 
 options_path = Path("/data/options.json")
 env_path = Path("/data/.env")
@@ -60,6 +61,7 @@ if options_path.is_file():
         "elitedate_login_url": "ELITEDATE_LOGIN_URL",
         "orchestrator_url": "ORCHESTRATOR_URL",
         "headless": "HEADLESS",
+        "poll_enabled": "POLL_ENABLED",
         "morning_greet_enabled": "MORNING_GREET_ENABLED",
         "morning_greet_max_profiles": "MORNING_GREET_MAX_PROFILES",
     }
@@ -93,6 +95,7 @@ if opts and options_path.is_file() and str(opts.get("orchestrator_url") or "") !
     opts["orchestrator_url"] = orch
     options_path.write_text(json.dumps(opts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"[elitedate_bot] Patch options.json orchestrator_url → {orch}")
+    persist_self_options({"orchestrator_url": orch})
 
 for env_key, env_val in updates.items():
     pattern = re.compile(rf"(?m)^{re.escape(env_key)}=.*$")
@@ -160,6 +163,7 @@ fi
 
 echo "[elitedate_bot] ORCHESTRATOR_URL=${ORCHESTRATOR_URL:-<unset>}"
 echo "[elitedate_bot] HEADLESS=${HEADLESS:-true}"
+echo "[elitedate_bot] POLL_ENABLED=${POLL_ENABLED:-true}"
 
 _shutdown() {
     echo "Shutting down Elite Date bot..."
