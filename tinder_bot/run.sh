@@ -47,8 +47,8 @@ TINDER_LOGIN_URL=https://tinder.com/app/login
 
 TINDER_BOT_HOST=0.0.0.0
 TINDER_BOT_PORT=8601
-# Prázdne = auto-discover cez Supervisor (žiadny hardcoded hash)
-ORCHESTRATOR_URL=
+# GitHub-store DNS = {repo_hash}-haos-orchestrator (nie local- / haos_)
+ORCHESTRATOR_URL=http://8c003d88-haos-orchestrator:8000
 
 TINDER_POLL_ENABLED=true
 TINDER_POLL_INTERVAL_MIN_SEC=90

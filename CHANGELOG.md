@@ -1,13 +1,10 @@
 # Changelog
 
-## 1.2.6
-
-- URL peer botov: **prázdne = auto** cez Supervisor (žiadny hardcoded hash v Nastaveniach)
-- `local-haos-*` / `haos_*` sa pri štarte prepíšu na aktuálny hostname z Supervisora
-
 ## 1.2.5
 
-- Pokus o GitHub DNS cez repo hash (nahradené 1.2.6 auto-discover)
+- **GitHub DNS fix:** hostname je `{repo_hash}-haos-*` (u nás `8c003d88-…`), nie `local-haos-*`
+- Auto-resolve cez Supervisor API + oprava `options.json` pri štarte
+- `local-haos-*` / `haos_*` sa považujú za neplatné a prepíšu sa
 
 ## 1.2.4
 

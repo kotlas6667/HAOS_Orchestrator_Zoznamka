@@ -20,8 +20,8 @@ ELITEDATE_LOGIN_URL=https://www.elitedate.sk/prihlaseni
 BOT_HOST=0.0.0.0
 BOT_PORT=8600
 
-# Prázdne = auto-discover cez Supervisor (žiadny hardcoded hash)
-ORCHESTRATOR_URL=
+# GitHub-store DNS = {repo_hash}-haos-orchestrator (nie local- / haos_)
+ORCHESTRATOR_URL=http://8c003d88-haos-orchestrator:8000
 
 POLL_INTERVAL_MIN_SEC=90
 POLL_INTERVAL_MAX_SEC=180

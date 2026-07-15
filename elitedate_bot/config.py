@@ -16,7 +16,7 @@ class BotSettings(BaseSettings):
 
     # Where the orchestrator's FastAPI app listens (this bot calls that).
     # HA lokálne add-ony: DNS = local-{slug} s pomlčkami.
-    orchestrator_url: str = ""
+    orchestrator_url: str = "http://8c003d88-haos-orchestrator:8000"
 
     # Polling
     poll_interval_min_sec: float = 90.0

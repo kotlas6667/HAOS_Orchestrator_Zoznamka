@@ -1,12 +1,9 @@
 # Changelog
 
-## 1.2.5
-
-- `orchestrator_url` prázdne = auto cez Supervisor (žiadny hardcoded hash)
-
 ## 1.2.4
 
-- `hassio_api` + pokus o DNS cez repo hash (nahradené auto-discover)
+- GitHub DNS: `ORCHESTRATOR_URL=http://8c003d88-haos-orchestrator:8000` (+ auto-discover)
+- `hassio_api` pre resolúciu hostname cez Supervisor
 
 ## 1.2.3
 
