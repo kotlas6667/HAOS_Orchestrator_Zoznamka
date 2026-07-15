@@ -31,7 +31,7 @@ RUN mkdir -p /app/elitedate_bot
 COPY __init__.py browser.py chrome_lock.py config.py elitedate_client.py \
      main.py poller.py server.py session.py shared_state.py \
      /app/elitedate_bot/
-COPY run.sh /app/run.sh
+COPY run.sh addon_dns.py /app/
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

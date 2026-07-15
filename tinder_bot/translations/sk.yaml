@@ -15,8 +15,8 @@ configuration:
     name: URL orchestrátora
     description: >-
       Adresa hlavného add-onu HAOS Orchestrator v Docker sieti HA.
-      Štandardne http://local-haos-orchestrator:8000 (nie haos_orchestrator —
-      HA DNS pre lokálne add-ony je local-{slug} s pomlčkami).
+      Z GitHub Obchodu: http://8c003d88-haos-orchestrator:8000
+      (pozri aj Info add-onu → Hostname). Nie haos_orchestrator ani local-haos-*.
   poll_enabled:
     name: Automatické sledovanie správ
     description: >-

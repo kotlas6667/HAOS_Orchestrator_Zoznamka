@@ -20,8 +20,8 @@ ELITEDATE_LOGIN_URL=https://www.elitedate.sk/prihlaseni
 BOT_HOST=0.0.0.0
 BOT_PORT=8600
 
-# HA lokálne add-ony: DNS = local-{slug} ( _ → - ), nie samotný slug
-ORCHESTRATOR_URL=http://local-haos-orchestrator:8000
+# GitHub-store DNS = {repo_hash}-haos-orchestrator (nie local- / haos_)
+ORCHESTRATOR_URL=http://8c003d88-haos-orchestrator:8000
 
 POLL_INTERVAL_MIN_SEC=90
 POLL_INTERVAL_MAX_SEC=180
@@ -40,53 +40,18 @@ apply_addon_options() {
 import json
 import os
 import re
+import sys
 from pathlib import Path
 
-_HOST_MAP = {
-    "haos_orchestrator": "local-haos-orchestrator",
-    "haos_tinder": "local-haos-tinder",
-    "haos_elitedate": "local-haos-elitedate",
-}
-
-def fix_addon_dns(value: str) -> str:
-    s = (value or "").strip()
-    if not s:
-        return s
-
-    def _repl(match: re.Match[str]) -> str:
-        scheme, host, rest = match.group(1), match.group(2), match.group(3) or ""
-        new_host = _HOST_MAP.get(host, host)
-        return f"{scheme}{new_host}{rest}"
-
-    return re.sub(r"(https?://)([^/\s:]+)(\S*)", _repl, s, count=1)
-
-def migrate_env_hosts(text: str) -> tuple[str, list[str]]:
-    notes: list[str] = []
-    out_lines: list[str] = []
-    for line in text.splitlines(keepends=True):
-        raw = line.rstrip("\n")
-        if "=" not in raw or raw.lstrip().startswith("#"):
-            out_lines.append(line)
-            continue
-        key, _, val = raw.partition("=")
-        fixed = fix_addon_dns(val)
-        if fixed != val:
-            notes.append(f"{key.strip()}: {val.strip()} → {fixed}")
-            nl = "\n" if line.endswith("\n") else ""
-            out_lines.append(f"{key}={fixed}{nl}")
-        else:
-            out_lines.append(line)
-    return "".join(out_lines), notes
+sys.path.insert(0, "/app")
+from addon_dns import resolve_url  # noqa: E402
 
 options_path = Path("/data/options.json")
 env_path = Path("/data/.env")
-
 text = env_path.read_text(encoding="utf-8") if env_path.is_file() else ""
-text, env_notes = migrate_env_hosts(text)
-for note in env_notes:
-    print(f"[elitedate_bot] Migrated .env DNS: {note}")
 
 updates = {}
+opts = {}
 if options_path.is_file():
     opts = json.loads(options_path.read_text(encoding="utf-8"))
     mapping = {
@@ -105,25 +70,27 @@ if options_path.is_file():
         if isinstance(val, bool):
             updates[env_key] = "true" if val else "false"
         else:
-            raw = str(val)
-            fixed = fix_addon_dns(raw)
-            if fixed != raw:
-                print(f"[elitedate_bot] DNS fix {env_key}: {raw} → {fixed}")
-            updates[env_key] = fixed
+            updates[env_key] = str(val).strip()
 else:
     print("[elitedate_bot] No /data/options.json — keeping .env defaults")
 
-# Guarantee reachable bind + valid orchestrator DNS
 orch = updates.get("ORCHESTRATOR_URL")
 if orch is None:
     m = re.search(r"(?m)^ORCHESTRATOR_URL=(.*)$", text)
     orch = m.group(1).strip() if m else ""
-orch = fix_addon_dns(orch) if orch else "http://local-haos-orchestrator:8000"
-for bad, good in _HOST_MAP.items():
-    if bad in orch:
-        orch = orch.replace(bad, good)
-updates["ORCHESTRATOR_URL"] = orch or "http://local-haos-orchestrator:8000"
+orch = resolve_url(
+    orch,
+    slug_suffix="haos_orchestrator",
+    port=8000,
+    label="elitedate/orch",
+)
+updates["ORCHESTRATOR_URL"] = orch
 updates["BOT_HOST"] = "0.0.0.0"
+
+if opts and options_path.is_file() and str(opts.get("orchestrator_url") or "") != orch:
+    opts["orchestrator_url"] = orch
+    options_path.write_text(json.dumps(opts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"[elitedate_bot] Patch options.json orchestrator_url → {orch}")
 
 for env_key, env_val in updates.items():
     pattern = re.compile(rf"(?m)^{re.escape(env_key)}=.*$")
