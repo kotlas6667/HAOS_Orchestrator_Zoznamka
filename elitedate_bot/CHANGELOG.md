@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.3
+
+- Detekcia nových správ cez JSON cache (`.conversation_previews.json`) ako Tinder — nie tučné písmo
+- Seed po reštarte bez spamovania Discordu; notifikácia až pri zmene preview + správa od nich
+- Cache prežíva rebuild (`/data/.conversation_previews.json`)
+- `POST /debug/poll` na manuálny test
+
 ## 1.2.2
 
 - Robustná DNS migrácia ORCHESTRATOR_URL (`haos_*` → `local-haos-*`)

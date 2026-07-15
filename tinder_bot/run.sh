@@ -205,8 +205,10 @@ set +a
 apply_addon_options
 
 [ -e "$DATA/.seen_messages.json" ] || echo "[]" > "$DATA/.seen_messages.json"
+[ -e "$DATA/.conversation_previews.json" ] || echo "{}" > "$DATA/.conversation_previews.json"
 mkdir -p /app/tinder_bot
 ln -sf "$DATA/.seen_messages.json" /app/tinder_bot/.seen_messages.json
+ln -sf "$DATA/.conversation_previews.json" /app/tinder_bot/.conversation_previews.json
 
 export TINDER_BROWSER=chrome
 export TINDER_BROWSER_BINARY=/usr/bin/chromium

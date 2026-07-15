@@ -46,8 +46,11 @@ async def _notify_orchestrator(msg: dict) -> None:
 
 
 async def poll_loop() -> None:
-    """Runs forever: periodically checks for new Elite Date messages and
-    forwards genuinely new ones to the orchestrator."""
+    """Runs forever: JSON preview cache detects new ED messages, then notify orchestrator.
+
+    First poll runs immediately (seeds/diffs `.conversation_previews.json`); then
+    randomized 90–180s interval. Extra `.seen_messages.json` dedup covers notify retries.
+    """
     seen = _load_seen()
     first = True
 

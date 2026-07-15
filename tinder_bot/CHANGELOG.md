@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.6
+
+- `.conversation_previews.json` prežíva rebuild (`/data`)
+
 ## 1.2.5
 
 - Robustná DNS migrácia ORCHESTRATOR_URL (`haos_*` → `local-haos-*`)

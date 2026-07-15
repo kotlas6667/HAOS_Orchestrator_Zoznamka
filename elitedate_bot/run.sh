@@ -166,10 +166,12 @@ set +a
 
 apply_addon_options
 
-# Seen-messages cache survives rebuilds.
+# Seen-messages + inbox preview cache (JSON) survive rebuilds.
 [ -e "$DATA/.seen_messages.json" ] || echo "[]" > "$DATA/.seen_messages.json"
+[ -e "$DATA/.conversation_previews.json" ] || echo "{}" > "$DATA/.conversation_previews.json"
 mkdir -p /app/elitedate_bot
 ln -sf "$DATA/.seen_messages.json" /app/elitedate_bot/.seen_messages.json
+ln -sf "$DATA/.conversation_previews.json" /app/elitedate_bot/.conversation_previews.json
 
 # Force in-image Chromium (ignore Windows paths that may leak from a shared .env).
 export BROWSER=chrome
