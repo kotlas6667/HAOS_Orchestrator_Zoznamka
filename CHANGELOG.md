@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.4
+
+- Force DNS migrácia `haos_*` → `local-haos-*` (aj zápis späť do `options.json`)
+- Startup banner `image version=…` — v logu hneď vidno, či beží nový image
+- Refuse start, ak dating URL stále ukazujú na neplatný host
+
 ## 1.2.3
 
 - Elite Date: detekcia správ cez JSON preview cache (ako Tinder)

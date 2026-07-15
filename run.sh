@@ -8,6 +8,10 @@ set -e
 
 echo "Starting HAOS Orchestrator Add-on..."
 
+# Visible version marker — if this line is missing in logs, the image is STILL OLD.
+ORCH_VERSION="$(python3 -c "import json; print(json.load(open('/app/config.json')).get('version','?'))" 2>/dev/null || echo "?")"
+echo "[orchestrator] image version=${ORCH_VERSION}"
+
 CFG=/data/orchestrator/config
 mkdir -p /data/orchestrator/logs "$CFG" /data/orchestrator/tokens
 
@@ -54,29 +58,25 @@ import os
 import re
 from pathlib import Path
 
-# Hostname remap: bare slug → HA DNS local-{slug with dashes}
-_HOST_MAP = {
-    "haos_orchestrator": "local-haos-orchestrator",
-    "haos_tinder": "local-haos-tinder",
-    "haos_elitedate": "local-haos-elitedate",
-}
+# Bare slug host → HA DNS local-{slug with dashes}
+_HOST_MAP = (
+    ("haos_orchestrator", "local-haos-orchestrator"),
+    ("haos_tinder", "local-haos-tinder"),
+    ("haos_elitedate", "local-haos-elitedate"),
+)
 
-def fix_addon_dns(value: str) -> str:
-    """Rewrite broken HA addon hostnames inside any URL-like value."""
+def fix_addon_dns(value):
+    """Rewrite broken HA addon hostnames (simple replace — no regex edge cases)."""
     s = (value or "").strip()
     if not s:
         return s
+    for bad, good in _HOST_MAP:
+        s = s.replace("://" + bad, "://" + good)
+    return s
 
-    def _repl(match: re.Match[str]) -> str:
-        scheme, host, rest = match.group(1), match.group(2), match.group(3) or ""
-        new_host = _HOST_MAP.get(host, host)
-        return f"{scheme}{new_host}{rest}"
-
-    return re.sub(r"(https?://)([^/\s:]+)(\S*)", _repl, s, count=1)
-
-def migrate_env_hosts(text: str) -> tuple[str, list[str]]:
-    notes: list[str] = []
-    out_lines: list[str] = []
+def migrate_env_hosts(text):
+    notes = []
+    out_lines = []
     for line in text.splitlines(keepends=True):
         raw = line.rstrip("\n")
         if "=" not in raw or raw.lstrip().startswith("#"):
@@ -85,9 +85,9 @@ def migrate_env_hosts(text: str) -> tuple[str, list[str]]:
         key, _, val = raw.partition("=")
         fixed = fix_addon_dns(val)
         if fixed != val:
-            notes.append(f"{key.strip()}: {val.strip()} → {fixed}")
+            notes.append("%s: %s → %s" % (key.strip(), val.strip(), fixed))
             nl = "\n" if line.endswith("\n") else ""
-            out_lines.append(f"{key}={fixed}{nl}")
+            out_lines.append("%s=%s%s" % (key, fixed, nl))
         else:
             out_lines.append(line)
     return "".join(out_lines), notes
@@ -98,9 +98,10 @@ env_path = Path("/data/orchestrator/config/.env")
 text = env_path.read_text(encoding="utf-8") if env_path.is_file() else ""
 text, env_notes = migrate_env_hosts(text)
 for note in env_notes:
-    print(f"[orchestrator] Migrated .env DNS: {note}")
+    print("[orchestrator] Migrated .env DNS: %s" % note)
 
 updates = {}
+opts = {}
 if options_path.is_file():
     opts = json.loads(options_path.read_text(encoding="utf-8"))
     mapping = {
@@ -132,12 +133,12 @@ if options_path.is_file():
             raw = str(val)
             fixed = fix_addon_dns(raw)
             if fixed != raw:
-                print(f"[orchestrator] DNS fix {env_key}: {raw} → {fixed}")
+                print("[orchestrator] DNS fix %s: %s → %s" % (env_key, raw, fixed))
             updates[env_key] = fixed
 else:
     print("[orchestrator] No /data/options.json — keeping .env defaults")
 
-# Ensure dating-bot URLs use valid HA DNS even when options omitted them
+# HARD guarantee: dating-bot URLs must be local-haos-*
 defaults = {
     "ELITEDATE_BOT_URL": "http://local-haos-elitedate:8600",
     "TINDER_BOT_URL": "http://local-haos-tinder:8601",
@@ -145,21 +146,37 @@ defaults = {
 for key, default in defaults.items():
     current = updates.get(key)
     if current is None:
-        m = re.search(rf"(?m)^{re.escape(key)}=(.*)$", text)
+        m = re.search(r"(?m)^%s=(.*)$" % re.escape(key), text)
         current = m.group(1).strip() if m else ""
     fixed = fix_addon_dns(current) if current else default
-    if not fixed or any(bad in fixed for bad in _HOST_MAP):
-        # still contains a bare-slug host somehow → force default
-        for bad, good in _HOST_MAP.items():
-            if bad in fixed:
-                fixed = fixed.replace(bad, good)
-    if not fixed:
+    # If anything still looks like bare slug host, force default
+    if ("haos_elitedate" in fixed and "local-haos-elitedate" not in fixed) or \
+       ("haos_tinder" in fixed and "local-haos-tinder" not in fixed) or \
+       ("haos_orchestrator" in fixed and "local-haos-orchestrator" not in fixed) or \
+       not fixed:
+        print("[orchestrator] FORCE %s → %s (was %r)" % (key, default, current))
         fixed = default
     updates[key] = fixed
 
+# Write corrected URLs back into options.json so HA UI Nastavenia stop showing broken hosts
+if opts and options_path.is_file():
+    ui_changed = False
+    for opt_key, env_key in (
+        ("elitedate_bot_url", "ELITEDATE_BOT_URL"),
+        ("tinder_bot_url", "TINDER_BOT_URL"),
+    ):
+        if env_key in updates and opt_key in opts:
+            new_val = updates[env_key]
+            if str(opts.get(opt_key) or "") != new_val:
+                print("[orchestrator] Patch options.json %s → %s" % (opt_key, new_val))
+                opts[opt_key] = new_val
+                ui_changed = True
+    if ui_changed:
+        options_path.write_text(json.dumps(opts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
 for env_key, env_val in updates.items():
-    pattern = re.compile(rf"(?m)^{re.escape(env_key)}=.*$")
-    line = f"{env_key}={env_val}"
+    pattern = re.compile(r"(?m)^%s=.*$" % re.escape(env_key))
+    line = "%s=%s" % (env_key, env_val)
     if pattern.search(text):
         text = pattern.sub(line, text)
     else:
@@ -178,14 +195,24 @@ secret_keys = {
 export_lines = []
 for env_key, env_val in updates.items():
     os.environ[env_key] = env_val
-    export_lines.append(f"{env_key}={env_val}")
+    export_lines.append("%s=%s" % (env_key, env_val))
 print("[orchestrator] Applied HA Nastavenia → .env:")
 for line in export_lines:
     key = line.split("=", 1)[0]
     if key in secret_keys:
-        print(f"  {key}=***")
+        print("  %s=***" % key)
     else:
-        print(f"  {line}")
+        print("  %s" % line)
+
+# Final sanity line for logs
+print(
+    "[orchestrator] dating URLs: ELITEDATE_BOT_URL=%s TINDER_BOT_URL=%s"
+    % (updates.get("ELITEDATE_BOT_URL"), updates.get("TINDER_BOT_URL"))
+)
+for key in ("ELITEDATE_BOT_URL", "TINDER_BOT_URL"):
+    val = updates.get(key, "")
+    if "://" in val and "local-haos-" not in val and ("haos_elitedate" in val or "haos_tinder" in val):
+        raise SystemExit("[orchestrator] FATAL: %s still broken after DNS migration: %s" % (key, val))
 
 Path("/tmp/ha_options_export.env").write_text(
     "\n".join(export_lines) + "\n", encoding="utf-8"
@@ -228,6 +255,14 @@ ln -sf "$CFG/tinder_state.json" /app/tinder_state.json
 LOG_LEVEL="${LOG_LEVEL:-info}"
 echo "Log level: ${LOG_LEVEL}"
 echo "Dating bots: ELITEDATE_BOT_URL=${ELITEDATE_BOT_URL:-<unset>} TINDER_BOT_URL=${TINDER_BOT_URL:-<unset>}"
+
+# Refuse to start with known-broken hostnames (catches Supervisor-injected env too)
+case "${ELITEDATE_BOT_URL:-}" in
+    *://haos_elitedate*) echo "[orchestrator] FATAL: ELITEDATE_BOT_URL still haos_elitedate — image stale or migration failed"; exit 1 ;;
+esac
+case "${TINDER_BOT_URL:-}" in
+    *://haos_tinder*) echo "[orchestrator] FATAL: TINDER_BOT_URL still haos_tinder — image stale or migration failed"; exit 1 ;;
+esac
 
 exec python -m uvicorn app.main:app \
     --host 0.0.0.0 \

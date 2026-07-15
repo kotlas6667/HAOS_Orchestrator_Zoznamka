@@ -197,6 +197,10 @@ async def lifespan(app: FastAPI):
     async def _probe_dating_bots() -> None:
         import httpx
 
+        print(
+            f"[dating] configured URLs: elitedate={settings.elitedate_bot_url} "
+            f"tinder={settings.tinder_bot_url}"
+        )
         targets = (
             ("Elite Date", settings.elitedate_bot_url),
             ("Tinder", settings.tinder_bot_url),

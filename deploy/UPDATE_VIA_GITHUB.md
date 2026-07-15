@@ -6,9 +6,20 @@ Add-ony sú v Obchode Home Assistant z repozitára:
 
 | Add-on | Cesta v gite | Očakávaná verzia (aktuálny `main`) |
 |--------|--------------|-------------------------------------|
-| HAOS Orchestrator | `config.json` (koreň) | **1.2.3** |
+| HAOS Orchestrator | `config.json` (koreň) | **1.2.4** |
 | HAOS Elite Date Bot | `elitedate_bot/` | **1.2.3** |
 | HAOS Tinder Bot | `tinder_bot/` | **1.2.6** |
+
+Po štarte orchestrátora **musí** byť v logu:
+
+```
+[orchestrator] image version=1.2.4
+[orchestrator] DNS fix ELITEDATE_BOT_URL: … → http://local-haos-elitedate:8600
+[dating] Elite Date …
+```
+
+Ak vidíš stále `ELITEDATE_BOT_URL=http://haos_elitedate:8600` **bez** riadku `image version=`,
+beží ešte starý image — Obchod neaktualizoval (⋮ → Skontrolovať aktualizácie → Aktualizovať).
 
 ## Prečo UI neponúka aktualizáciu
 
