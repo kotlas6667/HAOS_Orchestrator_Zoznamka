@@ -100,6 +100,18 @@ def set_prompt_message_id(entry: dict[str, Any], prompt_message_id: str) -> bool
     return False
 
 
+def update_options(entry: dict[str, Any], options: list[str]) -> dict[str, Any] | None:
+    """Replace reply options on a queued entry and return the updated entry."""
+    state = _load()
+    target_identity = _entry_identity(entry)
+    for queued in state["queue"]:
+        if _entry_identity(queued) == target_identity:
+            queued["options"] = list(options)
+            _save(state)
+            return queued
+    return None
+
+
 def resolve_selected(entry: dict[str, Any], chosen_text: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """Resolve a specific queued entry (not only head), promote head as awaiting_selection."""
     state = _load()

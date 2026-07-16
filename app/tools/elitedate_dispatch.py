@@ -13,6 +13,18 @@ from app.tools.discord_notifier import DiscordNotifier
 
 LOGGER_PREFIX = "[elitedate]"
 
+_REGENERATE_RE = re.compile(
+    r"(?:"
+    r"^4(?:[.)]|\uFE0F\u20E3|\u20E3|\uFE0F)?$"
+    r"|navrhni\s+(?:dalsie|ďalšie)(?:\s+odpovede?)?"
+    r"|(?:dalsie|ďalšie)\s+(?:odpovede?|navrhy|návrhy)"
+    r"|nove?\s+navrhy"
+    r"|nové\s+návrhy"
+    r"|regener(?:ate|uj)(?:\s+odpovede?)?"
+    r")",
+    re.IGNORECASE,
+)
+
 
 def _format_prompt(entry: dict[str, Any]) -> str:
     opt1, opt2 = entry["options"][0], entry["options"][1]
@@ -35,8 +47,9 @@ def _format_prompt(entry: dict[str, Any]) -> str:
         f"{queue_note}"
         f"1️⃣ {opt1}\n"
         f"2️⃣ {opt2}\n\n"
-        f"3️⃣ vlastný text - pošli ho ako `3 Tvoj text`\n\n"
-        f"Tip: najbezpečnejšie je kliknúť Reply na túto správu a poslať `1/2/3`."
+        f"3️⃣ vlastný text - pošli ho ako `3 Tvoj text`\n"
+        f"4️⃣ nové návrhy odpovedí\n\n"
+        f"Tip: najbezpečnejšie je kliknúť Reply na túto správu a poslať `1/2/3/4`."
     )
 
 
@@ -156,8 +169,24 @@ async def _send_via_bot(
         return str(data.get("mode") or "inserted")
 
 
+def is_regenerate_request(choice_text: str) -> bool:
+    """True when the user asks for fresh reply suggestions."""
+    choice = unicodedata.normalize("NFKC", choice_text or "").strip().strip("`")
+    if not choice:
+        return False
+    if re.match(r"^4(?:[.)]|\uFE0F\u20E3|\u20E3|\uFE0F)?$", choice):
+        return True
+    ascii_choice = "".join(
+        c for c in unicodedata.normalize("NFKD", choice.lower()) if not unicodedata.combining(c)
+    )
+    return bool(_REGENERATE_RE.search(choice) or _REGENERATE_RE.search(ascii_choice))
+
+
 def _parse_choice(choice_text: str) -> tuple[str, str | None] | None:
     choice = unicodedata.normalize("NFKC", choice_text or "").strip().strip("`")
+
+    if is_regenerate_request(choice):
+        return ("regenerate", None)
 
     # Accept plain numeric picks and common Discord variants like "2.", "2)", "2️⃣".
     simple_match = re.match(r"^([123])(?:[.)]|\uFE0F\u20E3|\u20E3|\uFE0F)?$", choice)
@@ -180,6 +209,45 @@ def _parse_choice(choice_text: str) -> tuple[str, str | None] | None:
     return None
 
 
+def _resolve_entry(replied_to_message_id: str | None = None) -> dict[str, Any] | None:
+    entry = None
+    if replied_to_message_id:
+        entry = elitedate_state.find_by_prompt_message_id(replied_to_message_id)
+    if entry is None:
+        entry = elitedate_state.current()
+    return entry
+
+
+async def regenerate_suggestions(replied_to_message_id: str | None = None) -> str | None:
+    """Generate fresh options and re-post the Discord prompt for the same thread."""
+    entry = _resolve_entry(replied_to_message_id)
+    if entry is None:
+        return None
+
+    previous_options = list(entry.get("options") or [])
+    try:
+        options = await generate_reply_options(
+            str(entry.get("message") or ""),
+            str(entry.get("sender") or ""),
+            my_last_message=str(entry.get("my_last_message") or ""),
+            previous_options=previous_options,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return f"⚠️ Nepodarilo sa vygenerovať nové návrhy: {exc}"
+
+    updated = elitedate_state.update_options(entry, options)
+    if updated is None:
+        return "⚠️ Konverzácia už nie je vo fronte — nové návrhy sa nepodarilo uložiť."
+
+    prompt_message_id = await _notify_discord(_format_prompt(updated))
+    if prompt_message_id:
+        elitedate_state.set_prompt_message_id(updated, prompt_message_id)
+
+    conv_short = str(updated.get("conversation_id") or "")[:8]
+    sender = str(updated.get("sender") or "Neznámy")
+    return f"🔄 Nové návrhy pre `{sender} | {conv_short}` sú vyššie. Vyber `1/2/3` alebo znova `4`."
+
+
 async def handle_selection(choice_text: str, replied_to_message_id: str | None = None) -> str | None:
     """Called from the Discord bot when a message arrives while a conversation is
     awaiting_selection. Returns the reply to send back to Discord, or None if there
@@ -188,17 +256,14 @@ async def handle_selection(choice_text: str, replied_to_message_id: str | None =
     if parsed is None:
         return None
 
-    entry = None
-    if replied_to_message_id:
-        entry = elitedate_state.find_by_prompt_message_id(replied_to_message_id)
+    choice_kind, custom_text = parsed
+    if choice_kind == "regenerate":
+        return await regenerate_suggestions(replied_to_message_id)
 
-    if entry is None:
-        entry = elitedate_state.current()
-
+    entry = _resolve_entry(replied_to_message_id)
     if entry is None:
         return None
 
-    choice_kind, custom_text = parsed
     if choice_kind == "1":
         chosen_text = entry["options"][0]
     elif choice_kind == "2":

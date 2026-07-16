@@ -71,13 +71,28 @@ def _build_system_prompt() -> str:
     )
 
 
-async def generate_reply_options(message: str, sender: str, my_last_message: str = "") -> list[str]:
+async def generate_reply_options(
+    message: str,
+    sender: str,
+    my_last_message: str = "",
+    previous_options: list[str] | None = None,
+) -> list[str]:
     """Ask GPT for two reply drafts using both sides of the latest exchange."""
     if not settings.openai_api_key:
         return [
             "(OPENAI_API_KEY nie je nastavený — doplň vlastnú odpoveď ručne.)",
             "(OPENAI_API_KEY nie je nastavený — doplň vlastnú odpoveď ručne.)",
         ]
+
+    previous = [str(o).strip() for o in (previous_options or []) if str(o).strip()]
+    avoid_block = ""
+    if previous:
+        listed = "\n".join(f"- {opt}" for opt in previous)
+        avoid_block = (
+            "\n\nPredchádzajúce návrhy (NEPOUŽÍVAJ ich a nenapodobňuj ich — "
+            "vymysli úplne iné varianty):\n"
+            f"{listed}"
+        )
 
     headers = {
         "Authorization": f"Bearer {settings.openai_api_key}",
@@ -95,10 +110,11 @@ async def generate_reply_options(message: str, sender: str, my_last_message: str
                     f"Jej posledná odpoveď:\n{message}\n\n"
                     "Vygeneruj dve možné odpovede, ktoré nadväzujú na túto výmenu "
                     "a rešpektujú personalizovaný skill."
+                    f"{avoid_block}"
                 ),
             },
         ],
-        "temperature": 0.8,
+        "temperature": 0.95 if previous else 0.8,
     }
 
     fallback = [

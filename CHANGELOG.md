@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.15] - 2026-07-16
+
+### Added
+- Discord Tinder/Elite Date: voľba **4️⃣ nové návrhy odpovedí** (alebo text „Navrhni ďalšie odpovede“) —
+  vygeneruje nové AI návrhy a znova pošle prompt so rovnakým ID vlákna.
+
 ## [1.2.14] - 2026-07-16
 
 ### Fixed

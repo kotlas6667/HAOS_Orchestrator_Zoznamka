@@ -20,7 +20,7 @@ from app.schemas import PromptResponse, ToolExecution
 
 LOGGER = logging.getLogger("orchestrator.discord_bot")
 
-_ELITEDATE_CHOICE_RE = re.compile(r"^\s*[123](?:[.):,]|\uFE0F\u20E3|\u20E3|\uFE0F)?(?:\s.*)?\s*$")
+_ELITEDATE_CHOICE_RE = re.compile(r"^\s*[1234](?:[.):,]|\uFE0F\u20E3|\u20E3|\uFE0F)?(?:\s.*)?\s*$")
 _ELITE_DATE_RE = re.compile(r"elite\s*d[aáä]te|elitedate", re.IGNORECASE)
 # "správy na ed", "ed?", "stav ed" — nie bežné slová obsahujúce "ed"
 _ED_WORD_RE = re.compile(
@@ -190,7 +190,25 @@ class OrchestratorDiscordClient(discord.Client):
                 LOGGER.info("Reply to dating-app message had no actionable selection context; suppressing")
                 return
 
-            # Safety guard: suppress bare 1/2/3 inputs that were NOT dating replies
+            # Bare "4" / "Navrhni ďalšie odpovede" without Discord Reply:
+            # regenerate for the conversation currently awaiting selection.
+            if tinder_dispatch.is_regenerate_request(prompt) or elitedate_dispatch.is_regenerate_request(prompt):
+                for dispatcher in (tinder_dispatch, elitedate_dispatch):
+                    dating_reply = await dispatcher.handle_selection(prompt)
+                    if dating_reply is not None:
+                        LOGGER.info("Processing bare dating regenerate request via %s", dispatcher.__name__)
+                        await message.channel.send(dating_reply)
+                        self._add_to_history(message.author.id, prompt, dating_reply)
+                        return
+                empty_reply = (
+                    "ℹ️ Momentálne nie je vo fronte žiadna Tinder/Elite Date konverzácia, "
+                    "pre ktorú by som mohol navrhnúť nové odpovede."
+                )
+                await message.channel.send(empty_reply)
+                self._add_to_history(message.author.id, prompt, empty_reply)
+                return
+
+            # Safety guard: suppress bare 1/2/3/4 inputs that were NOT dating replies
             # so they never fall through into the LLM and produce nonsense responses.
             if _ELITEDATE_CHOICE_RE.match(prompt):
                 LOGGER.info("Bare numeric choice without dating-app Reply context; suppressing generic fallback")
