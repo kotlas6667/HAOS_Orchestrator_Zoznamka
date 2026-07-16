@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.16] / Tinder [1.2.13] / Elite Date [1.3.7] - 2026-07-16
+
+### Fixed
+- Discord výber `1/2` na Tinderi: orchestrátor mal timeout **10 s** na `/send` → prázdna chyba
+  `Nepodarilo sa vložiť odpoveď cez bota:` (`httpx.ReadTimeout` bez textu).
+  Teraz 90 s + čitateľná správa (URL, auto_send, typ chyby).
+
 ## [1.2.15] - 2026-07-16
 
 ### Added

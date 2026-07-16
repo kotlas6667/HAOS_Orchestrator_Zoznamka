@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.7
+
+- `/send`: pri chybe vždy vráti text `error` (nie prázdny status)
+
 ## 1.3.6
 
 - Ranné pozdravy: po vyčerpaní kariet na stránke klikne **Ďalšie**
