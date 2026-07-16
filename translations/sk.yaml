@@ -65,6 +65,17 @@ configuration:
     name: Tinder — auto odoslať
     description: >-
       ZAPNUTÉ — vybraná odpoveď sa aj odošle. VYPNUTÉ — len vloží do poľa.
+  elitedate_reply_skill:
+    name: Elite Date — skill pre AI návrhy
+    description: >-
+      Textový profil štýlu pre 2 návrhy odpovedí v Discorde (persona, tón, hranice,
+      čo navrhovať). GPT ho zohľadní pri každej novej ED správe. Môžeš vložiť
+      viac riadkov (odsekmi). Prázdne = vstavaný predvolený skill zo súboru.
+  tinder_reply_skill:
+    name: Tinder — skill pre AI návrhy
+    description: >-
+      Rovnaké ako Elite Date skill, ale pre Tinder návrhy v Discorde.
+      Prázdne = vstavaný predvolený Tinder skill.
 
 network:
   8000/tcp: Orchestrátor API, web dashboard a ingress

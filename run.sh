@@ -98,6 +98,19 @@ if options_path.is_file():
 else:
     print("[orchestrator] No /data/options.json — keeping .env defaults")
 
+# Multiline reply skills → sidecar .md (`.env` nezvláda viacriadkový text spoľahlivo)
+cfg_dir = env_path.parent
+cfg_dir.mkdir(parents=True, exist_ok=True)
+for opt_key, filename in (
+    ("elitedate_reply_skill", "elitedate_reply_skill.md"),
+    ("tinder_reply_skill", "tinder_reply_skill.md"),
+):
+    raw = opts.get(opt_key) if opts else None
+    content = raw.strip() if isinstance(raw, str) else ""
+    skill_path = cfg_dir / filename
+    skill_path.write_text((content + "\n") if content else "", encoding="utf-8")
+    print(f"[orchestrator] Reply skill {filename}: {len(content)} chars ({'custom' if content else 'empty→bundled'})")
+
 # Read current dating URLs from options/.env then resolve via Supervisor / hash DNS
 def _current(key: str) -> str:
     if key in updates:
@@ -208,6 +221,12 @@ mkdir -p "$CFG/elitedate" "$CFG/tinder"
 [ -e "$CFG/tinder_state.json" ] || echo '{"queue":[]}' > "$CFG/tinder_state.json"
 ln -sf "$CFG/elitedate_state.json" /app/elitedate_state.json
 ln -sf "$CFG/tinder_state.json" /app/tinder_state.json
+
+# AI reply skills (HA Nastavenia → /data/.../*.md; providers čítajú tieto súbory)
+[ -e "$CFG/elitedate_reply_skill.md" ] || : > "$CFG/elitedate_reply_skill.md"
+[ -e "$CFG/tinder_reply_skill.md" ] || : > "$CFG/tinder_reply_skill.md"
+ln -sf "$CFG/elitedate_reply_skill.md" /app/elitedate_reply_skill.user.md
+ln -sf "$CFG/tinder_reply_skill.md" /app/tinder_reply_skill.user.md
 
 LOG_LEVEL="${LOG_LEVEL:-info}"
 echo "Log level: ${LOG_LEVEL}"
