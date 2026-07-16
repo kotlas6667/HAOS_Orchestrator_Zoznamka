@@ -10,9 +10,12 @@ from app.config import settings
 
 _SKILL_FILE = Path(__file__).resolve().with_name("elitedate_reply_skill.md")
 _USER_SKILL_CANDIDATES = (
+    Path("/data/orchestrator/config/dating_reply_skill.md"),
+    Path("/app/dating_reply_skill.user.md"),
+    Path("dating_reply_skill.user.md"),
+    # legacy filenames from 1.2.12
     Path("/data/orchestrator/config/elitedate_reply_skill.md"),
     Path("/app/elitedate_reply_skill.user.md"),
-    Path("elitedate_reply_skill.user.md"),
 )
 
 _REPLY_SYSTEM_PROMPT_BASE = """\

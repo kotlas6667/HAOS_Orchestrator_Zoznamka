@@ -76,13 +76,13 @@ class Settings(BaseSettings):
     # Elite Date bot (separate local process, see elitedate_bot/)
     elitedate_bot_url: str = "http://127.0.0.1:8600"
     elitedate_auto_send: bool = Field(default=False, validation_alias="ELITEDATE_AUTO_SEND")
-    # Personalizovaný skill pre AI návrhy odpovedí v Discorde (prázdne = súbor / default).
-    elitedate_reply_skill: str = Field(default="", validation_alias="ELITEDATE_REPLY_SKILL")
 
     # Tinder bot (separate local process, see tinder_bot/)
     tinder_bot_url: str = "http://127.0.0.1:8601"
     tinder_auto_send: bool = Field(default=False, validation_alias="TINDER_AUTO_SEND")
-    tinder_reply_skill: str = Field(default="", validation_alias="TINDER_REPLY_SKILL")
+
+    # Spoločný skill pre AI návrhy odpovedí v Discorde (ED + Tinder). Prázdne = súbor / default.
+    dating_reply_skill: str = Field(default="", validation_alias="DATING_REPLY_SKILL")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
