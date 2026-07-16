@@ -1,11 +1,14 @@
 # Changelog
 
+## [1.2.13] - 2026-07-16
+
+### Changed
+- Jeden spoločný textbox **Skill pre AI návrhy (ED + Tinder)** namiesto dvoch polí.
+
 ## [1.2.12] - 2026-07-16
 
 ### Added
-- Nastavenia: **Elite Date — skill pre AI návrhy** a **Tinder — skill pre AI návrhy**
-  (textbox). GPT zohľadní text pri generovaní 2 odpovedí do Discordu.
-  Prázdne = vstavaný skill zo súboru v image.
+- Nastavenia: skill pre AI návrhy odpovedí v Discorde (GPT zohľadní pri 2 návrhoch).
 
 ## Elite Date [1.3.6] - 2026-07-15
 
