@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.2.14] - 2026-07-16
+
+### Fixed
+- AI návrhy: providers čítajú `dating_reply_skill` (oprava AttributeError po zlúčení polí).
+
 ## [1.2.13] - 2026-07-16
 
 ### Changed

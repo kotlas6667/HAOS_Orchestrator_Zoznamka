@@ -43,7 +43,7 @@ _FALLBACK_SKILL = (
 
 def _load_reply_skill() -> str:
     """Priority: HA Nastavenia / env → user sidecar .md → bundled skill → fallback."""
-    from_settings = (settings.elitedate_reply_skill or "").strip()
+    from_settings = (settings.dating_reply_skill or "").strip()
     if from_settings:
         return from_settings
 
