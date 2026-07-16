@@ -9,6 +9,11 @@ import httpx
 from app.config import settings
 
 _SKILL_FILE = Path(__file__).resolve().with_name("elitedate_reply_skill.md")
+_USER_SKILL_CANDIDATES = (
+    Path("/data/orchestrator/config/elitedate_reply_skill.md"),
+    Path("/app/elitedate_reply_skill.user.md"),
+    Path("elitedate_reply_skill.user.md"),
+)
 
 _REPLY_SYSTEM_PROMPT_BASE = """\
 Si asistent, ktorý pomáha používateľovi odpovedať na správy zo zoznamky. Dostaneš kontext poslednej výmeny: poslednú otázku/správu používateľa a poslednú odpoveď druhej osoby. Napíš DVE odlišné alternatívne odpovede v mene používateľa.
@@ -19,29 +24,47 @@ Pravidlá:
 - Krátke, ako reálna správa v chate (1-3 vety), žiadne emoji balvany.
 - Reaguj priamo na jej poslednú odpoveď a drž nadväznosť na používateľovu poslednú otázku/správu.
 - Nikdy nevymýšľaj fakty o používateľovi, ktoré nepozná z kontextu správy.
+- Personalizovaný skill nižšie má prioritu pri tóne, persona a hraniciach — dodrž ho.
 
 Odpovedz IBA validným JSON objektom, žiadny iný text:
 {"option_1": "<text>", "option_2": "<text>"}
 """
 
+_FALLBACK_SKILL = (
+    "Ton: prirodzeny, sebavedomy, slusny.\n"
+    "Komunikacia: kratke odpovede 1-3 vety, bez tlaku, bez needy stylu.\n"
+    "Obsah: bud zvedavy, navrhni konkretny dalsi krok, ked to dava zmysel.\n"
+    "Hranice: nevymyslaj osobne fakty, nebud manipulativny ani vulgarne sexualny."
+)
+
 
 def _load_reply_skill() -> str:
+    """Priority: HA Nastavenia / env → user sidecar .md → bundled skill → fallback."""
+    from_settings = (settings.elitedate_reply_skill or "").strip()
+    if from_settings:
+        return from_settings
+
+    for path in _USER_SKILL_CANDIDATES:
+        try:
+            if path.is_file():
+                skill = path.read_text(encoding="utf-8").strip()
+                if skill:
+                    return skill
+        except Exception:  # noqa: BLE001
+            continue
+
     if _SKILL_FILE.exists():
         skill = _SKILL_FILE.read_text(encoding="utf-8").strip()
         if skill:
             return skill
-    return (
-        "Ton: prirodzeny, sebavedomy, slusny.\n"
-        "Komunikacia: kratke odpovede 1-3 vety, bez tlaku, bez needy stylu.\n"
-        "Obsah: bud zvedavy, navrhni konkretny dalsi krok, ked to dava zmysel.\n"
-        "Hranice: nevymyslaj osobne fakty, nebud manipulativny ani vulgarne sexualny."
-    )
+    return _FALLBACK_SKILL
 
 
 def _build_system_prompt() -> str:
     return (
         f"{_REPLY_SYSTEM_PROMPT_BASE}\n\n"
-        "Dodrz aj tento personalizovany profil stylu pre odpovede:\n"
+        "Dodrž aj tento personalizovaný profil štýlu pre odpovede "
+        "(skill z Nastavení Orchestrátora / súboru):\n"
         f"{_load_reply_skill()}"
     )
 
@@ -68,7 +91,8 @@ async def generate_reply_options(message: str, sender: str, my_last_message: str
                     f"Druhá osoba: {sender}\n\n"
                     f"Tvoja posledná otázka/správa:\n{my_last_message or '(nie je známa)'}\n\n"
                     f"Jej posledná odpoveď:\n{message}\n\n"
-                    "Vygeneruj dve možné odpovede, ktoré nadväzujú na túto výmenu."
+                    "Vygeneruj dve možné odpovede, ktoré nadväzujú na túto výmenu "
+                    "a rešpektujú personalizovaný skill."
                 ),
             },
         ],
