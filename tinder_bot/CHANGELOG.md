@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.13
+
+- `/send`: pri chybe vždy vráti text `error` (nie prázdny status)
+
 ## 1.2.12
 
 - `/health` vracia `poll_enabled` (parity s Elite Date)

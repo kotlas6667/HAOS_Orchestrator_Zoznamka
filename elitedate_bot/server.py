@@ -149,9 +149,17 @@ async def send(request: Request) -> dict:
                 expected_message=expected_message,
             )
     except Exception as exc:  # noqa: BLE001
-        return {"status": "error", "error": str(exc)}
+        detail = str(exc).strip() or type(exc).__name__
+        print(f"[elitedate_bot] /send failed: {detail}")
+        return {"status": "error", "error": detail}
 
+    if not ok:
+        return {
+            "status": "error",
+            "error": "send_reply returned False (chat/input not ready?)",
+            "mode": "sent" if submit else "inserted",
+        }
     return {
-        "status": "success" if ok else "error",
+        "status": "success",
         "mode": "sent" if submit else "inserted",
     }

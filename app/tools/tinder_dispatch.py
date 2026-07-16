@@ -103,24 +103,40 @@ async def _send_via_bot(
     expected_message: str = "",
     submit: bool | None = None,
 ) -> str:
-    """Insert chosen reply into Tinder input, optionally submit by config."""
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.post(
-            f"{settings.tinder_bot_url}/send",
-            json={
-                "conversation_id": conversation_id,
-                "sender": sender,
-                "expected_message": expected_message,
-                "text": text,
-                "submit": bool(settings.tinder_auto_send if submit is None else submit),
-            },
-        )
-        response.raise_for_status()
-        data = response.json()
-        if data.get("status") != "success":
-            error = str(data.get("error") or "unknown error")
-            return f"error:{error}"
-        return str(data.get("mode") or "inserted")
+    """Insert chosen reply into Tinder input, optionally submit by config.
+
+    Timeout must cover Selenium navigation + optional wait on driver_lock while
+    the poller holds Chrome (10s was too short → empty httpx.ReadTimeout).
+    """
+    url = f"{settings.tinder_bot_url.rstrip('/')}/send"
+    try:
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            response = await client.post(
+                url,
+                json={
+                    "conversation_id": conversation_id,
+                    "sender": sender,
+                    "expected_message": expected_message,
+                    "text": text,
+                    "submit": bool(settings.tinder_auto_send if submit is None else submit),
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+    except httpx.TimeoutException as exc:
+        detail = str(exc).strip() or "ReadTimeout"
+        raise RuntimeError(
+            f"timeout po 90s pri volaní {url} ({detail}) — bot asi drží Chrome (poll) "
+            "alebo Selenium dlho otvára chat"
+        ) from exc
+    except httpx.HTTPError as exc:
+        detail = str(exc).strip() or type(exc).__name__
+        raise RuntimeError(f"HTTP chyba pri {url}: {detail}") from exc
+
+    if data.get("status") != "success":
+        error = str(data.get("error") or "unknown error").strip() or "unknown error"
+        return f"error:{error}"
+    return str(data.get("mode") or "inserted")
 
 
 def is_regenerate_request(choice_text: str) -> bool:
@@ -239,8 +255,11 @@ async def handle_selection(choice_text: str, replied_to_message_id: str | None =
             submit=bool(entry.get("submit", settings.tinder_auto_send)),
         )
     except Exception as exc:  # noqa: BLE001
+        detail = str(exc).strip() or type(exc).__name__
+        print(f"{LOGGER_PREFIX} /send failed: {detail}")
         return (
-            f"⚠️ Nepodarilo sa vložiť odpoveď cez bota: {exc}\n"
+            f"⚠️ Nepodarilo sa vložiť odpoveď cez bota: {detail}\n"
+            f"URL: `{settings.tinder_bot_url}` · auto_send={settings.tinder_auto_send}\n"
             f"Posledná zvolená odpoveď: \"{chosen_text}\""
         )
 
