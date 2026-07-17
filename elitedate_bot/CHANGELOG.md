@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.8
+
+- Chrome: odstránené `--single-process` / `--no-zygote` (Chrome 150 renderer crash)
+- `--headless=new`, `shm_size=1G`, recovery na renderer timeout
+
 ## 1.3.7
 
 - `/send`: pri chybe vždy vráti text `error` (nie prázdny status)
