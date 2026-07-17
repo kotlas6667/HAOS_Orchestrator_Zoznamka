@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.19] - 2026-07-17
+
+### Added
+- Nastavenie **Model pre AI návrhy (ED + Tinder)** (`dating_reply_model`, default `gpt-4o`) —
+  oddelené od lacného `openai_model` (routing/chat = `gpt-4o-mini`).
+
 ## [1.2.18] - 2026-07-17
 
 ### Added

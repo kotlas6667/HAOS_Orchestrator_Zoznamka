@@ -78,7 +78,7 @@ async def generate_reply_options(
         "Content-Type": "application/json",
     }
     data = {
-        "model": settings.openai_model,
+        "model": (settings.dating_reply_model or settings.openai_model or "gpt-4o").strip(),
         "messages": [
             {"role": "system", "content": _build_system_prompt()},
             {

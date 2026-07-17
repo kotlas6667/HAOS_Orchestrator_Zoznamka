@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     # OpenAI GPT (routing + chat)
     openai_api_key: str = Field(default="", env="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o-mini", env="OPENAI_MODEL")
+    # Silnejší model len pre ED/Tinder návrhy odpovedí (routing ostáva na openai_model).
+    dating_reply_model: str = Field(default="gpt-4o", validation_alias="DATING_REPLY_MODEL")
 
     # Chat
     chat_provider: str = "openai"
