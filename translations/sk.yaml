@@ -10,9 +10,15 @@ configuration:
       Kľúč z platform.openai.com — potrebný pre GPT routing a chat.
       Vyplň v Nastaveniach, nemusíš ručne editovať .env.
   openai_model:
-    name: OpenAI model
+    name: OpenAI model (routing + chat)
     description: >-
-      Model pre routing a chat. Default gpt-4o-mini.
+      Lacný model pre routing nástrojov a bežný chat. Default gpt-4o-mini.
+  dating_reply_model:
+    name: Model pre AI návrhy (ED + Tinder)
+    description: >-
+      Silnejší model len pre 2 návrhy odpovedí v Discorde (Elite Date / Tinder).
+      Default gpt-4o — lepší tón a nadväznosť než mini. Alternatívy: gpt-4.1,
+      gpt-4.1-mini. Routing ostáva na poli vyššie.
   ha_url:
     name: URL Home Assistant
     description: >-

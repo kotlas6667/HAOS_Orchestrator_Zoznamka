@@ -25,6 +25,7 @@ LOG_LEVEL=info
 
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
+DATING_REPLY_MODEL=gpt-4o
 
 HA_PROVIDER=real
 HA_URL=http://supervisor/core:8123
@@ -72,6 +73,7 @@ if options_path.is_file():
         "log_level": "LOG_LEVEL",
         "openai_api_key": "OPENAI_API_KEY",
         "openai_model": "OPENAI_MODEL",
+        "dating_reply_model": "DATING_REPLY_MODEL",
         "ha_url": "HA_URL",
         "ha_token": "HA_TOKEN",
         "weather_default_city": "WEATHER_DEFAULT_CITY",
