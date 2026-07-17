@@ -51,6 +51,7 @@ TINDER_BOT_PORT=8601
 ORCHESTRATOR_URL=http://8c003d88-haos-orchestrator:8000
 
 TINDER_POLL_ENABLED=true
+TINDER_AUTO_SEND=false
 TINDER_POLL_INTERVAL_MIN_SEC=90
 TINDER_POLL_INTERVAL_MAX_SEC=180
 TINDER_PAGE_SETTLE_SEC=4
@@ -101,6 +102,7 @@ if options_path.is_file():
         "geolocation_enabled": "TINDER_GEOLOCATION_ENABLED",
         "geolocation_lat": "TINDER_GEOLOCATION_LAT",
         "geolocation_lon": "TINDER_GEOLOCATION_LON",
+        "auto_send": "TINDER_AUTO_SEND",
     }
     for opt_key, env_key in mapping.items():
         if opt_key not in opts:

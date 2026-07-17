@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.9
+
+- Celá posledná správa: spojiť za sebou idúce bubliny (nie len posledný odsek)
+
 ## 1.3.8
 
 - Chrome: odstránené `--single-process` / `--no-zygote` (Chrome 150 renderer crash)

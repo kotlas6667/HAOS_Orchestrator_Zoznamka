@@ -65,6 +65,7 @@ configuration:
     name: Tinder — auto odoslať
     description: >-
       ZAPNUTÉ — vybraná odpoveď sa aj odošle. VYPNUTÉ — len vloží do poľa.
+      Rovnaký prepínač je aj v Nastaveniach Tinder bota (Auto odoslať odpoveď).
   dating_reply_skill:
     name: Skill pre AI návrhy (ED + Tinder)
     description: >-

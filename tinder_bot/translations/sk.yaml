@@ -46,6 +46,12 @@ configuration:
     description: >-
       Súradnica pre Tinder geolokáciu. Default 17.1077 (Bratislava).
       Platí len keď je geolokácia zapnutá.
+  auto_send:
+    name: Auto odoslať odpoveď
+    description: >-
+      ZAPNUTÉ — keď v Discorde zvolíš 1/2/3, bot text aj ODOŠLE.
+      VYPNUTÉ — len vloží text do poľa (musíš odoslať ručne / mať zapnuté
+      v Orchestrátore „Tinder — auto odoslať“).
 
 network:
   8601/tcp: HTTP API bota — /health, odoslanie odpovedí z Discordu

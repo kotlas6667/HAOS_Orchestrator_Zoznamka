@@ -362,29 +362,86 @@ class TinderClient:
             cleaned_lines.append(line)
         return "\n".join(cleaned_lines).strip()
 
-    def _latest_received_message(self) -> str:
-        messages = self.driver.find_elements(By.CSS_SELECTOR, "div.msg.msg--received")
-        if not messages:
-            messages = self.driver.find_elements(By.CSS_SELECTOR, "div.msg[class*='chat-bubble-receive']")
-        if not messages:
-            return ""
-        return self._clean_chat_message_text(messages[-1].text)
+    def _is_received_bubble(self, element) -> bool:
+        cls = (element.get_attribute("class") or "").lower()
+        return "msg--received" in cls or "chat-bubble-receive" in cls
 
-    def _latest_sent_message(self) -> str:
-        messages = self.driver.find_elements(By.CSS_SELECTOR, "div.msg[class*='chat-bubble-send']:not(.msg--received)")
-        if not messages:
-            return ""
-        return self._clean_chat_message_text(messages[-1].text)
+    def _is_sent_bubble(self, element) -> bool:
+        cls = (element.get_attribute("class") or "").lower()
+        if self._is_received_bubble(element):
+            return False
+        return "chat-bubble-send" in cls or "msg--sent" in cls or "msg" in cls
 
-    def _last_message_is_received(self) -> bool:
+    def _iter_chat_bubbles(self) -> list:
         bubbles = self.driver.find_elements(By.CSS_SELECTOR, "div.msg[class*='chat-bubble']")
         if not bubbles:
             bubbles = self.driver.find_elements(By.CSS_SELECTOR, "div.msg")
+        return bubbles
+
+    def _latest_received_message(self) -> str:
+        """Full last incoming turn — join consecutive received bubbles (paragraphs).
+
+        Tinder often splits one reply into multiple `.msg--received` nodes; taking
+        only `messages[-1]` kept just the last short paragraph.
+        """
+        bubbles = self._iter_chat_bubbles()
+        if not bubbles:
+            # Fallback older selectors
+            bubbles = self.driver.find_elements(By.CSS_SELECTOR, "div.msg.msg--received")
+            if not bubbles:
+                bubbles = self.driver.find_elements(By.CSS_SELECTOR, "div.msg[class*='chat-bubble-receive']")
+            if not bubbles:
+                return ""
+            return self._clean_chat_message_text(bubbles[-1].text)
+
+        parts: list[str] = []
+        for bubble in reversed(bubbles):
+            if not self._is_received_bubble(bubble):
+                if parts:
+                    break
+                continue
+            text = self._clean_chat_message_text(bubble.text or "")
+            if text:
+                parts.append(text)
+        if not parts:
+            return ""
+        parts.reverse()
+        return "\n\n".join(parts).strip()
+
+    def _latest_sent_message(self) -> str:
+        """Full last outgoing turn — join consecutive sent bubbles."""
+        bubbles = self._iter_chat_bubbles()
+        if not bubbles:
+            messages = self.driver.find_elements(
+                By.CSS_SELECTOR, "div.msg[class*='chat-bubble-send']:not(.msg--received)"
+            )
+            if not messages:
+                return ""
+            return self._clean_chat_message_text(messages[-1].text)
+
+        parts: list[str] = []
+        for bubble in reversed(bubbles):
+            if self._is_received_bubble(bubble):
+                if parts:
+                    break
+                continue
+            if not self._is_sent_bubble(bubble):
+                if parts:
+                    break
+                continue
+            text = self._clean_chat_message_text(bubble.text or "")
+            if text:
+                parts.append(text)
+        if not parts:
+            return ""
+        parts.reverse()
+        return "\n\n".join(parts).strip()
+
+    def _last_message_is_received(self) -> bool:
+        bubbles = self._iter_chat_bubbles()
         if not bubbles:
             return False
-        last = bubbles[-1]
-        cls = last.get_attribute("class") or ""
-        return "msg--received" in cls or "chat-bubble-receive" in cls
+        return self._is_received_bubble(bubbles[-1])
 
     def _click_conversation(self, item) -> None:
         try:

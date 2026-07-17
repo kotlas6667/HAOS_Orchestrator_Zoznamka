@@ -26,6 +26,11 @@ _REGENERATE_RE = re.compile(
 )
 
 
+def _discord_quote(text: str) -> str:
+    lines = (text or "").splitlines() or [""]
+    return "\n".join(f"> {line}" if line else ">" for line in lines)
+
+
 def _format_prompt(entry: dict[str, Any]) -> str:
     opt1, opt2 = entry["options"][0], entry["options"][1]
     conv_short = entry.get("conversation_id", "")[:8]
@@ -37,8 +42,8 @@ def _format_prompt(entry: dict[str, Any]) -> str:
         queue_note = "⏳ Táto konverzácia je momentálne vo fronte. Odpovedz priamo na túto správu, ak chceš vybrať odpoveď práve pre ňu.\n"
     my_context = ""
     if my_last_message:
-        my_context = f"👤 Tvoja posledná otázka/správa:\n> {my_last_message}\n\n"
-    their_context = f"👥 Posledná odpoveď od {sender}:\n> {their_last_message}\n\n"
+        my_context = f"👤 Tvoja posledná otázka/správa:\n{_discord_quote(my_last_message)}\n\n"
+    their_context = f"👥 Posledná odpoveď od {sender}:\n{_discord_quote(their_last_message)}\n\n"
     return (
         f"💌 **Nová správa na Elite Date od {sender}**\n"
         f"🔒 Vlákno: `{sender} | {conv_short}`\n"

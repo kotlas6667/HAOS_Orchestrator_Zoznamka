@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.15
+
+- Nastavenie **Auto odoslať odpoveď** (`auto_send`) priamo v Tinder bote
+- Celá posledná správa: spojiť za sebou idúce received bubliny (nie len posledný odsek)
+
 ## 1.2.14
 
 - Chrome: odstránené `--single-process` / `--no-zygote` (Chrome 150 padal: renderer / invalid session id)

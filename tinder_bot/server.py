@@ -22,6 +22,7 @@ async def health() -> dict:
         "logged_in": shared_state.client is not None,
         "session_alive": session_alive(shared_state.client),
         "poll_enabled": settings.poll_enabled,
+        "auto_send": settings.auto_send,
     }
 
 
@@ -237,13 +238,16 @@ async def send(request: Request) -> dict:
     text = data.get("text", "").strip()
     sender = data.get("sender", "").strip()
     expected_message = data.get("expected_message", "").strip()
-    submit = bool(data.get("submit", False))
+    # Orchestrator may request submit; local Tinder Nastavenia auto_send can force it.
+    submit = bool(data.get("submit", False)) or bool(settings.auto_send)
 
     if not conversation_id or not text:
         return {"status": "error", "error": "conversation_id and text are required"}
 
     if shared_state.client is None:
         return {"status": "error", "error": "Bot is not logged in yet"}
+
+    print(f"[tinder_bot] /send submit={submit} (payload={bool(data.get('submit'))} auto_send={settings.auto_send})")
 
     try:
         async with shared_state.driver_lock:

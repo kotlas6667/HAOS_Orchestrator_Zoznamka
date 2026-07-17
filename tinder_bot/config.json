@@ -1,7 +1,7 @@
 {
   "name": "HAOS Tinder Bot",
   "description": "Samostatný Selenium bot pre Tinder. Prvé prihlásenie cez noVNC (port 6080) — nastav tinder_headless v Nastaveniach.",
-  "version": "1.2.14",
+  "version": "1.2.15",
   "slug": "haos_tinder",
   "init": false,
   "arch": ["amd64", "aarch64"],
@@ -27,7 +27,8 @@
     "tinder_phone": "",
     "geolocation_enabled": true,
     "geolocation_lat": "48.1486",
-    "geolocation_lon": "17.1077"
+    "geolocation_lon": "17.1077",
+    "auto_send": false
   },
   "schema": {
     "log_level": "list(trace|debug|info|notice|warning|error|fatal)?",
@@ -38,7 +39,8 @@
     "tinder_phone": "str?",
     "geolocation_enabled": "bool",
     "geolocation_lat": "str?",
-    "geolocation_lon": "str?"
+    "geolocation_lon": "str?",
+    "auto_send": "bool"
   },
   "url": "https://github.com/kotlas6667/HAOS_Orchestrator_Zoznamka",
   "maintainer": "kotlas <kotlas6667@gmail.com>"

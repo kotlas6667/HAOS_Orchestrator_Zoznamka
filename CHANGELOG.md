@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.17] / Tinder [1.2.15] / Elite Date [1.3.9] - 2026-07-17
+
+### Added
+- Tinder bot: prepínač **Auto odoslať odpoveď** v Nastaveniach add-onu (nielen v Orchestrátore).
+
+### Fixed
+- Discord kontext: celá posledná správa (všetky odseky/bubliny jedného ťahu), nie len posledné 2–3 slová.
+
 ## Tinder [1.2.14] / Elite Date [1.3.8] - 2026-07-17
 
 ### Fixed

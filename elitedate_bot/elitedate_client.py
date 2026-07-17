@@ -150,10 +150,55 @@ class EliteDateClient:
             self.driver.execute_script("arguments[0].click();", item)
 
     def _latest_received_message(self) -> str:
-        messages = self.driver.find_elements(By.CSS_SELECTOR, "section.conversation-section-message .message.message-receiver")
+        messages = self.driver.find_elements(
+            By.CSS_SELECTOR, "section.conversation-section-message .message.message-receiver"
+        )
+        if not messages:
+            messages = self.driver.find_elements(By.CSS_SELECTOR, ".message.message-receiver")
         if not messages:
             return ""
-        return self._clean_chat_message_text(messages[-1].text)
+        # Join consecutive trailing received bubbles (full last turn, not only last paragraph).
+        parts: list[str] = []
+        all_msgs = self.driver.find_elements(By.CSS_SELECTOR, "section.conversation-section-message .message")
+        if not all_msgs:
+            all_msgs = messages
+        for bubble in reversed(all_msgs):
+            cls = (bubble.get_attribute("class") or "").lower()
+            if "message-receiver" not in cls:
+                if parts:
+                    break
+                continue
+            text = self._clean_chat_message_text(bubble.text or "")
+            if text:
+                parts.append(text)
+        if not parts:
+            return self._clean_chat_message_text(messages[-1].text)
+        parts.reverse()
+        return "\n\n".join(parts).strip()
+
+    def _latest_sent_message(self) -> str:
+        messages = self.driver.find_elements(
+            By.CSS_SELECTOR, "section.conversation-section-message .message.message-sender"
+        )
+        if not messages:
+            return ""
+        parts: list[str] = []
+        all_msgs = self.driver.find_elements(By.CSS_SELECTOR, "section.conversation-section-message .message")
+        if not all_msgs:
+            all_msgs = messages
+        for bubble in reversed(all_msgs):
+            cls = (bubble.get_attribute("class") or "").lower()
+            if "message-sender" not in cls:
+                if parts:
+                    break
+                continue
+            text = self._clean_chat_message_text(bubble.text or "")
+            if text:
+                parts.append(text)
+        if not parts:
+            return self._clean_chat_message_text(messages[-1].text)
+        parts.reverse()
+        return "\n\n".join(parts).strip()
 
     def _clean_chat_message_text(self, text: str) -> str:
         """Remove timestamp/date lines from a message bubble's visible text."""
@@ -402,12 +447,6 @@ class EliteDateClient:
             time.sleep(0.15)
 
         return None
-
-    def _latest_sent_message(self) -> str:
-        messages = self.driver.find_elements(By.CSS_SELECTOR, "section.conversation-section-message .message.message-sender")
-        if not messages:
-            return ""
-        return self._clean_chat_message_text(messages[-1].text)
 
     def _last_message_is_received(self) -> bool:
         bubbles = self.driver.find_elements(By.CSS_SELECTOR, "section.conversation-section-message .message")

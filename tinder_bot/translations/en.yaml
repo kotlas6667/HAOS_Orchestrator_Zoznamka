@@ -28,6 +28,11 @@ configuration:
   geolocation_lon:
     name: Longitude
     description: Geolocation longitude (default Bratislava).
+  auto_send:
+    name: Auto-send reply
+    description: >-
+      ON — Discord choice 1/2/3 also clicks Send.
+      OFF — only inserts text into the input box.
 
 network:
   8601/tcp: Bot HTTP API — /health, send replies

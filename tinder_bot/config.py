@@ -54,6 +54,9 @@ class BotSettings(BaseSettings):
     geolocation_latitude: float = Field(default=48.1486, validation_alias="TINDER_GEOLOCATION_LAT")
     geolocation_longitude: float = Field(default=17.1077, validation_alias="TINDER_GEOLOCATION_LON")
 
+    # When true, /send always clicks Send (even if orchestrator sent submit=false).
+    auto_send: bool = Field(default=False, validation_alias="TINDER_AUTO_SEND")
+
     seen_messages_file: str = "tinder_bot/.seen_messages.json"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", env_prefix="", extra="ignore")
