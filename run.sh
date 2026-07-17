@@ -112,11 +112,19 @@ if not (isinstance(raw_skill, str) and raw_skill.strip()) and opts:
             break
 skill_content = raw_skill.strip() if isinstance(raw_skill, str) else ""
 skill_path = cfg_dir / "dating_reply_skill.md"
-skill_path.write_text((skill_content + "\n") if skill_content else "", encoding="utf-8")
-print(
-    f"[orchestrator] Reply skill dating_reply_skill.md: {len(skill_content)} chars "
-    f"({'custom' if skill_content else 'empty→bundled'})"
-)
+# Nevymaž custom skill z dashboardu / súboru, keď je HA jednoriadkové pole prázdne.
+if skill_content:
+    skill_path.write_text(skill_content + "\n", encoding="utf-8")
+    print(f"[orchestrator] Reply skill dating_reply_skill.md: {len(skill_content)} chars (from HA Nastavenia)")
+elif skill_path.is_file() and skill_path.stat().st_size > 0:
+    existing = skill_path.read_text(encoding="utf-8").strip()
+    print(
+        f"[orchestrator] Reply skill dating_reply_skill.md: {len(existing)} chars "
+        "(kept existing file — edit via dashboard textarea)"
+    )
+else:
+    skill_path.write_text("", encoding="utf-8")
+    print("[orchestrator] Reply skill dating_reply_skill.md: empty → bundled default")
 
 # Read current dating URLs from options/.env then resolve via Supervisor / hash DNS
 def _current(key: str) -> str:

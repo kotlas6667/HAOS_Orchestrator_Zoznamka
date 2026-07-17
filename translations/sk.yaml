@@ -67,12 +67,12 @@ configuration:
       ZAPNUTÉ — vybraná odpoveď sa aj odošle. VYPNUTÉ — len vloží do poľa.
       Rovnaký prepínač je aj v Nastaveniach Tinder bota (Auto odoslať odpoveď).
   dating_reply_skill:
-    name: Skill pre AI návrhy (ED + Tinder)
+    name: Skill pre AI návrhy (voliteľné jednoriadkové)
     description: >-
-      Spoločný textový profil štýlu pre 2 návrhy odpovedí v Discorde —
-      Elite Date aj Tinder (persona, tón, hranice, čo navrhovať).
-      GPT ho zohľadní pri každej novej správe. Môžeš vložiť viac riadkov.
-      Prázdne = vstavaný predvolený skill zo súboru v image.
+      HA pole je jednoriadkové — na dlhý skill použi veľký editor na webe
+      Orchestrátora (panel / ingress) → „Skill pre AI návrhy (ED + Tinder)“.
+      Ak sem niečo vložíš, pri štarte sa skopíruje do súboru (prepíše dashboard).
+      Prázdne = ponechá uložený skill z dashboardu / vstavaný default.
 
 network:
   8000/tcp: Orchestrátor API, web dashboard a ingress

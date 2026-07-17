@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.18] - 2026-07-17
+
+### Added
+- Dashboard: veľký viacriadkový editor **Skill pre AI návrhy (ED + Tinder)** + `GET/PUT /api/dating-skill`
+  (HA Nastavenia majú len jednoriadkové `str?` — editor na webe je zdroj pravdy).
+
+### Changed
+- Silnejší system prompt + bundled skills pre návrhy odpovedí (menej klišé, nadväznosť na detail).
+- Prázdne HA pole `dating_reply_skill` už **nevymazáva** skill uložený cez dashboard.
+
+### Fixed
+- Auto odoslať z Orchestrátora: pri výbere `1/2/3` v Discorde sa rešpektuje
+  `elitedate_auto_send` / `tinder_auto_send` (predtým `submit=false` z queue blokovalo nastavenie).
+
 ## [1.2.17] / Tinder [1.2.15] / Elite Date [1.3.9] - 2026-07-17
 
 ### Added

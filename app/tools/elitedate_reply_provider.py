@@ -7,29 +7,28 @@ from pathlib import Path
 import httpx
 
 from app.config import settings
+from app.tools.dating_skill import load_reply_skill
 
 _SKILL_FILE = Path(__file__).resolve().with_name("elitedate_reply_skill.md")
-_USER_SKILL_CANDIDATES = (
-    Path("/data/orchestrator/config/dating_reply_skill.md"),
-    Path("/app/dating_reply_skill.user.md"),
-    Path("dating_reply_skill.user.md"),
-    # legacy filenames from 1.2.12
-    Path("/data/orchestrator/config/elitedate_reply_skill.md"),
-    Path("/app/elitedate_reply_skill.user.md"),
-)
 
 _REPLY_SYSTEM_PROMPT_BASE = """\
-Si asistent, ktorý pomáha používateľovi odpovedať na správy zo zoznamky. Dostaneš kontext poslednej výmeny: poslednú otázku/správu používateľa a poslednú odpoveď druhej osoby. Napíš DVE odlišné alternatívne odpovede v mene používateľa.
+Si ghostwriter pre chat na zoznamke (Elite Date). Píšeš v mene používateľa — ako by to napísal on sám, nie ako AI asistent.
 
-Pravidlá:
-- Píš po slovensky (alebo v jazyku správy, ak je iný), prirodzene a konverzačne, nie formálne.
-- Odpoveď 1 a odpoveď 2 sa majú štýlom líšiť (napr. jedna hravejšia/vtipnejšia, druhá vecnejšia/zvedavejšia) — nie len preformulovanie toho istého.
-- Krátke, ako reálna správa v chate (1-3 vety), žiadne emoji balvany.
-- Reaguj priamo na jej poslednú odpoveď a drž nadväznosť na používateľovu poslednú otázku/správu.
-- Nikdy nevymýšľaj fakty o používateľovi, ktoré nepozná z kontextu správy.
-- Personalizovaný skill nižšie má prioritu pri tóne, persona a hraniciach — dodrž ho.
+Dostaneš poslednú výmenu (jeho správa + jej odpoveď). Vráť DVE odlišné odpovede.
 
-Odpovedz IBA validným JSON objektom, žiadny iný text:
+Ako písať (kvalita ako dobrý ľudský draft, nie generický dating bot):
+- Zachyť KONKRÉTNY detail z jej správy (slovo, vtip, plán, náladu) a nadviaž naň — nie všeobecné „to znie fajn“.
+- Prispôsob dĺžku a energiu jej správe: krátka správa → kratšia odpoveď; dlhšia/vecná → 2–3 vety OK.
+- Zniej ako reálny chlap v chate: hovorový slovenčina (alebo jazyk správy), prirodzené skratky OK, žiadne firemné / coachingové frázy.
+- Vyhni sa klišé: „cením si úprimnosť“, „to je skvelé“, „som rád že…“, „chápem ťa“, „nech sa ti darí“, „nájdeš to čo hľadáš“.
+- Jedna prirodzená otázka alebo ľahký next-step (kava / prechádzka / termín) len keď to sedí — nie vždy.
+- Nevymýšľaj fakty o ňom (práca, deti, mesto…), ktoré nie sú v kontexte.
+- Emoji max 0–1; žiadne zoznamy, žiadne úvodzovky okolo celej odpovede.
+- option_1 a option_2 musia byť iný tón (napr. hravejší vs. vecnejší), nie parafráza.
+
+Personalizovaný skill nižšie má prioritu pri persona, tóne a hraniciach.
+
+Odpovedz IBA validným JSON, nič iné:
 {"option_1": "<text>", "option_2": "<text>"}
 """
 
@@ -41,34 +40,13 @@ _FALLBACK_SKILL = (
 )
 
 
-def _load_reply_skill() -> str:
-    """Priority: HA Nastavenia / env → user sidecar .md → bundled skill → fallback."""
-    from_settings = (settings.dating_reply_skill or "").strip()
-    if from_settings:
-        return from_settings
-
-    for path in _USER_SKILL_CANDIDATES:
-        try:
-            if path.is_file():
-                skill = path.read_text(encoding="utf-8").strip()
-                if skill:
-                    return skill
-        except Exception:  # noqa: BLE001
-            continue
-
-    if _SKILL_FILE.exists():
-        skill = _SKILL_FILE.read_text(encoding="utf-8").strip()
-        if skill:
-            return skill
-    return _FALLBACK_SKILL
-
-
 def _build_system_prompt() -> str:
+    skill = load_reply_skill(bundled_path=_SKILL_FILE, fallback=_FALLBACK_SKILL)
     return (
         f"{_REPLY_SYSTEM_PROMPT_BASE}\n\n"
-        "Dodrž aj tento personalizovaný profil štýlu pre odpovede "
-        "(skill z Nastavení Orchestrátora / súboru):\n"
-        f"{_load_reply_skill()}"
+        "Dodrž tento personalizovaný profil štýlu "
+        "(skill z dashboardu Orchestrátora / súboru):\n"
+        f"{skill}"
     )
 
 
@@ -109,18 +87,18 @@ async def generate_reply_options(
                     f"Druhá osoba: {sender}\n\n"
                     f"Tvoja posledná otázka/správa:\n{my_last_message or '(nie je známa)'}\n\n"
                     f"Jej posledná odpoveď:\n{message}\n\n"
-                    "Vygeneruj dve možné odpovede, ktoré nadväzujú na túto výmenu "
-                    "a rešpektujú personalizovaný skill."
+                    "Napíš dve možné odpovede ako reálny chat — nadviaž na konkrétny "
+                    "detail z jej správy a dodrž skill."
                     f"{avoid_block}"
                 ),
             },
         ],
-        "temperature": 0.95 if previous else 0.8,
+        "temperature": 0.95 if previous else 0.85,
     }
 
     fallback = [
-        "Ďakujem za úprimnosť. Rozumiem a cením si, že si to napísala narovinu.",
-        "Vďaka, že si to povedala otvorene. Prajem ti, nech sa ti darí a nájdeš to, čo hľadáš.",
+        "Hej, super — a čo ty, ako sa máš dnes?",
+        "Znie dobre. Keď budeš mať chuť, daj vedieť a nájdeme termín na kávu.",
     ]
 
     try:
