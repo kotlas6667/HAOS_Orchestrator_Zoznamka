@@ -138,6 +138,27 @@
             </form>
             <div id="chat-history" class="chat-history"></div>
           </section>
+
+          <!-- Dating reply skill (multiline — HA Nastavenia má len jednoriadkové str?) -->
+          <section class="skill-section">
+            <h2 class="section-title">Skill pre AI návrhy (ED + Tinder)</h2>
+            <p class="skill-hint">
+              Viacriadkový profil štýlu (persona, tón, hranice). GPT ho použije pri 2 návrhoch
+              v Discorde. Uloženie platí hneď — bez reštartu add-onu.
+              Pole v HA Nastaveniach je jednoriadkové; tento editor je zdroj pravdy.
+            </p>
+            <textarea
+              id="dating-skill"
+              class="skill-textarea"
+              rows="16"
+              spellcheck="true"
+              placeholder="# Persona&#10;- Pišeš ako…&#10;&#10;## Tón&#10;- …"
+            ></textarea>
+            <div class="skill-actions">
+              <button type="button" id="dating-skill-save" class="skill-save-btn">Uložiť skill</button>
+              <span id="dating-skill-status" class="skill-status" aria-live="polite"></span>
+            </div>
+          </section>
         </main>
 
         <!-- Right sidebar: Calendar -->
@@ -597,6 +618,56 @@
       loadHourlyForecast();
       // Refresh every 30 minutes
       setInterval(loadHourlyForecast, 30 * 60 * 1000);
+
+      // Dating reply skill editor
+      const skillEl = document.getElementById('dating-skill');
+      const skillSaveBtn = document.getElementById('dating-skill-save');
+      const skillStatus = document.getElementById('dating-skill-status');
+
+      async function loadDatingSkill() {
+        if (!skillEl) return;
+        try {
+          const res = await fetch('api/dating-skill');
+          const data = await res.json();
+          if (data.status === 'success') {
+            skillEl.value = data.content || '';
+            const n = data.chars || 0;
+            skillStatus.textContent = n
+              ? `Načítané · ${n} znakov`
+              : 'Prázdne · použije sa vstavaný predvolený skill';
+          } else {
+            skillStatus.textContent = data.error || 'Chyba načítania';
+          }
+        } catch (e) {
+          skillStatus.textContent = `Chyba: ${e.message}`;
+        }
+      }
+
+      async function saveDatingSkill() {
+        if (!skillEl) return;
+        skillSaveBtn.disabled = true;
+        skillStatus.textContent = 'Ukladám…';
+        try {
+          const res = await fetch('api/dating-skill', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({content: skillEl.value}),
+          });
+          const data = await res.json();
+          if (data.status === 'success') {
+            skillStatus.textContent = `Uložené · ${data.chars || 0} znakov`;
+          } else {
+            skillStatus.textContent = data.error || 'Uloženie zlyhalo';
+          }
+        } catch (e) {
+          skillStatus.textContent = `Chyba: ${e.message}`;
+        } finally {
+          skillSaveBtn.disabled = false;
+        }
+      }
+
+      if (skillSaveBtn) skillSaveBtn.addEventListener('click', saveDatingSkill);
+      loadDatingSkill();
     </script>
   </body>
 </html>

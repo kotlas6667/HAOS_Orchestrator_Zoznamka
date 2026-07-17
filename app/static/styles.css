@@ -652,6 +652,73 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Dating skill editor */
+.skill-section {
+  margin-top: 32px;
+  margin-bottom: 16px;
+}
+
+.skill-hint {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin: -8px 0 12px;
+  line-height: 1.45;
+}
+
+.skill-textarea {
+  width: 100%;
+  min-height: 280px;
+  resize: vertical;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Code', Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  padding: 14px 16px;
+}
+
+.skill-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.skill-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.skill-save-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 18px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.skill-save-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.skill-save-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.skill-status {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

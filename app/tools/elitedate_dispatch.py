@@ -299,7 +299,8 @@ async def handle_selection(choice_text: str, replied_to_message_id: str | None =
             chosen_text,
             sender=str(entry.get("sender") or ""),
             expected_message=str(entry.get("message") or ""),
-            submit=bool(entry.get("submit", settings.elitedate_auto_send)),
+            # entry.submit z pollera je často false — OR s Nastaveniami Orchestrátora
+            submit=bool(entry.get("submit")) or bool(settings.elitedate_auto_send),
         )
     except Exception as exc:  # noqa: BLE001
         detail = str(exc).strip() or type(exc).__name__

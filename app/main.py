@@ -409,6 +409,41 @@ async def get_upcoming_events():
     return result
 
 
+# Shared dating reply skill (dashboard textarea — HA str? is single-line)
+from app.tools.dating_skill import read_user_skill_file, save_user_skill
+
+
+@app.get("/api/dating-skill")
+async def get_dating_skill():
+    """Multiline skill for ED + Tinder AI drafts (source of truth: sidecar .md)."""
+    content, path = read_user_skill_file()
+    return {
+        "status": "success",
+        "content": content,
+        "path": path,
+        "chars": len(content),
+    }
+
+
+@app.put("/api/dating-skill")
+async def put_dating_skill(request: Request):
+    """Save multiline skill from dashboard; takes effect on next AI draft (no restart)."""
+    data = await request.json()
+    content = data.get("content")
+    if content is None:
+        return {"status": "error", "error": "content is required"}
+    if not isinstance(content, str):
+        return {"status": "error", "error": "content must be a string"}
+    if len(content) > 50_000:
+        return {"status": "error", "error": "content too long (max 50000 chars)"}
+    path = save_user_skill(content)
+    return {
+        "status": "success",
+        "path": path,
+        "chars": len(content),
+    }
+
+
 # Elite Date bot integration endpoint
 from app.tools import elitedate_dispatch
 
