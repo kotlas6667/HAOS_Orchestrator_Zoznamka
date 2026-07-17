@@ -8,6 +8,7 @@ from selenium.common.exceptions import InvalidSessionIdException
 
 from tinder_bot import shared_state
 from tinder_bot.browser import build_driver
+from tinder_bot.config import settings
 from tinder_bot.tinder_client import TinderClient
 
 T = TypeVar("T")
@@ -19,7 +20,11 @@ _DEAD_SESSION_MARKERS = (
     "connection refused",
     "target machine actively refused",
     "disconnected: not connected to devtools",
+    "unable to receive message from renderer",
+    "timed out receiving message from renderer",
     "chrome not reachable",
+    "session deleted as the browser has closed",
+    "tab crashed",
 )
 
 
@@ -50,8 +55,20 @@ async def rebuild_session() -> TinderClient:
             pass
     shared_state.client = None
 
-    # Let Chrome release the profile lock after quit.
-    await asyncio.sleep(2)
+    # Let Chrome release the profile lock after quit / crash.
+    await asyncio.sleep(3)
+    if settings.user_data_dir:
+        try:
+            from pathlib import Path
+
+            profile = Path(settings.user_data_dir)
+            for name in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+                lock = profile / name
+                if lock.exists() or lock.is_symlink():
+                    lock.unlink(missing_ok=True)
+                    print(f"[tinder_bot] Removed stale {name}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"[tinder_bot] Profile lock cleanup failed: {exc}")
 
     last_exc: Exception | None = None
     for attempt in range(3):
@@ -67,7 +84,7 @@ async def rebuild_session() -> TinderClient:
             msg = str(exc).lower()
             if attempt < 2 and (is_dead_session_error(exc) or "failed to write prefs" in msg or "user data directory" in msg):
                 print(f"[tinder_bot] Chrome startup failed on rebuild attempt {attempt + 1}, retrying...")
-                await asyncio.sleep(4)
+                await asyncio.sleep(5)
                 continue
             raise
     if last_exc is not None:

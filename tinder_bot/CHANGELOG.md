@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.14
+
+- Chrome: odstránené `--single-process` / `--no-zygote` (Chrome 150 padal: renderer / invalid session id)
+- `--headless=new`, `shm_size=1G`, wait timeout 30s, lepší `/send` (viac selektorov textarea)
+- Rebuild: čistenie SingletonLock + recovery na renderer timeout
+
 ## 1.2.13
 
 - `/send`: pri chybe vždy vráti text `error` (nie prázdny status)

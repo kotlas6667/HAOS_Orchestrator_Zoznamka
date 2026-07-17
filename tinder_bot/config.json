@@ -1,7 +1,7 @@
 {
   "name": "HAOS Tinder Bot",
   "description": "Samostatný Selenium bot pre Tinder. Prvé prihlásenie cez noVNC (port 6080) — nastav tinder_headless v Nastaveniach.",
-  "version": "1.2.13",
+  "version": "1.2.14",
   "slug": "haos_tinder",
   "init": false,
   "arch": ["amd64", "aarch64"],
@@ -17,7 +17,7 @@
   },
   "hassio_api": true,
   "host_network": false,
-  "shm_size": "512M",
+  "shm_size": "1G",
   "options": {
     "log_level": "info",
     "tinder_headless": false,

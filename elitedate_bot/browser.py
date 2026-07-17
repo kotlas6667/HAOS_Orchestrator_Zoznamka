@@ -13,8 +13,8 @@ from elitedate_bot.config import settings
 def build_driver() -> webdriver.Chrome | webdriver.Edge:
     """Build a headless browser driver.
 
-    Supports Chrome/Chromium and Edge. Tuned for Raspberry Pi (limited RAM/CPU,
-    small /dev/shm) but works the same way on a regular desktop.
+    Tuned for HAOS containers. Do NOT use --single-process / --no-zygote with
+    Chrome 120+ — they cause renderer disconnects and invalid session id loops.
     """
     browser_name = settings.browser.strip().lower()
     if browser_name == "edge":
@@ -23,15 +23,8 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
         options = Options()
 
     if settings.headless:
-        # Legacy --headless (not --headless=new): --single-process is only
-        # reliably honored in this mode and cuts memory drastically by
-        # running the renderer inside the browser process instead of a
-        # separate one that can get OOM-killed ("tab crashed").
-        options.add_argument("--headless")
+        options.add_argument("--headless=new")
 
-    # Raspberry Pi essentials: /dev/shm is tiny by default and Chrome will crash
-    # without --disable-dev-shm-usage; --no-sandbox is required when running as
-    # a non-root systemd service without extra sandboxing capabilities.
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
@@ -42,11 +35,10 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
     options.add_argument("--disable-sync")
     options.add_argument("--disable-translate")
     options.add_argument("--mute-audio")
-    options.add_argument("--no-zygote")
-    options.add_argument("--single-process")
-    options.add_argument("--renderer-process-limit=1")
     options.add_argument("--disable-setuid-sandbox")
-    options.add_argument("--disable-features=VizDisplayCompositor")
+    options.add_argument("--disable-features=VizDisplayCompositor,TranslateUI")
+    options.add_argument("--renderer-process-limit=2")
+    options.add_argument("--js-flags=--max-old-space-size=256")
     options.add_argument(f"--window-size={settings.window_size}")
 
     # Skip loading images: cuts per-page memory a lot and this bot only reads
@@ -71,5 +63,10 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
             service = Service(executable_path=webdriver_path) if webdriver_path else Service()
             driver = webdriver.Chrome(service=service, options=options)
 
-    driver.set_page_load_timeout(30)
+    driver.set_page_load_timeout(45)
+    driver.set_script_timeout(45)
+    try:
+        driver.implicitly_wait(0)
+    except Exception:  # noqa: BLE001
+        pass
     return driver

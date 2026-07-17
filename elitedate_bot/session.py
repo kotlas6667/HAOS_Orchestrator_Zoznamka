@@ -19,7 +19,11 @@ _DEAD_SESSION_MARKERS = (
     "connection refused",
     "target machine actively refused",
     "disconnected: not connected to devtools",
+    "unable to receive message from renderer",
+    "timed out receiving message from renderer",
     "chrome not reachable",
+    "session deleted as the browser has closed",
+    "tab crashed",
 )
 
 

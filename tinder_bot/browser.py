@@ -10,14 +10,13 @@ from tinder_bot.chrome_lock import chrome_startup_lock
 from tinder_bot.config import settings
 
 
-
 def build_driver() -> webdriver.Chrome | webdriver.Edge:
     """Build a browser driver for Tinder.
 
     Supports Chrome/Chromium and Edge. Chrome flags are tuned for containers
-    (limited /dev/shm) on the HAOS host (i3 / 16 GB). Tinder's login
-    usually requires solving a phone-OTP or captcha challenge that Selenium
-    cannot drive reliably — see the note on `tinder_user_data_dir` in config.py.
+    (limited /dev/shm) on the HAOS host. Do NOT use --single-process /
+    --no-zygote with Chrome 120+ — they cause renderer disconnects
+    ("Unable to receive message from renderer" / invalid session id).
     """
     browser_name = settings.browser.strip().lower()
     if browser_name == "edge":
@@ -26,17 +25,8 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
         options = Options()
 
     if settings.headless:
-        # Legacy --headless (not --headless=new): --single-process is only
-        # reliably honored in this mode and cuts memory drastically by
-        # running the renderer inside the browser process instead of a
-        # separate one that can get OOM-killed ("tab crashed").
-        options.add_argument("--headless")
-
-        # Container essentials: /dev/shm is often tiny and Chrome will
-        # crash without --disable-dev-shm-usage; --single-process/--no-zygote
-        # cut memory further. These are unstable for a *visible* desktop Chrome
-        # window (crashes on Windows), so only apply them in headless mode —
-        # headed mode is for the one-time manual login, run on a normal desktop.
+        # New headless is more stable with modern Chromium (separate renderer).
+        options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
@@ -46,11 +36,10 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
         options.add_argument("--disable-sync")
         options.add_argument("--disable-translate")
         options.add_argument("--mute-audio")
-        options.add_argument("--no-zygote")
-        options.add_argument("--single-process")
-        options.add_argument("--renderer-process-limit=1")
         options.add_argument("--disable-setuid-sandbox")
-        options.add_argument("--disable-features=VizDisplayCompositor")
+        options.add_argument("--disable-features=VizDisplayCompositor,TranslateUI")
+        options.add_argument("--renderer-process-limit=2")
+        options.add_argument("--js-flags=--max-old-space-size=256")
 
     options.add_argument("--disable-extensions")
     if settings.headless:
@@ -101,7 +90,16 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
             service = Service(executable_path=settings.webdriver_path) if settings.webdriver_path else Service()
             driver = webdriver.Chrome(service=service, options=options)
 
-    driver.set_page_load_timeout(int(settings.wait_timeout_sec))
+    # Tinder SPA is slow — 10s page-load used to produce
+    # "Timed out receiving message from renderer: 10.000".
+    page_timeout = max(30, int(settings.wait_timeout_sec))
+    driver.set_page_load_timeout(page_timeout)
+    driver.set_script_timeout(page_timeout)
+    try:
+        driver.implicitly_wait(0)
+    except Exception:  # noqa: BLE001
+        pass
+
     if not settings.headless:
         try:
             driver.execute_cdp_cmd(

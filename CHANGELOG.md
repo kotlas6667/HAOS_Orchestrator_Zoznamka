@@ -1,5 +1,11 @@
 # Changelog
 
+## Tinder [1.2.14] / Elite Date [1.3.3] - 2026-07-17
+
+### Fixed
+- Chrome 150 crash loop (`Unable to receive message from renderer` / `invalid session id`) — odstránené `--single-process`.
+- Tinder `/send`: spoľahlivejšie čakanie na textarea + jasnejšie chyby.
+
 ## [1.2.16] / Tinder [1.2.13] / Elite Date [1.3.7] - 2026-07-16
 
 ### Fixed

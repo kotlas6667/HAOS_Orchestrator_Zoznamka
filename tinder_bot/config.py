@@ -36,7 +36,8 @@ class BotSettings(BaseSettings):
     # Pause after each navigation / tab switch — Tinder's SPA is slow to render.
     page_settle_sec: float = Field(default=3.0, validation_alias="TINDER_PAGE_SETTLE_SEC")
     # Max wait for any single Selenium / health-check step (seconds).
-    wait_timeout_sec: float = Field(default=10.0, validation_alias="TINDER_WAIT_TIMEOUT_SEC")
+    # 10s was too low for Tinder SPA → "Timed out receiving message from renderer: 10.000".
+    wait_timeout_sec: float = Field(default=30.0, validation_alias="TINDER_WAIT_TIMEOUT_SEC")
     # After clicking Správy — wait for the inbox list to paint (like reading a screenshot).
     spravy_settle_sec: float = Field(default=10.0, validation_alias="TINDER_SPRAVY_SETTLE_SEC")
 

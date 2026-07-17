@@ -670,37 +670,71 @@ class TinderClient:
         if is_manual_id:
             self._navigate_to_inbox()
             target = self._find_conversation_by_sender(sender) if sender.strip() else None
-        else:
-            self._open_conversation(conversation_id)
-            target = None
-
-        if target is not None:
+            if target is None:
+                raise RuntimeError(f"Conversation for sender={sender!r} not found in inbox")
             self._click_conversation(target)
             self._settle()
             self._wait_for_chat_loaded()
-        elif not is_manual_id:
-            if not self._find_conversation_item(conversation_id):
-                raise RuntimeError(f"Conversation {conversation_id} not found in inbox")
+        else:
+            self._open_conversation(conversation_id)
+            self._settle()
+            self._wait_for_chat_loaded()
 
-        message_input = self._wait.until(
-            EC.presence_of_element_located(
-                (By.CSS_SELECTOR, "textarea[placeholder='Napíš správu'], textarea[placeholder*='správu']")
-            )
-        )
+        message_input = self._find_message_input()
         self.driver.execute_script(
             "var setter = Object.getOwnPropertyDescriptor("
             "window.HTMLTextAreaElement.prototype, 'value').set;"
             "setter.call(arguments[0], arguments[1]);"
-            "arguments[0].dispatchEvent(new Event('input', { bubbles: true }));",
+            "arguments[0].dispatchEvent(new Event('input', { bubbles: true }));"
+            "arguments[0].dispatchEvent(new Event('change', { bubbles: true }));",
             message_input,
             text,
         )
 
         if submit:
-            send_button = self._wait.until(
-                EC.element_to_be_clickable(
-                    (By.CSS_SELECTOR, "button[aria-label='Odoslať správu'], button[type='submit']")
-                )
-            )
-            send_button.click()
+            send_button = self._find_send_button()
+            try:
+                send_button.click()
+            except Exception:  # noqa: BLE001
+                self.driver.execute_script("arguments[0].click();", send_button)
         return True
+
+    def _find_message_input(self):
+        """Locate the chat textarea with several Tinder UI variants."""
+        selectors = (
+            "textarea[placeholder='Napíš správu']",
+            "textarea[placeholder*='správu']",
+            "textarea[placeholder*='message' i]",
+            "textarea[aria-label*='správu' i]",
+            "textarea[aria-label*='message' i]",
+            "form textarea",
+            "textarea",
+        )
+        last_exc: Exception | None = None
+        for css in selectors:
+            try:
+                return self._wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, css)))
+            except Exception as exc:  # noqa: BLE001
+                last_exc = exc
+                continue
+        raise TimeoutException(
+            f"Tinder message textarea not found (conversation may not be open). "
+            f"url={getattr(self.driver, 'current_url', '?')}"
+        ) from last_exc
+
+    def _find_send_button(self):
+        selectors = (
+            "button[aria-label='Odoslať správu']",
+            "button[aria-label*='Odoslať' i]",
+            "button[aria-label*='Send' i]",
+            "button[type='submit']",
+            "form button[type='submit']",
+        )
+        last_exc: Exception | None = None
+        for css in selectors:
+            try:
+                return self._wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, css)))
+            except Exception as exc:  # noqa: BLE001
+                last_exc = exc
+                continue
+        raise TimeoutException("Tinder send button not found") from last_exc
