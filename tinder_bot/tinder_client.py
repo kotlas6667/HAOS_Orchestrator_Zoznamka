@@ -428,6 +428,90 @@ class TinderClient:
             history = history[-max_messages:]
         return history
 
+    def _extract_profile_photo_url(self) -> str:
+        """Best-effort match photo from open Tinder chat / header."""
+        for selector in (
+            "a[href*='/app/profile'] img",
+            "div[class*='profileCard'] img",
+            "div[class*='chat'] img[src*='http']",
+            "main img[src*='http']",
+            "img[src*='images-ssl']",
+            "img[src*='gotinder']",
+            "img[src*='tinder']",
+        ):
+            try:
+                els = self.driver.find_elements(By.CSS_SELECTOR, selector)
+            except Exception:  # noqa: BLE001
+                continue
+            for el in els:
+                src = (el.get_attribute("src") or "").strip()
+                if not src or src.startswith("data:"):
+                    continue
+                # Skip tiny icons / UI chrome when possible
+                try:
+                    size = el.size or {}
+                    if size.get("width", 99) < 32 or size.get("height", 99) < 32:
+                        continue
+                except Exception:  # noqa: BLE001
+                    pass
+                if src.startswith("//"):
+                    return "https:" + src
+                return src
+        return ""
+
+    def _download_url_bytes(self, url: str, *, max_bytes: int = 4_000_000) -> tuple[bytes, str] | None:
+        href = (url or "").strip()
+        if not href or href.startswith("data:"):
+            return None
+        if href.startswith("//"):
+            href = "https:" + href
+        try:
+            import ssl
+            import urllib.request
+
+            req = urllib.request.Request(
+                href,
+                headers={"User-Agent": self.driver.execute_script("return navigator.userAgent;") or "Mozilla/5.0"},
+            )
+            cookie_header = "; ".join(
+                f"{c['name']}={c['value']}" for c in self.driver.get_cookies() if c.get("name")
+            )
+            if cookie_header:
+                req.add_header("Cookie", cookie_header)
+            ctx = ssl._create_unverified_context()
+            with urllib.request.urlopen(req, timeout=20, context=ctx) as resp:  # noqa: S310
+                data = resp.read(max_bytes + 1)
+                content_type = (resp.headers.get_content_type() or "image/jpeg").split(";")[0].strip()
+            if not data or len(data) > max_bytes:
+                return None
+            if not content_type.startswith("image/"):
+                if data[:3] == b"\xff\xd8\xff":
+                    content_type = "image/jpeg"
+                elif data[:8] == b"\x89PNG\r\n\x1a\n":
+                    content_type = "image/png"
+                elif data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+                    content_type = "image/webp"
+                else:
+                    content_type = "image/jpeg"
+            return data, content_type
+        except Exception as exc:  # noqa: BLE001
+            print(f"[tinder_bot] photo download failed: {exc}")
+            return None
+
+    def _profile_photo_fields(self) -> dict[str, str]:
+        import base64
+
+        url = self._extract_profile_photo_url()
+        if not url:
+            return {}
+        out: dict[str, str] = {"photo_url": url}
+        downloaded = self._download_url_bytes(url)
+        if downloaded:
+            data, content_type = downloaded
+            out["photo_base64"] = base64.b64encode(data).decode("ascii")
+            out["photo_content_type"] = content_type
+        return out
+
     def _latest_received_message(self) -> str:
         """Full last incoming turn — join consecutive received bubbles (paragraphs).
 
@@ -751,6 +835,7 @@ class TinderClient:
             message_text = self._latest_received_message() or preview
             my_last_message = self._latest_sent_message()
             history = self._extract_chat_history(max_messages=24)
+            photo = self._profile_photo_fields()
 
             if message_text:
                 results.append(
@@ -760,11 +845,12 @@ class TinderClient:
                         "message": message_text,
                         "my_last_message": my_last_message,
                         "history": history,
+                        **photo,
                     }
                 )
                 print(
                     f"[tinder_bot] New message from {sender} "
-                    f"(history_turns={len(history)})"
+                    f"(history_turns={len(history)}, photo={'yes' if photo.get('photo_base64') else 'no'})"
                 )
 
         self._save_preview_cache(updated_cache)

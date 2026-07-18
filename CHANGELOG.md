@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.21] / Elite Date [1.3.11] / Tinder [1.2.17] - 2026-07-18
+
+### Added
+- Discord pri novej ED/Tinder správe: bot stiahne fotku profilu a webhook ju zobrazí
+  ako prílohu (embed). Ak sa fotka nestiahne, ostane textová správa.
+
 ## [1.2.20] / Elite Date [1.3.10] / Tinder [1.2.16] - 2026-07-18
 
 ### Added

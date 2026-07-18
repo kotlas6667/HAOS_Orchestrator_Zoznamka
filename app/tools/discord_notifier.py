@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-import httpx
+import json
 import os
 from typing import Any
+
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv()  # Načíta .env súbor
+
 
 class DiscordNotifier:
     def __init__(self, webhook_url: str | None = None):
@@ -19,14 +22,36 @@ class DiscordNotifier:
             raise ValueError("OPENAI_API_KEY not set in .env")
         self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         self.openai_api_url = "https://api.openai.com/v1/chat/completions"
-    async def send_message(self, content: str) -> dict[str, Any]:
-        """Send a message to Discord via webhook."""
-        payload = {"content": content}
-        async with httpx.AsyncClient(verify=False) as client:
-            response = await client.post(
-                f"{self.webhook_url}?wait=true",
-                json=payload,
-            )
+
+    async def send_message(
+        self,
+        content: str,
+        *,
+        image_bytes: bytes | None = None,
+        image_filename: str = "profile.jpg",
+        image_content_type: str = "image/jpeg",
+    ) -> dict[str, Any]:
+        """Send a message to Discord via webhook; optional image attachment."""
+        text = (content or "")[:1900]
+        async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
+            if image_bytes:
+                safe_name = (image_filename or "profile.jpg").replace("/", "_").replace("\\", "_")
+                if "." not in safe_name:
+                    safe_name += ".jpg"
+                payload = {
+                    "content": text,
+                    "embeds": [{"image": {"url": f"attachment://{safe_name}"}}],
+                }
+                response = await client.post(
+                    f"{self.webhook_url}?wait=true",
+                    data={"payload_json": json.dumps(payload, ensure_ascii=False)},
+                    files={"files[0]": (safe_name, image_bytes, image_content_type or "image/jpeg")},
+                )
+            else:
+                response = await client.post(
+                    f"{self.webhook_url}?wait=true",
+                    json={"content": text},
+                )
             response.raise_for_status()
             data = response.json()
             return {
@@ -49,7 +74,7 @@ class DiscordNotifier:
         # OpenAI API request
         headers = {
             "Authorization": f"Bearer {self.openai_api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
         payload = {
             "model": self.openai_model,
@@ -82,5 +107,3 @@ class DiscordNotifier:
         # Extract just the sender name (before email in angle brackets)
         sender_name = sender.split("<")[0].strip().strip('"') or sender
         return f"📧 **{sender_name}** — {ai_summary.strip()}"
-
-

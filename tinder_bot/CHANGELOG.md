@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.17
+
+- Poll: stiahne fotku matchu (`photo_base64`) a pošle ju orchestrátoru do Discordu
+
 ## 1.2.16
 
 - Poll: extrahuje históriu chatu (`history`) pre AI návrhy v orchestrátore

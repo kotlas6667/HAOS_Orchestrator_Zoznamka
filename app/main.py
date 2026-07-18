@@ -458,6 +458,9 @@ async def elitedate_incoming(request: Request):
     my_last_message = data.get("my_last_message", "").strip()
     submit = bool(data.get("submit", False))
     history = data.get("history") if isinstance(data.get("history"), list) else []
+    photo_url = str(data.get("photo_url") or "").strip()
+    photo_base64 = str(data.get("photo_base64") or "").strip()
+    photo_content_type = str(data.get("photo_content_type") or "").strip()
 
     if not conversation_id or not message:
         return {"status": "error", "error": "conversation_id and message are required"}
@@ -469,6 +472,9 @@ async def elitedate_incoming(request: Request):
         my_last_message=my_last_message,
         submit=submit,
         history=history,
+        photo_url=photo_url,
+        photo_base64=photo_base64,
+        photo_content_type=photo_content_type,
     )
     return {"status": "success", "entry": entry}
 
@@ -494,6 +500,9 @@ async def tinder_incoming(request: Request):
     my_last_message = data.get("my_last_message", "").strip()
     submit = bool(data.get("submit", False))
     history = data.get("history") if isinstance(data.get("history"), list) else []
+    photo_url = str(data.get("photo_url") or "").strip()
+    photo_base64 = str(data.get("photo_base64") or "").strip()
+    photo_content_type = str(data.get("photo_content_type") or "").strip()
 
     if not conversation_id or not message:
         return {"status": "error", "error": "conversation_id and message are required"}
@@ -505,5 +514,8 @@ async def tinder_incoming(request: Request):
         my_last_message=my_last_message,
         submit=submit,
         history=history,
+        photo_url=photo_url,
+        photo_base64=photo_base64,
+        photo_content_type=photo_content_type,
     )
     return {"status": "success", "entry": entry}

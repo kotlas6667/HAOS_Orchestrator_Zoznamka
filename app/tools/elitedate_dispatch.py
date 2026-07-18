@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import re
 import unicodedata
 from typing import Any
@@ -58,15 +59,68 @@ def _format_prompt(entry: dict[str, Any]) -> str:
     )
 
 
-async def _notify_discord(text: str) -> str | None:
+def _decode_photo_payload(
+    photo_base64: str = "",
+    photo_content_type: str = "",
+    photo_url: str = "",
+) -> tuple[bytes | None, str, str]:
+    """Return (bytes, filename, content_type) for Discord attachment."""
+    raw = (photo_base64 or "").strip()
+    if raw:
+        try:
+            data = base64.b64decode(raw, validate=False)
+        except Exception:  # noqa: BLE001
+            data = b""
+        if data:
+            ctype = (photo_content_type or "image/jpeg").split(";")[0].strip() or "image/jpeg"
+            ext = "jpg"
+            if "png" in ctype:
+                ext = "png"
+            elif "webp" in ctype:
+                ext = "webp"
+            elif "gif" in ctype:
+                ext = "gif"
+            return data, f"profile.{ext}", ctype
+    # Fallback: public URL in embed only is handled by caller when bytes missing.
+    _ = photo_url
+    return None, "profile.jpg", "image/jpeg"
+
+
+async def _notify_discord(
+    text: str,
+    *,
+    photo_base64: str = "",
+    photo_content_type: str = "",
+    photo_url: str = "",
+) -> str | None:
     try:
-        result = await DiscordNotifier().send_message(text)
+        image_bytes, filename, ctype = _decode_photo_payload(
+            photo_base64, photo_content_type, photo_url
+        )
+        # If we only have a URL (no bytes), append it so Discord at least unfurls.
+        content = text
+        if image_bytes is None and (photo_url or "").strip():
+            content = f"{text}\n{photo_url.strip()}"
+        result = await DiscordNotifier().send_message(
+            content,
+            image_bytes=image_bytes,
+            image_filename=filename,
+            image_content_type=ctype,
+        )
         message_id = result.get("message_id")
         if message_id is None:
             return None
         return str(message_id)
     except Exception as exc:  # noqa: BLE001
         print(f"{LOGGER_PREFIX} Failed to notify Discord: {exc}")
+        # Text-only fallback if image upload failed.
+        if photo_base64 or photo_url:
+            try:
+                result = await DiscordNotifier().send_message(text)
+                message_id = result.get("message_id")
+                return str(message_id) if message_id else None
+            except Exception as exc2:  # noqa: BLE001
+                print(f"{LOGGER_PREFIX} Discord text fallback failed: {exc2}")
         return None
 
 
@@ -139,6 +193,9 @@ async def handle_incoming(
     my_last_message: str = "",
     submit: bool = False,
     history: list[dict[str, Any]] | None = None,
+    photo_url: str = "",
+    photo_base64: str = "",
+    photo_content_type: str = "",
 ) -> dict[str, Any]:
     """Called by POST /api/elitedate/incoming when the bot finds a new message."""
     options = await generate_reply_options(
@@ -156,6 +213,8 @@ async def handle_incoming(
         submit=submit,
         history=history,
     )
+    if photo_url:
+        entry["photo_url"] = photo_url
 
     # Do not spam Discord with the same queued entry repeatedly.
     # Duplicate polls can update metadata (e.g. my_last_message), but if a prompt
@@ -163,7 +222,12 @@ async def handle_incoming(
     if entry.get("prompt_message_id"):
         return entry
 
-    prompt_message_id = await _notify_discord(_format_prompt(entry))
+    prompt_message_id = await _notify_discord(
+        _format_prompt(entry),
+        photo_base64=photo_base64,
+        photo_content_type=photo_content_type,
+        photo_url=photo_url or str(entry.get("photo_url") or ""),
+    )
     if prompt_message_id:
         elitedate_state.set_prompt_message_id(entry, prompt_message_id)
 

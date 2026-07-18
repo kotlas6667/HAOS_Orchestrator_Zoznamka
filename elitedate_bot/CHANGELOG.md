@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.11
+
+- Poll: stiahne fotku profilu (`photo_base64`) a pošle ju orchestrátoru do Discordu
+
 ## 1.3.10
 
 - Morning greet: Discord súhrn vždy (aj pri 0 pozdravoch / chybe)
