@@ -378,6 +378,56 @@ class TinderClient:
             bubbles = self.driver.find_elements(By.CSS_SELECTOR, "div.msg")
         return bubbles
 
+    def _scroll_open_chat_up(self, steps: int = 5) -> None:
+        """Scroll chat upward to load older bubbles before extracting history."""
+        for selector in (
+            "div[class*='messageList']",
+            "div[class*='chat']",
+            "main",
+        ):
+            try:
+                container = self.driver.find_element(By.CSS_SELECTOR, selector)
+            except Exception:  # noqa: BLE001
+                continue
+            for _ in range(max(1, steps)):
+                try:
+                    self.driver.execute_script(
+                        "arguments[0].scrollTop = Math.max(0, (arguments[0].scrollTop || 0) "
+                        "- Math.max(280, arguments[0].clientHeight * 0.85));",
+                        container,
+                    )
+                except Exception:  # noqa: BLE001
+                    break
+                time.sleep(0.25)
+            return
+        # Fallback: page scroll
+        for _ in range(max(1, steps)):
+            self.driver.execute_script("window.scrollBy(0, -Math.max(280, window.innerHeight * 0.7));")
+            time.sleep(0.2)
+
+    def _extract_chat_history(self, *, max_messages: int = 24) -> list[dict[str, str]]:
+        """Chronological [{role: me|them, text}] from the open Tinder chat."""
+        self._scroll_open_chat_up(steps=5)
+        bubbles = self._iter_chat_bubbles()
+        history: list[dict[str, str]] = []
+        for bubble in bubbles:
+            text = self._clean_chat_message_text(bubble.text or "")
+            if not text:
+                continue
+            if self._is_received_bubble(bubble):
+                role = "them"
+            elif self._is_sent_bubble(bubble):
+                role = "me"
+            else:
+                continue
+            if history and history[-1]["role"] == role:
+                history[-1]["text"] = f"{history[-1]['text']}\n\n{text}".strip()
+            else:
+                history.append({"role": role, "text": text})
+        if len(history) > max_messages:
+            history = history[-max_messages:]
+        return history
+
     def _latest_received_message(self) -> str:
         """Full last incoming turn — join consecutive received bubbles (paragraphs).
 
@@ -700,6 +750,7 @@ class TinderClient:
 
             message_text = self._latest_received_message() or preview
             my_last_message = self._latest_sent_message()
+            history = self._extract_chat_history(max_messages=24)
 
             if message_text:
                 results.append(
@@ -708,7 +759,12 @@ class TinderClient:
                         "sender": sender,
                         "message": message_text,
                         "my_last_message": my_last_message,
+                        "history": history,
                     }
+                )
+                print(
+                    f"[tinder_bot] New message from {sender} "
+                    f"(history_turns={len(history)})"
                 )
 
         self._save_preview_cache(updated_cache)

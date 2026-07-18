@@ -77,9 +77,15 @@ async def handle_incoming(
     message: str,
     my_last_message: str = "",
     submit: bool = False,
+    history: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Called by POST /api/tinder/incoming when the bot finds a new message."""
-    options = await generate_reply_options(message, sender, my_last_message=my_last_message)
+    options = await generate_reply_options(
+        message,
+        sender,
+        my_last_message=my_last_message,
+        history=history,
+    )
     entry = tinder_state.enqueue(
         conversation_id,
         sender,
@@ -87,6 +93,7 @@ async def handle_incoming(
         options,
         my_last_message=my_last_message,
         submit=submit,
+        history=history,
     )
 
     # Do not spam Discord with the same queued entry repeatedly.
@@ -208,6 +215,7 @@ async def regenerate_suggestions(replied_to_message_id: str | None = None) -> st
             str(entry.get("sender") or ""),
             my_last_message=str(entry.get("my_last_message") or ""),
             previous_options=previous_options,
+            history=list(entry.get("history") or []),
         )
     except Exception as exc:  # noqa: BLE001
         return f"⚠️ Nepodarilo sa vygenerovať nové návrhy: {exc}"

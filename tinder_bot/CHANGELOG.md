@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.16
+
+- Poll: extrahuje históriu chatu (`history`) pre AI návrhy v orchestrátore
+
 ## 1.2.15
 
 - Nastavenie **Auto odoslať odpoveď** (`auto_send`) priamo v Tinder bote

@@ -65,10 +65,8 @@ def already_ran_today(today: str | None = None) -> bool:
 
 
 async def _notify_orchestrator_summary(result: dict) -> None:
-    """Pošli súhrn na Discord cez orchestrátor — len ak niekoho pozdravil."""
+    """Pošli súhrn na Discord vždy — úspech aj neúspech / 0 odoslaných."""
     sent = int(result.get("sent") or 0)
-    if sent <= 0:
-        return
     payload = {
         "sent": sent,
         "checked": int(result.get("checked") or 0),
@@ -78,13 +76,18 @@ async def _notify_orchestrator_summary(result: dict) -> None:
         "max_profiles": int(result.get("max_profiles") or settings.morning_greet_max_profiles),
         "max_opens": int(result.get("max_opens") or settings.morning_greet_max_opens),
         "sent_names": list(result.get("sent_names") or []),
+        "failed": bool(result.get("failed")),
+        "error": str(result.get("error") or "").strip(),
     }
     url = f"{settings.orchestrator_url.rstrip('/')}/api/elitedate/morning_greet"
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
             response = await client.post(url, json=payload)
             response.raise_for_status()
-        print(f"[elitedate_bot] Morning greet Discord summary sent ({sent} names).")
+        print(
+            f"[elitedate_bot] Morning greet Discord summary sent "
+            f"(sent={sent}, failed={payload['failed']})."
+        )
     except Exception as exc:  # noqa: BLE001
         print(f"[elitedate_bot] Morning greet Discord summary failed: {exc}")
 
@@ -126,6 +129,19 @@ async def morning_greet_loop() -> None:
 
         if shared_state.client is None:
             print("[elitedate_bot] Morning greet skipped — client not ready.")
+            await _notify_orchestrator_summary(
+                {
+                    "sent": 0,
+                    "checked": 0,
+                    "skipped_history": 0,
+                    "skipped_known": 0,
+                    "errors": 0,
+                    "sent_names": [],
+                    "failed": True,
+                    "error": "client not ready (nie je prihlásený / Chromium)",
+                }
+            )
+            mark_greeted(set(), last_run_date=today)
             continue
 
         try:
@@ -141,6 +157,19 @@ async def morning_greet_loop() -> None:
             )
         except Exception as exc:  # noqa: BLE001
             print(f"[elitedate_bot] Morning greet failed: {exc}")
+            mark_greeted(set(), last_run_date=today)
+            await _notify_orchestrator_summary(
+                {
+                    "sent": 0,
+                    "checked": 0,
+                    "skipped_history": 0,
+                    "skipped_known": 0,
+                    "errors": 1,
+                    "sent_names": [],
+                    "failed": True,
+                    "error": str(exc).strip() or type(exc).__name__,
+                }
+            )
 
 
 async def run_morning_greet_once() -> dict:
@@ -160,6 +189,6 @@ async def run_morning_greet_once() -> dict:
     processed = set(result.get("processed_ids") or [])
     if processed:
         mark_greeted(processed)
-    # Debug endpoint should also notify Discord when greetings were sent.
+    # Debug + scheduler: Discord súhrn vždy (úspech aj 0 odoslaných).
     await _notify_orchestrator_summary(result)
     return result

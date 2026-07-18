@@ -149,6 +149,64 @@ class EliteDateClient:
         except Exception:  # noqa: BLE001
             self.driver.execute_script("arguments[0].click();", item)
 
+    def _scroll_open_chat_up(self, steps: int = 5) -> None:
+        """Scroll chat upward so React-virtualized history loads more bubbles."""
+        for selector in (
+            "section.conversation-section-message .ReactVirtualized__Grid",
+            ".ReactVirtualized__Grid",
+            "section.conversation-section-message",
+        ):
+            try:
+                grid = self.driver.find_element(By.CSS_SELECTOR, selector)
+            except Exception:  # noqa: BLE001
+                continue
+            for _ in range(max(1, steps)):
+                try:
+                    self.driver.execute_script(
+                        "arguments[0].scrollTop = Math.max(0, (arguments[0].scrollTop || 0) "
+                        "- Math.max(280, arguments[0].clientHeight * 0.85));",
+                        grid,
+                    )
+                except Exception:  # noqa: BLE001
+                    break
+                time.sleep(0.28)
+            return
+
+    def _extract_chat_history(self, *, max_messages: int = 24) -> list[dict[str, str]]:
+        """Chronological [{role: me|them, text}] from the open chat (for AI drafts)."""
+        self._scroll_open_chat_up(steps=5)
+        bubbles = self.driver.find_elements(
+            By.CSS_SELECTOR, "section.conversation-section-message .message"
+        )
+        if not bubbles:
+            bubbles = self.driver.find_elements(
+                By.CSS_SELECTOR, ".message.message-receiver, .message.message-sender"
+            )
+        history: list[dict[str, str]] = []
+        for bubble in bubbles:
+            cls = (bubble.get_attribute("class") or "").lower()
+            try:
+                p = bubble.find_element(By.CSS_SELECTOR, "p")
+                text = self._clean_chat_message_text(p.text or "")
+            except Exception:  # noqa: BLE001
+                text = self._clean_chat_message_text(bubble.text or "")
+            if not text:
+                continue
+            if "message-sender" in cls or "outgoing" in cls:
+                role = "me"
+            elif "message-receiver" in cls or "message-received" in cls or "incoming" in cls:
+                role = "them"
+            else:
+                continue
+            # Merge consecutive same-role bubbles (split paragraphs).
+            if history and history[-1]["role"] == role:
+                history[-1]["text"] = f"{history[-1]['text']}\n\n{text}".strip()
+            else:
+                history.append({"role": role, "text": text})
+        if len(history) > max_messages:
+            history = history[-max_messages:]
+        return history
+
     def _latest_received_message(self) -> str:
         messages = self.driver.find_elements(
             By.CSS_SELECTOR, "section.conversation-section-message .message.message-receiver"
@@ -715,6 +773,7 @@ class EliteDateClient:
                 my_last_message = self._latest_sent_message()
                 if not message_text:
                     continue
+                history = self._extract_chat_history(max_messages=24)
 
                 results.append(
                     {
@@ -722,9 +781,13 @@ class EliteDateClient:
                         "sender": sender,
                         "message": message_text,
                         "my_last_message": my_last_message,
+                        "history": history,
                     }
                 )
-                print(f"[elitedate_bot] New message from {sender}")
+                print(
+                    f"[elitedate_bot] New message from {sender} "
+                    f"(history_turns={len(history)})"
+                )
             except Exception as exc:  # noqa: BLE001
                 # One broken thread must not abort the whole poll (stale refs used to).
                 print(f"[elitedate_bot] check_new_messages skip {conversation_id}: {exc}")

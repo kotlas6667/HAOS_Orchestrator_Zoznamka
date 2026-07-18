@@ -457,6 +457,7 @@ async def elitedate_incoming(request: Request):
     message = data.get("message", "").strip()
     my_last_message = data.get("my_last_message", "").strip()
     submit = bool(data.get("submit", False))
+    history = data.get("history") if isinstance(data.get("history"), list) else []
 
     if not conversation_id or not message:
         return {"status": "error", "error": "conversation_id and message are required"}
@@ -467,13 +468,14 @@ async def elitedate_incoming(request: Request):
         message,
         my_last_message=my_last_message,
         submit=submit,
+        history=history,
     )
     return {"status": "success", "entry": entry}
 
 
 @app.post("/api/elitedate/morning_greet")
 async def elitedate_morning_greet(request: Request):
-    """Súhrn ranných pozdravov z elitedate_bot → Discord (len keď niekoho pozdravil)."""
+    """Súhrn ranných pozdravov z elitedate_bot → Discord (vždy — úspech aj neúspech)."""
     data = await request.json()
     return await elitedate_dispatch.handle_morning_greet_summary(data)
 
@@ -491,6 +493,7 @@ async def tinder_incoming(request: Request):
     message = data.get("message", "").strip()
     my_last_message = data.get("my_last_message", "").strip()
     submit = bool(data.get("submit", False))
+    history = data.get("history") if isinstance(data.get("history"), list) else []
 
     if not conversation_id or not message:
         return {"status": "error", "error": "conversation_id and message are required"}
@@ -501,5 +504,6 @@ async def tinder_incoming(request: Request):
         message,
         my_last_message=my_last_message,
         submit=submit,
+        history=history,
     )
     return {"status": "success", "entry": entry}

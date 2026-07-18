@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from app.config import settings
 
@@ -77,3 +78,25 @@ def load_reply_skill(*, bundled_path: Path, fallback: str) -> str:
         if bundled:
             return bundled
     return fallback
+
+
+def format_chat_history_for_prompt(
+    history: list[dict[str, Any]] | None,
+    *,
+    sender: str = "Ona",
+    max_turns: int = 24,
+) -> str:
+    """Format [{role: me|them, text}] into a readable transcript for GPT."""
+    if not history:
+        return ""
+    lines: list[str] = []
+    for turn in history[-max_turns:]:
+        if not isinstance(turn, dict):
+            continue
+        text = str(turn.get("text") or "").strip()
+        if not text:
+            continue
+        role = str(turn.get("role") or "").strip().lower()
+        who = "Ty" if role in {"me", "user", "self", "sender"} else (sender or "Ona")
+        lines.append(f"{who}: {text}")
+    return "\n".join(lines).strip()

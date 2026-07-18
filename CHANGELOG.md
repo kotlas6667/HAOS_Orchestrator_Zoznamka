@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.20] / Elite Date [1.3.10] / Tinder [1.2.16] - 2026-07-18
+
+### Added
+- Morning greet: Discord súhrn **vždy** (úspech, 0 pozdravov aj zlyhanie).
+- AI návrhy ED/Tinder: bot pošle **históriu konverzácie** (nie len poslednú správu);
+  GPT z nej skladá 2 odpovede.
+
+
 ## [1.2.19] - 2026-07-17
 
 ### Added
