@@ -7,22 +7,23 @@ from pathlib import Path
 import httpx
 
 from app.config import settings
-from app.tools.dating_skill import load_reply_skill
+from app.tools.dating_skill import format_chat_history_for_prompt, load_reply_skill
 
 _SKILL_FILE = Path(__file__).resolve().with_name("tinder_reply_skill.md")
 
 _REPLY_SYSTEM_PROMPT_BASE = """\
 Si ghostwriter pre chat na Tinderi. Píšeš v mene používateľa — ako by to napísal on sám v telefone, nie ako AI asistent.
 
-Dostaneš poslednú výmenu (jeho správa + jej odpoveď). Vráť DVE odlišné odpovede.
+Dostaneš predchádzajúcu konverzáciu (transcript) a jej poslednú správu. Vráť DVE odlišné odpovede.
 
 Ako písať (kvalita ako dobrý ľudský draft, nie generický dating bot):
-- Zachyť KONKRÉTNY detail z jej správy (slovo, vtip, plán, náladu) a nadviaž naň — nie všeobecné „to znie fajn“.
+- Čítaj CELÚ históriu: nadviaž na témy, vtipy, plány a detaily z predchádzajúcich správ — nielen na posledný riadok.
+- Zachyť KONKRÉTNY detail z jej poslednej správy v kontexte histórie — nie všeobecné „to znie fajn“.
 - Prispôsob dĺžku a energiu jej správe: krátka správa → krátka odpoveď; dlhšia/hravá → môžeš trochu viac.
 - Zniej ako reálny chlap v chate: hovorový slovenčina (alebo jazyk správy), prirodzené skratky OK, žiadne firemné / coachingové frázy.
 - Vyhni sa klišé: „cením si úprimnosť“, „to je skvelé“, „som rád že…“, „chápem ťa“, „nech sa ti darí“, „nájdeš to čo hľadáš“.
 - Jedna prirodzená otázka alebo ľahký next-step (kava / prechádzka / termín) len keď to sedí — nie vždy.
-- Nevymýšľaj fakty o ňom (práca, deti, mesto…), ktoré nie sú v kontexte.
+- Nevymýšľaj fakty o ňom (práca, deti, mesto…), ktoré nie sú v kontexte histórie.
 - Emoji max 0–1; žiadne zoznamy, žiadne úvodzovky okolo celej odpovede.
 - option_1 a option_2 musia byť iný tón (napr. hravejší vs. vecnejší), nie parafráza.
 
@@ -55,8 +56,9 @@ async def generate_reply_options(
     sender: str,
     my_last_message: str = "",
     previous_options: list[str] | None = None,
+    history: list | None = None,
 ) -> list[str]:
-    """Ask GPT for two reply drafts using both sides of the latest exchange."""
+    """Ask GPT for two reply drafts using full chat history when available."""
     if not settings.openai_api_key:
         return [
             "(OPENAI_API_KEY nie je nastavený — doplň vlastnú odpoveď ručne.)",
@@ -73,6 +75,23 @@ async def generate_reply_options(
             f"{listed}"
         )
 
+    transcript = format_chat_history_for_prompt(history, sender=sender)
+    if transcript:
+        context_block = (
+            f"Predchádzajúca konverzácia (od najstaršej po najnovšiu):\n"
+            f"{transcript}\n\n"
+            f"Jej posledná správa (na ktorú máš reagovať):\n{message}\n\n"
+            "Napíš dve možné odpovede ako reálny chat — zohľadni celú históriu, "
+            "nielen posledný riadok, a dodrž skill."
+        )
+    else:
+        context_block = (
+            f"Tvoja posledná otázka/správa:\n{my_last_message or '(nie je známa)'}\n\n"
+            f"Jej posledná odpoveď:\n{message}\n\n"
+            "Napíš dve možné odpovede ako reálny chat — nadviaž na konkrétny "
+            "detail z jej správy a dodrž skill."
+        )
+
     headers = {
         "Authorization": f"Bearer {settings.openai_api_key}",
         "Content-Type": "application/json",
@@ -85,10 +104,7 @@ async def generate_reply_options(
                 "role": "user",
                 "content": (
                     f"Druhá osoba: {sender}\n\n"
-                    f"Tvoja posledná otázka/správa:\n{my_last_message or '(nie je známa)'}\n\n"
-                    f"Jej posledná odpoveď:\n{message}\n\n"
-                    "Napíš dve možné odpovede ako reálny chat — nadviaž na konkrétny "
-                    "detail z jej správy a dodrž skill."
+                    f"{context_block}"
                     f"{avoid_block}"
                 ),
             },

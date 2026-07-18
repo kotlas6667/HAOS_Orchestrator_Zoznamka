@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.10
+
+- Morning greet: Discord súhrn vždy (aj pri 0 pozdravoch / chybe)
+- Poll: extrahuje históriu chatu (`history`) pre AI návrhy v orchestrátore
+
 ## 1.3.9
 
 - Celá posledná správa: spojiť za sebou idúce bubliny (nie len posledný odsek)

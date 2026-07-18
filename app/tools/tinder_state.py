@@ -34,20 +34,28 @@ def enqueue(
     options: list[str],
     my_last_message: str = "",
     submit: bool = False,
+    history: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Add a new incoming message to the queue. Returns the queue entry."""
     state = _load()
+    history_clean = [h for h in (history or []) if isinstance(h, dict)]
 
     # Ignore duplicates (bot may re-poll the same message before it's marked seen).
     for entry in state["queue"]:
         if entry["conversation_id"] == conversation_id and entry["message"] == message:
+            changed = False
             incoming_last = (my_last_message or "").strip()
             existing_last = str(entry.get("my_last_message") or "").strip()
             if incoming_last and incoming_last != existing_last:
                 entry["my_last_message"] = incoming_last
+                changed = True
+            if history_clean and not entry.get("history"):
+                entry["history"] = history_clean
+                changed = True
             if submit and not entry.get("submit"):
                 entry["submit"] = True
-            if incoming_last or submit:
+                changed = True
+            if changed:
                 _save(state)
             return entry
 
@@ -57,6 +65,7 @@ def enqueue(
         "sender": sender,
         "message": message,
         "my_last_message": my_last_message,
+        "history": history_clean,
         "options": options,
         "status": "queued",
         "submit": submit,

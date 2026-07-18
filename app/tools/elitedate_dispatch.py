@@ -71,12 +71,16 @@ async def _notify_discord(text: str) -> str | None:
 
 
 def format_morning_greet_summary(payload: dict[str, Any]) -> str:
-    """Pekný Discord súhrn po rannom cykle Noví členovia."""
+    """Pekný Discord súhrn po rannom cykle Noví členovia (úspech aj neúspech)."""
     sent = int(payload.get("sent") or 0)
     checked = int(payload.get("checked") or 0)
     skipped_history = int(payload.get("skipped_history") or 0)
+    skipped_known = int(payload.get("skipped_known") or 0)
+    errors = int(payload.get("errors") or 0)
     max_opens = int(payload.get("max_opens") or 0)
     max_profiles = int(payload.get("max_profiles") or 0)
+    failed = bool(payload.get("failed"))
+    error = str(payload.get("error") or "").strip()
     names = [str(n).strip() for n in (payload.get("sent_names") or []) if str(n).strip()]
 
     if names:
@@ -94,25 +98,37 @@ def format_morning_greet_summary(payload: dict[str, Any]) -> str:
     if max_opens:
         scope = f"{checked}/{max_opens}"
 
+    if failed:
+        status_line = "❌ **Beh zlyhal** — ranné pozdravy neprebehli v poriadku."
+        if error:
+            status_line += f"\nDôvod: `{error}`"
+    elif sent > 0:
+        status_line = (
+            f"✅ Z prehľadaných **{scope}** profilov som doplnil pozdrav u **{sent}**"
+            + (f" (cieľ {max_profiles})" if max_profiles else "")
+            + "."
+        )
+    else:
+        status_line = (
+            f"ℹ️ Beh prebehol, ale **nikoho som nepozdravil** "
+            f"(prehľadané **{scope}**, cieľ odoslaní {max_profiles or '—'})."
+        )
+
     return (
         f"☀️ **Dobré ráno — Elite Date (Noví členovia)**\n"
-        f"Z prehľadaných **{scope}** profilov som doplnil pozdrav u **{sent}**"
-        + (f" (cieľ {max_profiles})" if max_profiles else "")
-        + ".\n"
+        f"{status_line}\n"
         f"{names_line}\n"
-        f"Preskočené (už mali chat): **{skipped_history}**"
+        f"Preskočené (už mali chat): **{skipped_history}** · "
+        f"známe ID: **{skipped_known}** · chyby: **{errors}**"
     )
 
 
 async def handle_morning_greet_summary(payload: dict[str, Any]) -> dict[str, Any]:
-    """Send morning-greet Discord summary; no-op when nothing was sent."""
-    sent = int(payload.get("sent") or 0)
-    if sent <= 0:
-        return {"status": "skipped", "reason": "nothing_sent"}
+    """Send morning-greet Discord summary always (success, zero sent, or failure)."""
     text = format_morning_greet_summary(payload)
     message_id = await _notify_discord(text)
     if not message_id:
-        return {"status": "error", "error": "discord_notify_failed"}
+        return {"status": "error", "error": "discord_notify_failed", "text": text}
     return {"status": "success", "message_id": message_id, "text": text}
 
 
@@ -122,9 +138,15 @@ async def handle_incoming(
     message: str,
     my_last_message: str = "",
     submit: bool = False,
+    history: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Called by POST /api/elitedate/incoming when the bot finds a new message."""
-    options = await generate_reply_options(message, sender, my_last_message=my_last_message)
+    options = await generate_reply_options(
+        message,
+        sender,
+        my_last_message=my_last_message,
+        history=history,
+    )
     entry = elitedate_state.enqueue(
         conversation_id,
         sender,
@@ -132,6 +154,7 @@ async def handle_incoming(
         options,
         my_last_message=my_last_message,
         submit=submit,
+        history=history,
     )
 
     # Do not spam Discord with the same queued entry repeatedly.
@@ -248,6 +271,7 @@ async def regenerate_suggestions(replied_to_message_id: str | None = None) -> st
             str(entry.get("sender") or ""),
             my_last_message=str(entry.get("my_last_message") or ""),
             previous_options=previous_options,
+            history=list(entry.get("history") or []),
         )
     except Exception as exc:  # noqa: BLE001
         return f"⚠️ Nepodarilo sa vygenerovať nové návrhy: {exc}"

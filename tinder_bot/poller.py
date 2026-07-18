@@ -32,7 +32,10 @@ def _message_key(msg: dict) -> str:
 
 
 async def _notify_orchestrator(msg: dict) -> None:
-    async with httpx.AsyncClient(timeout=15.0) as client:
+    history = msg.get("history") or []
+    if not isinstance(history, list):
+        history = []
+    async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
             f"{settings.orchestrator_url}/api/tinder/incoming",
             json={
@@ -40,6 +43,7 @@ async def _notify_orchestrator(msg: dict) -> None:
                 "sender": msg["sender"],
                 "message": msg["message"],
                 "my_last_message": msg.get("my_last_message", ""),
+                "history": history,
             },
         )
         response.raise_for_status()
