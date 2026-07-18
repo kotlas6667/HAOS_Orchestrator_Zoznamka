@@ -272,6 +272,100 @@ class EliteDateClient:
             cleaned_lines.append(line)
         return "\n".join(cleaned_lines).strip()
 
+    def _absolutize_url(self, url: str) -> str:
+        href = (url or "").strip()
+        if not href or href.startswith("data:"):
+            return ""
+        if href.startswith("//"):
+            return "https:" + href
+        if href.startswith("/"):
+            return self._site_base() + href
+        return href
+
+    def _extract_profile_photo_url(self) -> str:
+        """Best-effort profile/chat avatar URL from the open conversation."""
+        for selector in (
+            "section.conversation-section-message img[src*='galerie']",
+            "section.conversation-section-message img[src*='Image']",
+            ".conversation-header img",
+            ".message-header img",
+            "img.profile-photo",
+            "img.avatar",
+            "a[href*='/profil/'] img",
+            ".card-image",
+        ):
+            try:
+                els = self.driver.find_elements(By.CSS_SELECTOR, selector)
+            except Exception:  # noqa: BLE001
+                continue
+            for el in els:
+                src = (el.get_attribute("src") or "").strip()
+                if src and not src.startswith("data:"):
+                    abs_url = self._absolutize_url(src)
+                    if abs_url:
+                        return abs_url
+                style = (el.get_attribute("style") or "") + " " + (el.get_attribute("data-src") or "")
+                match = re.search(r"url\(['\"]?(.*?)['\"]?\)", style, flags=re.I)
+                if match:
+                    abs_url = self._absolutize_url(match.group(1))
+                    if abs_url:
+                        return abs_url
+        return ""
+
+    def _download_url_bytes(self, url: str, *, max_bytes: int = 4_000_000) -> tuple[bytes, str] | None:
+        """Download URL using the logged-in Selenium cookie jar."""
+        abs_url = self._absolutize_url(url)
+        if not abs_url:
+            return None
+        try:
+            import ssl
+            import urllib.request
+
+            req = urllib.request.Request(
+                abs_url,
+                headers={"User-Agent": self.driver.execute_script("return navigator.userAgent;") or "Mozilla/5.0"},
+            )
+            cookie_header = "; ".join(
+                f"{c['name']}={c['value']}" for c in self.driver.get_cookies() if c.get("name")
+            )
+            if cookie_header:
+                req.add_header("Cookie", cookie_header)
+            ctx = ssl._create_unverified_context()
+            with urllib.request.urlopen(req, timeout=20, context=ctx) as resp:  # noqa: S310
+                data = resp.read(max_bytes + 1)
+                content_type = (resp.headers.get_content_type() or "image/jpeg").split(";")[0].strip()
+            if not data or len(data) > max_bytes:
+                return None
+            if not content_type.startswith("image/"):
+                # Guess from magic bytes
+                if data[:3] == b"\xff\xd8\xff":
+                    content_type = "image/jpeg"
+                elif data[:8] == b"\x89PNG\r\n\x1a\n":
+                    content_type = "image/png"
+                elif data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+                    content_type = "image/webp"
+                else:
+                    content_type = "image/jpeg"
+            return data, content_type
+        except Exception as exc:  # noqa: BLE001
+            print(f"[elitedate_bot] photo download failed: {exc}")
+            return None
+
+    def _profile_photo_fields(self) -> dict[str, str]:
+        """Return photo_url / photo_base64 / photo_content_type for Discord."""
+        import base64
+
+        url = self._extract_profile_photo_url()
+        if not url:
+            return {}
+        out: dict[str, str] = {"photo_url": url}
+        downloaded = self._download_url_bytes(url)
+        if downloaded:
+            data, content_type = downloaded
+            out["photo_base64"] = base64.b64encode(data).decode("ascii")
+            out["photo_content_type"] = content_type
+        return out
+
     def _conversation_scroll_container(self):
         """Return the actual scroll owner for conversation list.
 
@@ -774,6 +868,7 @@ class EliteDateClient:
                 if not message_text:
                     continue
                 history = self._extract_chat_history(max_messages=24)
+                photo = self._profile_photo_fields()
 
                 results.append(
                     {
@@ -782,11 +877,12 @@ class EliteDateClient:
                         "message": message_text,
                         "my_last_message": my_last_message,
                         "history": history,
+                        **photo,
                     }
                 )
                 print(
                     f"[elitedate_bot] New message from {sender} "
-                    f"(history_turns={len(history)})"
+                    f"(history_turns={len(history)}, photo={'yes' if photo.get('photo_base64') else 'no'})"
                 )
             except Exception as exc:  # noqa: BLE001
                 # One broken thread must not abort the whole poll (stale refs used to).

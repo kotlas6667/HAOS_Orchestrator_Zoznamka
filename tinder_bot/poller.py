@@ -35,16 +35,21 @@ async def _notify_orchestrator(msg: dict) -> None:
     history = msg.get("history") or []
     if not isinstance(history, list):
         history = []
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    payload = {
+        "conversation_id": msg["conversation_id"],
+        "sender": msg["sender"],
+        "message": msg["message"],
+        "my_last_message": msg.get("my_last_message", ""),
+        "history": history,
+    }
+    for key in ("photo_url", "photo_base64", "photo_content_type"):
+        val = msg.get(key)
+        if isinstance(val, str) and val.strip():
+            payload[key] = val.strip()
+    async with httpx.AsyncClient(timeout=45.0) as client:
         response = await client.post(
             f"{settings.orchestrator_url}/api/tinder/incoming",
-            json={
-                "conversation_id": msg["conversation_id"],
-                "sender": msg["sender"],
-                "message": msg["message"],
-                "my_last_message": msg.get("my_last_message", ""),
-                "history": history,
-            },
+            json=payload,
         )
         response.raise_for_status()
 
