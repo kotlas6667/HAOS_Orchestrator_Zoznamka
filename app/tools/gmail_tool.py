@@ -70,23 +70,23 @@ class GmailTool(Tool):
         return MockGmailProvider()
 
     def _resolve_provider(self, context: dict[str, Any]) -> Any:
-        """Pick provider by account / email param, else default."""
+        """Pick provider by account id / email / label, else default."""
         if not self._providers:
             return self.provider
-        account_id = (context.get("account_id") or context.get("account") or "").strip()
+        account_id = (context.get("account_id") or "").strip()
+        # Router typically puts the Gmail address into "account"
+        raw_account = (context.get("account") or "").strip()
         email = (context.get("email") or context.get("account_email") or "").strip()
+        needle = (email or raw_account).strip()
+
         if account_id and account_id in self._providers:
             return self._providers[account_id]
-        if email:
-            acc = google_accounts.get_account(email=email)
-            if acc and acc["id"] in self._providers:
+        if raw_account and raw_account in self._providers:
+            return self._providers[raw_account]
+        if needle:
+            acc = google_accounts.get_account(email=needle) or google_accounts.find_account_fuzzy(needle)
+            if acc and acc.get("id") in self._providers:
                 return self._providers[acc["id"]]
-            # fuzzy: match local-part or full email in prompt param
-            needle = email.lower()
-            for acc in google_accounts.list_accounts():
-                if needle in (acc.get("email") or "").lower() or needle in (acc.get("label") or "").lower():
-                    if acc["id"] in self._providers:
-                        return self._providers[acc["id"]]
         return self.provider
 
     def all_real_providers(self) -> list[RealGmailProvider]:
@@ -234,25 +234,84 @@ class GmailTool(Tool):
             response = await provider.send_email(recipient, subject or "Message", body)
             return {**base, **response, "recipient": recipient, "subject": subject or "Message"}
 
+        specific = bool(ctx.get("account") or ctx.get("account_id") or ctx.get("email"))
+
         if action == "count":
             # Across all accounts when no specific account requested
-            if self._providers and not (ctx.get("account") or ctx.get("account_id") or ctx.get("email")):
+            if self._providers and not specific:
                 total = 0
                 per_account = []
                 for pid, prov in self._providers.items():
-                    response = await prov.get_emails(query=query, max_results=50)
-                    n = len(response.get("emails", []))
-                    total += n
-                    per_account.append({
-                        "account": getattr(prov, "_account_email", pid),
-                        "count": n,
-                    })
-                return {**base, "count": total, "query": query, "per_account": per_account}
+                    acc = getattr(prov, "_account_email", None) or getattr(prov, "account_email", pid)
+                    try:
+                        response = await prov.get_emails(query=query, max_results=50)
+                        n = len(response.get("emails", []))
+                        total += n
+                        per_account.append({"account": acc, "count": n, "status": "ok"})
+                    except Exception as exc:
+                        per_account.append({
+                            "account": acc,
+                            "count": 0,
+                            "status": "error",
+                            "error": str(exc),
+                        })
+                return {
+                    **base,
+                    "account": "all",
+                    "count": total,
+                    "query": query,
+                    "per_account": per_account,
+                }
             response = await provider.get_emails(query=query, max_results=50)
             count = len(response.get("emails", []))
             return {**base, "count": count, "query": query}
 
-        # Default: fetch
+        # Default: fetch — bez konkrétneho účtu zoberie inboxy zo všetkých naraz
+        if self._providers and not specific:
+            per_account = []
+            merged: list[dict[str, Any]] = []
+            # Fetch a bit more per account so merge can still return max_results
+            per_limit = max(max_results, 5)
+            for pid, prov in self._providers.items():
+                acc = getattr(prov, "_account_email", None) or getattr(prov, "account_email", pid)
+                try:
+                    response = await prov.get_emails(query=query, max_results=per_limit)
+                    emails = response.get("emails", []) or []
+                    for mail in emails:
+                        mail.setdefault("account", acc)
+                        merged.append(mail)
+                    per_account.append({"account": acc, "total": len(emails), "status": "ok"})
+                except Exception as exc:
+                    per_account.append({
+                        "account": acc,
+                        "total": 0,
+                        "status": "error",
+                        "error": str(exc),
+                    })
+            # Stable-ish order: keep provider order, then truncate
+            if max_results == 1 and merged:
+                latest = merged[0]
+                return {
+                    **base,
+                    "account": "all",
+                    "from": latest.get("from", "Neznamy"),
+                    "subject": latest.get("subject", "Bez predmetu"),
+                    "date": latest.get("date", ""),
+                    "body_preview": latest.get("body", "")[:500],
+                    "source_account": latest.get("account"),
+                    "per_account": per_account,
+                }
+            trimmed = merged[:max_results] if max_results > 0 else merged
+            return {
+                **base,
+                "account": "all",
+                "emails": trimmed,
+                "total": len(merged),
+                "returned": len(trimmed),
+                "query": query,
+                "per_account": per_account,
+            }
+
         response = await provider.get_emails(query=query, max_results=max_results)
         emails = response.get("emails", [])
         if account_email:

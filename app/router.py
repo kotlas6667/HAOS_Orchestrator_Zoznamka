@@ -31,13 +31,15 @@ Rules:
 - If the user asks about emails, inbox, or wants to send email — use "gmail".
   - If the user names a specific Gmail address / account (e.g. "emaily z tomas@gmail.com", "inbox na práci"), set params.account to that address.
   - "aké mám gmail účty?" / "ktoré emaily sú pripojené?" → action: "accounts".
-  - If no account is named, omit "account" (default connected account / all for count).
+  - If no account is named, omit "account" — tool aggregates fetch/count across ALL connected Google accounts.
 - If the user asks about Elite Date / Tinder dating bots (status, online, new messages, "správy na ed", "elite date", "elite dáte", "elitedate", "tinder") — use "dating_status", NOT gmail.
   - "Žiadne správy na ed?" / "máme správy na Elite Date?" → service: "elitedate"
   - " Ide Tinder?" / "správy na tinderi" → service: "tinder"
   - "fungujú zoznamky?" / "ed a tinder" → service: "both"
   - Keywords: ed (only with správy/elite/date context), elite date, elite dáte, elitedate, tinder, zoznamka bots.
 - If the user asks about calendar, schedule, meetings, events, "čo mám dnes", "kedy mám meeting", or wants to create/add an event — use "calendar".
+  - Without a named account, today/upcoming merge events from ALL connected Google calendars (each event tagged with account).
+  - If the user names an account/email for calendar, set params.account.
   - "čo mám dnes v kalendári?" → action: "today"
   - "čo mám tento týždeň?" → action: "upcoming", days: 7
   - "pridaj meeting zajtra o 10:00 s názvom X" → action: "create", summary: "X", start: "<ISO date>", end: "<ISO date +1h>"

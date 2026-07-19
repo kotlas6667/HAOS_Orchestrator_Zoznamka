@@ -223,17 +223,23 @@ def list_accounts() -> list[dict[str, Any]]:
 
 
 def get_account(account_id: str | None = None, email: str | None = None) -> dict[str, Any] | None:
+    """Return matching account, or default when neither id nor email was given.
+
+    If account_id / email is provided but not found → None (no silent default).
+    """
     state = load_state()
     accounts = state.get("accounts", [])
     if account_id:
         for acc in accounts:
             if acc.get("id") == account_id:
                 return acc
+        return None
     if email:
         needle = email.strip().lower()
         for acc in accounts:
             if (acc.get("email") or "").strip().lower() == needle:
                 return acc
+        return None
     default_id = state.get("default_account_id")
     if default_id:
         for acc in accounts:
@@ -241,6 +247,21 @@ def get_account(account_id: str | None = None, email: str | None = None) -> dict
                 return acc
     if accounts:
         return accounts[0]
+    return None
+
+
+def find_account_fuzzy(needle: str) -> dict[str, Any] | None:
+    """Match by exact email, exact label, then substring on email/label."""
+    text = (needle or "").strip().lower()
+    if not text:
+        return None
+    accounts = load_state().get("accounts", [])
+    for acc in accounts:
+        if text == (acc.get("email") or "").lower() or text == (acc.get("label") or "").lower():
+            return acc
+    for acc in accounts:
+        if text in (acc.get("email") or "").lower() or text in (acc.get("label") or "").lower():
+            return acc
     return None
 
 

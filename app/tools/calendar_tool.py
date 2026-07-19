@@ -58,15 +58,63 @@ class CalendarTool(Tool):
     def _resolve_provider(self, context: dict[str, Any]):
         if not self._providers:
             return self.provider
-        account_id = (context.get("account_id") or context.get("account") or "").strip()
+        account_id = (context.get("account_id") or "").strip()
+        raw_account = (context.get("account") or "").strip()
         email = (context.get("email") or context.get("account_email") or "").strip()
+        needle = (email or raw_account).strip()
+
         if account_id and account_id in self._providers:
             return self._providers[account_id]
-        if email:
-            acc = google_accounts.get_account(email=email)
-            if acc and acc["id"] in self._providers:
+        if raw_account and raw_account in self._providers:
+            return self._providers[raw_account]
+        if needle:
+            acc = google_accounts.get_account(email=needle) or google_accounts.find_account_fuzzy(needle)
+            if acc and acc.get("id") in self._providers:
                 return self._providers[acc["id"]]
         return self.provider
+
+    def _specific_account(self, ctx: dict[str, Any]) -> bool:
+        return bool(ctx.get("account") or ctx.get("account_id") or ctx.get("email") or ctx.get("account_email"))
+
+    async def _aggregate_events(
+        self,
+        *,
+        action: str,
+        days: int,
+        max_results: int,
+    ) -> dict[str, Any]:
+        """Merge today/upcoming events from every connected Google account."""
+        per_account: list[dict[str, Any]] = []
+        merged: list[dict[str, Any]] = []
+        for pid, prov in self._providers.items():
+            acc = getattr(prov, "account_email", None) or pid
+            if action == "today":
+                result = await prov.get_today_events()
+            else:
+                result = await prov.get_events(days=days, max_results=max_results)
+            events = result.get("events", []) or []
+            for ev in events:
+                ev = dict(ev)
+                ev.setdefault("account", acc)
+                merged.append(ev)
+            per_account.append({
+                "account": acc,
+                "total": len(events),
+                "status": result.get("status", "unknown"),
+            })
+        # Sort by start datetime string when present
+        merged.sort(key=lambda e: e.get("start") or "")
+        trimmed = merged[:max_results] if max_results > 0 else merged
+        return {
+            "status": "success",
+            "action": action,
+            "account": "all",
+            "events": trimmed,
+            "total": len(merged),
+            "returned": len(trimmed),
+            "per_account": per_account,
+            "days": days if action == "upcoming" else None,
+        }
 
     async def run(self, prompt: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
         ctx = context or {}
@@ -74,6 +122,9 @@ class CalendarTool(Tool):
         days = int(ctx.get("days", 7))
         max_results = int(ctx.get("max_results", 10))
         provider = self._resolve_provider(ctx)
+
+        if action in ("today", "upcoming") and self._providers and not self._specific_account(ctx):
+            return await self._aggregate_events(action=action, days=days, max_results=max_results)
 
         if action == "today":
             result = await provider.get_today_events()
@@ -123,7 +174,10 @@ class CalendarTool(Tool):
                 except ValueError:
                     end = start
             print(f"[Calendar] final: start='{start}', end='{end}'")
-            return await provider.create_event(summary, start, end, description)
+            result = await provider.create_event(summary, start, end, description)
+            if getattr(provider, "account_email", None):
+                result.setdefault("account", provider.account_email)
+            return result
 
         if action == "update":
             summary = ctx.get("summary", "")
