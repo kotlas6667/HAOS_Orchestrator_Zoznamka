@@ -13,6 +13,8 @@ from elitedate_bot.config import settings
 from elitedate_bot.session import run_client_method
 
 _SEEN_FILE = Path(settings.seen_messages_file)
+# GPT drafts + Discord (photo) can exceed 45s; keep headroom for retries.
+_ORCHESTRATOR_TIMEOUT_SEC = 120.0
 
 
 def _load_seen() -> set[str]:
@@ -28,10 +30,10 @@ def _save_seen(seen: set[str]) -> None:
 
 def _message_key(msg: dict) -> str:
     payload = f"{msg.get('conversation_id', '')}\n{msg.get('sender', '')}\n{msg.get('message', '')}"
-    return hashlib.sha256(payload.encode('utf-8')).hexdigest()
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-async def _notify_orchestrator(msg: dict) -> None:
+async def _notify_orchestrator(msg: dict) -> dict:
     history = msg.get("history") or []
     if not isinstance(history, list):
         history = []
@@ -46,12 +48,35 @@ async def _notify_orchestrator(msg: dict) -> None:
         val = msg.get(key)
         if isinstance(val, str) and val.strip():
             payload[key] = val.strip()
-    async with httpx.AsyncClient(timeout=45.0) as client:
+    async with httpx.AsyncClient(timeout=_ORCHESTRATOR_TIMEOUT_SEC) as client:
         response = await client.post(
             f"{settings.orchestrator_url}/api/elitedate/incoming",
             json=payload,
         )
         response.raise_for_status()
+        data = response.json()
+    if not isinstance(data, dict):
+        raise RuntimeError("orchestrator returned non-object JSON")
+    if not data.get("discord"):
+        err = data.get("error") or "discord_notify_failed"
+        raise RuntimeError(f"Discord not confirmed: {err}")
+    return data
+
+
+async def _commit_preview(msg: dict) -> None:
+    preview = str(msg.get("preview") or "").strip()
+    conversation_id = str(msg.get("conversation_id") or "").strip()
+    if not preview or not conversation_id:
+        return
+    if shared_state.client is None:
+        return
+    try:
+        async with shared_state.driver_lock:
+            await run_client_method("commit_preview", conversation_id, preview)
+    except Exception as exc:  # noqa: BLE001
+        # Next poll will re-detect (preview not committed) and orchestrator will
+        # short-circuit via existing prompt_message_id — then we commit again.
+        print(f"[elitedate_bot] commit_preview failed: {exc}")
 
 
 async def poll_loop() -> None:
@@ -59,6 +84,9 @@ async def poll_loop() -> None:
 
     First poll runs immediately (seeds/diffs `.conversation_previews.json`); then
     randomized 90–180s interval. Extra `.seen_messages.json` dedup covers notify retries.
+
+    Preview cache for a candidate is committed only after Discord succeeds so a
+    timeout or webhook failure can be retried on the next poll.
     """
     seen = _load_seen()
     first = True
@@ -88,13 +116,14 @@ async def poll_loop() -> None:
             new_count += 1
             try:
                 await _notify_orchestrator(msg)
+                await _commit_preview(msg)
                 print(
                     f"[elitedate_bot] Notified orchestrator: {msg.get('sender')} "
                     f"— {str(msg.get('message') or '')[:80]}"
                 )
             except Exception as exc:  # noqa: BLE001
                 print(f"[elitedate_bot] Failed to notify orchestrator: {exc}")
-                seen.discard(key)  # retry next cycle
+                seen.discard(key)  # retry next cycle (preview still old)
 
         if new_count:
             _save_seen(seen)

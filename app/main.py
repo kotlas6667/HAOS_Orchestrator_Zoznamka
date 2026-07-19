@@ -476,7 +476,14 @@ async def elitedate_incoming(request: Request):
         photo_base64=photo_base64,
         photo_content_type=photo_content_type,
     )
-    return {"status": "success", "entry": entry}
+    discord_ok = bool(entry.get("prompt_message_id"))
+    return {
+        "status": "success" if discord_ok else "error",
+        "discord": discord_ok,
+        "message_id": entry.get("prompt_message_id"),
+        "entry": entry,
+        "error": None if discord_ok else "discord_notify_failed",
+    }
 
 
 @app.post("/api/elitedate/morning_greet")
@@ -518,4 +525,11 @@ async def tinder_incoming(request: Request):
         photo_base64=photo_base64,
         photo_content_type=photo_content_type,
     )
-    return {"status": "success", "entry": entry}
+    discord_ok = bool(entry.get("prompt_message_id"))
+    return {
+        "status": "success" if discord_ok else "error",
+        "discord": discord_ok,
+        "message_id": entry.get("prompt_message_id"),
+        "entry": entry,
+        "error": None if discord_ok else "discord_notify_failed",
+    }

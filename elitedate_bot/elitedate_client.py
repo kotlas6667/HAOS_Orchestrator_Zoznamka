@@ -628,6 +628,16 @@ class EliteDateClient:
         _PREVIEW_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
         _PREVIEW_CACHE_FILE.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    def commit_preview(self, conversation_id: str, preview: str) -> None:
+        """Persist inbox preview only after Discord notify succeeded (retry-safe)."""
+        cid = (conversation_id or "").strip()
+        text = (preview or "").strip()
+        if not cid or not text:
+            return
+        cache = self._load_preview_cache()
+        cache[cid] = text
+        self._save_preview_cache(cache)
+
     @staticmethod
     def _cached_preview_text(previous: Any) -> str | None:
         """Normalize cache entry → plain preview string (Tinder stores strings)."""
@@ -837,6 +847,10 @@ class EliteDateClient:
         - seed / unchanged preview → update cache only, never open chat
         - preview changed → open chat by id (fresh DOM), notify if last msg is from them
         - message text falls back to inbox preview if bubble text is empty
+
+        Pending candidates keep the *old* preview in cache until
+        ``commit_preview`` runs after a successful Discord notify — otherwise a
+        timeout/Discord failure would permanently silence the conversation.
         """
         cache = self._load_preview_cache()
         seeding = not cache
@@ -850,22 +864,25 @@ class EliteDateClient:
             sender = row["sender"]
             preview = row["preview"]
             previous_preview = self._cached_preview_text(cache.get(conversation_id))
-            updated_cache[conversation_id] = preview
 
             # First sighting or unchanged — seed only (Tinder never opens on seed).
             if previous_preview is None or previous_preview == preview:
+                updated_cache[conversation_id] = preview
                 continue
 
             changed += 1
             try:
                 self._open_conversation_by_id(conversation_id)
                 if not self._last_message_is_received():
+                    # Our own last bubble — advance cache so we do not reopen forever.
+                    updated_cache[conversation_id] = preview
                     print(f"[elitedate_bot] Preview changed but last bubble is ours: {sender}")
                     continue
 
                 message_text = self._latest_received_message() or preview
                 my_last_message = self._latest_sent_message()
                 if not message_text:
+                    # Keep old preview so the next poll retries this conversation.
                     continue
                 history = self._extract_chat_history(max_messages=24)
                 photo = self._profile_photo_fields()
@@ -876,6 +893,7 @@ class EliteDateClient:
                         "sender": sender,
                         "message": message_text,
                         "my_last_message": my_last_message,
+                        "preview": preview,
                         "history": history,
                         **photo,
                     }
@@ -884,8 +902,10 @@ class EliteDateClient:
                     f"[elitedate_bot] New message from {sender} "
                     f"(history_turns={len(history)}, photo={'yes' if photo.get('photo_base64') else 'no'})"
                 )
+                # Do NOT write the new preview yet — poller commits after Discord OK.
             except Exception as exc:  # noqa: BLE001
                 # One broken thread must not abort the whole poll (stale refs used to).
+                # Keep old preview so we retry on the next cycle.
                 print(f"[elitedate_bot] check_new_messages skip {conversation_id}: {exc}")
                 continue
 

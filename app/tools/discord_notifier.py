@@ -16,10 +16,9 @@ class DiscordNotifier:
         if not self.webhook_url:
             raise ValueError("DISCORD_WEBHOOK_URL not set in .env")
 
-        # OpenAI API configuration
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        if not self.openai_api_key:
-            raise ValueError("OPENAI_API_KEY not set in .env")
+        # OpenAI is optional for plain webhook sends (dating prompts, morning summary).
+        # Required only when summarizing emails via GPT.
+        self.openai_api_key = os.getenv("OPENAI_API_KEY") or ""
         self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         self.openai_api_url = "https://api.openai.com/v1/chat/completions"
 
@@ -67,6 +66,8 @@ class DiscordNotifier:
 
     async def _summarize_email_with_ai(self, email_data: dict[str, Any]) -> str:
         """Summarize email briefly - just sender and a few words about the content."""
+        if not self.openai_api_key:
+            raise ValueError("OPENAI_API_KEY not set in .env")
         sender = email_data.get("from", "Unknown")
         subject = email_data.get("subject", "No Subject")
         body = email_data.get("body", "")

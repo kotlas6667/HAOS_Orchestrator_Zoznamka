@@ -345,6 +345,16 @@ class TinderClient:
         _PREVIEW_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
         _PREVIEW_CACHE_FILE.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    def commit_preview(self, conversation_id: str, preview: str) -> None:
+        """Persist inbox preview only after Discord notify succeeded (retry-safe)."""
+        cid = (conversation_id or "").strip()
+        text = (preview or "").strip()
+        if not cid or not text:
+            return
+        cache = self._load_preview_cache()
+        cache[cid] = text
+        self._save_preview_cache(cache)
+
     def _clean_chat_message_text(self, text: str) -> str:
         cleaned_lines: list[str] = []
         for raw_line in (text or "").splitlines():
@@ -807,6 +817,9 @@ class TinderClient:
 
         Reads Správy list via JS only. Opens a chat ONLY when preview changed
         from a cached value — never on first sighting (seeding).
+
+        Pending candidates keep the *old* preview until ``commit_preview`` after
+        a successful Discord notify (same retry-safe pattern as Elite Date).
         """
         self._navigate_to_inbox()
 
@@ -822,28 +835,34 @@ class TinderClient:
                 continue
 
             previous_preview = preview_cache.get(match_id)
-            updated_cache[match_id] = preview
 
             # First sighting or unchanged preview — seed/update only, no notification.
             if previous_preview is None or previous_preview == preview:
+                updated_cache[match_id] = preview
                 continue
 
-            self._open_conversation(match_id)
-            if not self._last_message_is_received():
-                continue
+            try:
+                self._open_conversation(match_id)
+                if not self._last_message_is_received():
+                    # Our own last bubble — advance cache so we do not reopen forever.
+                    updated_cache[match_id] = preview
+                    continue
 
-            message_text = self._latest_received_message() or preview
-            my_last_message = self._latest_sent_message()
-            history = self._extract_chat_history(max_messages=24)
-            photo = self._profile_photo_fields()
+                message_text = self._latest_received_message() or preview
+                my_last_message = self._latest_sent_message()
+                history = self._extract_chat_history(max_messages=24)
+                photo = self._profile_photo_fields()
 
-            if message_text:
+                if not message_text:
+                    continue
+
                 results.append(
                     {
                         "conversation_id": match_id,
                         "sender": sender,
                         "message": message_text,
                         "my_last_message": my_last_message,
+                        "preview": preview,
                         "history": history,
                         **photo,
                     }
@@ -852,6 +871,10 @@ class TinderClient:
                     f"[tinder_bot] New message from {sender} "
                     f"(history_turns={len(history)}, photo={'yes' if photo.get('photo_base64') else 'no'})"
                 )
+                # Do NOT write the new preview yet — poller commits after Discord OK.
+            except Exception as exc:  # noqa: BLE001
+                print(f"[tinder_bot] check_new_messages skip {match_id}: {exc}")
+                continue
 
         self._save_preview_cache(updated_cache)
         return results
