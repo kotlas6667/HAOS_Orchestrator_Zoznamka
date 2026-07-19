@@ -4,6 +4,8 @@ gmailSecret.json
 credentials.json
 token.pickle
 token_calendar.pickle
+google_accounts.json
+google_tokens/
 *.pem
 
 # Personal data

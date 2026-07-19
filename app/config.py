@@ -59,11 +59,13 @@ class Settings(BaseSettings):
     weather_lang: str = "sk"
     openweather_api_key: str | None = None
 
-    # Gmail
+    # Gmail / Google (multi-account registry in google_accounts.json)
     gmail_provider: str = "mock"
     gmail_user_email: str | None = None
     gmail_credentials_json: str | None = None
     gmail_token_pickle: str | None = None
+    # HA / dashboard switch — zapne OAuth režim pre Gmail + Calendar (viac účtov)
+    google_accounts_enabled: bool = Field(default=False, validation_alias="GOOGLE_ACCOUNTS_ENABLED")
 
     # Google Calendar
     calendar_provider: str = "mock"

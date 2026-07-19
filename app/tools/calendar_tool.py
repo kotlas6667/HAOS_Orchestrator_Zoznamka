@@ -5,6 +5,7 @@ from typing import Any
 from app.config import settings
 from app.tools.base import Tool
 from app.tools.calendar_provider import MockCalendarProvider, RealCalendarProvider
+from app.tools import google_accounts
 
 
 class CalendarTool(Tool):
@@ -12,27 +13,82 @@ class CalendarTool(Tool):
     description = "Google Calendar — view events, create events, check schedule."
 
     def __init__(self) -> None:
+        self._providers: dict[str, RealCalendarProvider] = {}
         self.provider = self._create_provider()
 
+    def reload_providers(self) -> None:
+        self._providers.clear()
+        self.provider = self._create_provider()
+
+    def _oauth_active(self) -> bool:
+        if google_accounts.list_accounts():
+            return google_accounts.is_enabled() or getattr(settings, "calendar_provider", "mock") == "oauth"
+        if getattr(settings, "calendar_provider", "mock") != "oauth":
+            return False
+        from pathlib import Path
+        token = getattr(settings, "calendar_token_pickle", "token_calendar.pickle")
+        # Combined multi-account token also covers calendar; legacy needs its pickle
+        return Path(token).is_file()
+
     def _create_provider(self):
-        if getattr(settings, "calendar_provider", "mock") == "oauth":
+        accounts = google_accounts.list_accounts()
+        cred_path = str(google_accounts.find_credentials_path() or settings.gmail_credentials_json or "")
+        if accounts and (
+            google_accounts.is_enabled() or getattr(settings, "calendar_provider", "mock") == "oauth"
+        ):
+            for acc in accounts:
+                self._providers[acc["id"]] = RealCalendarProvider(
+                    credentials_path=cred_path,
+                    token_path=acc.get("token_path"),
+                    account_id=acc.get("id"),
+                    account_email=acc.get("email"),
+                    allow_interactive_oauth=False,
+                )
+            default = google_accounts.get_account()
+            if default and default["id"] in self._providers:
+                return self._providers[default["id"]]
+            return next(iter(self._providers.values()))
+
+        if self._oauth_active():
             return RealCalendarProvider(
                 credentials_path=settings.gmail_credentials_json,
                 token_path=getattr(settings, "calendar_token_pickle", "token_calendar.pickle"),
+                allow_interactive_oauth=False,
             )
+
         return MockCalendarProvider()
+
+    def _resolve_provider(self, context: dict[str, Any]):
+        if not self._providers:
+            return self.provider
+        account_id = (context.get("account_id") or context.get("account") or "").strip()
+        email = (context.get("email") or context.get("account_email") or "").strip()
+        if account_id and account_id in self._providers:
+            return self._providers[account_id]
+        if email:
+            acc = google_accounts.get_account(email=email)
+            if acc and acc["id"] in self._providers:
+                return self._providers[acc["id"]]
+        return self.provider
 
     async def run(self, prompt: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
         ctx = context or {}
         action = ctx.get("action", "today")
         days = int(ctx.get("days", 7))
         max_results = int(ctx.get("max_results", 10))
+        provider = self._resolve_provider(ctx)
 
         if action == "today":
-            return await self.provider.get_today_events()
+            result = await provider.get_today_events()
+            if getattr(provider, "account_email", None):
+                result["account"] = provider.account_email
+            return result
 
         if action == "upcoming":
-            return await self.provider.get_events(days=days, max_results=max_results)
+            result = await provider.get_events(days=days, max_results=max_results)
+            if getattr(provider, "account_email", None):
+                result["account"] = provider.account_email
+            return result
 
         if action == "create":
             summary = ctx.get("summary", "")
@@ -70,7 +126,7 @@ class CalendarTool(Tool):
                 except ValueError:
                     end = start
             print(f"[Calendar] final: start='{start}', end='{end}'")
-            return await self.provider.create_event(summary, start, end, description)
+            return await provider.create_event(summary, start, end, description)
 
         if action == "update":
             summary = ctx.get("summary", "")
@@ -82,7 +138,7 @@ class CalendarTool(Tool):
             # If missing key identifiers, list events on that date and ask for confirmation
             if not summary or not date:
                 if date:
-                    events_result = await self.provider.get_events_on_date(date)
+                    events_result = await provider.get_events_on_date(date)
                     events = events_result.get("events", [])
                     if events:
                         event_list = "\n".join([f"• {e['start_time']} — {e['summary']}" for e in events])
@@ -121,19 +177,19 @@ class CalendarTool(Tool):
                 except ValueError:
                     pass
 
-            return await self.provider.update_event(summary, date, old_time, new_start, new_end)
+            return await provider.update_event(summary, date, old_time, new_start, new_end)
 
         if action == "delete":
             date = ctx.get("date", "")
             event_id = ctx.get("event_id", "")
             if event_id:
-                return await self.provider.delete_event(event_id)
+                return await provider.delete_event(event_id)
             if date:
                 # Show events first and ask for confirmation if no specific name given
                 summary = ctx.get("summary", "")
                 if not summary:
                     # List what will be deleted
-                    events_result = await self.provider.get_events(days=1, max_results=20)
+                    events_result = await provider.get_events(days=1, max_results=20)
                     events = events_result.get("events", [])
                     if not events:
                         return {"status": "error", "reply": f"V {date} neboli nájdené žiadne udalosti."}
@@ -143,7 +199,7 @@ class CalendarTool(Tool):
                             "status": "clarify",
                             "reply": f"Našiel som {len(events)} udalostí v {date}. Ktorú chceš vymazať?\n{event_list}\n\nNapiš presný názov, alebo 'všetky' pre vymazanie všetkých.",
                         }
-                return await self.provider.delete_events_on_date(date)
+                return await provider.delete_events_on_date(date)
             return {"status": "error", "reply": "Pre vymazanie potrebujem dátum (napr. 'vymaž udalosti z 3.7.2026')."}
 
         return {"status": "error", "error": f"Neznáma akcia: {action}"}

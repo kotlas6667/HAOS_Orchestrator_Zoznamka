@@ -389,34 +389,27 @@ docker run -p 8000:8000 haos-orchestrator
 - Check that the bot has been added to the server
 
 ### Gmail not working
-- Set `GMAIL_PROVIDER=oauth`
-- Configure OAuth credentials (see Gmail setup)
-- Ensure the token has been generated (first run will open browser for auth)
+- Zapni v HA Nastaveniach **Google účty (Gmail + Kalendár)** alebo rovnaký prepínač na dashboarde
+- Ulož OAuth client JSON ako `/data/orchestrator/config/gmailSecret.json` (alebo `credentials.json`)
+- Na dashboarde klikni **Pripojiť Google účet** (jeden login = Gmail + Kalendár)
+- Pre viac schránok zopakuj prihlásenie s iným Google účtom
 
 ---
 
-## 📄 Gmail OAuth Setup
+## 📄 Gmail / Calendar OAuth Setup (multi-account)
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select existing
-3. Enable Gmail API:
-   - Navigate to "APIs & Services" → "Library"
-   - Search for "Gmail API"
-   - Click "Enable"
+3. Enable **Gmail API** and **Google Calendar API**
 4. Create OAuth credentials:
-   - Go to "APIs & Services" → "Credentials"
-   - Click "Create Credentials" → "OAuth client ID"
-   - Application type: "Desktop application"
-   - Download the credentials JSON file
-5. Place the JSON file at `/data/orchestrator/config/credentials.json`
-6. Set permissions in config:
-   ```env
-   GMAIL_PROVIDER=oauth
-   GMAIL_USER_EMAIL=your@email.com
-   GMAIL_CREDENTIALS_JSON=/data/orchestrator/config/credentials.json
-   GMAIL_TOKEN_PICKLE=/data/orchestrator/tokens/token.pickle
-   ```
-7. On first run, the add-on will open a browser for authentication
+   - "APIs & Services" → "Credentials" → "OAuth client ID"
+   - Type: **Web application** (pre HA ingress) alebo Desktop
+   - Redirect URI: `https://<tvoja-ha-url>/api/google/oauth/callback`
+     (pri ingresse použi URL dashboardu Orchestrátora + `/api/google/oauth/callback`)
+5. Download JSON → ulož ako `/data/orchestrator/config/gmailSecret.json`
+6. V HA Nastaveniach zapni **Google účty (Gmail + Kalendár)** a reštartuj add-on
+7. Dashboard → **Pripojiť Google účet** → Google consent (maily + kalendár naraz)
+8. Ďalšie účty = znova „Pripojiť Google účet“. Stav: `google_accounts.json` + `google_tokens/`
 
 ---
 

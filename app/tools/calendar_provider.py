@@ -46,11 +46,30 @@ class RealCalendarProvider:
         "https://www.googleapis.com/auth/calendar.events",
     ]
 
-    def __init__(self, *, credentials_path: str | None = None, token_path: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        credentials_path: str | None = None,
+        token_path: str | None = None,
+        account_id: str | None = None,
+        account_email: str | None = None,
+        allow_interactive_oauth: bool = False,
+    ) -> None:
         self._credentials_path = credentials_path
         self._token_path = token_path or "token_calendar.pickle"
+        self._account_id = account_id
+        self._account_email = account_email
+        self._allow_interactive_oauth = allow_interactive_oauth
         self._service = None
         self._initialize_service()
+
+    @property
+    def account_id(self) -> str | None:
+        return self._account_id
+
+    @property
+    def account_email(self) -> str | None:
+        return self._account_email
 
     def _initialize_service(self) -> None:
         try:
@@ -73,10 +92,15 @@ class RealCalendarProvider:
             traceback.print_exc()
 
     def _load_credentials(self) -> OAuth2Credentials:
-        """Load or create credentials. Auto-refreshes or re-authenticates when invalid."""
-        creds = None
-        needs_reauth = False
+        """Load credentials from pickle; refresh if needed. No browser OAuth by default."""
+        if os.path.exists(self._token_path):
+            try:
+                from app.tools.google_accounts import load_credentials as _ga_load
+                return _ga_load(self._token_path)
+            except Exception as e:
+                print(f"Calendar token load via google_accounts failed ({e})")
 
+        creds = None
         if os.path.exists(self._token_path):
             with open(self._token_path, "rb") as token_file:
                 creds = pickle.load(token_file)
@@ -91,13 +115,13 @@ class RealCalendarProvider:
                         pickle.dump(creds, tf)
                     return creds
                 except Exception as e:
-                    print(f"Calendar token refresh failed ({e}), re-authenticating...")
-                    needs_reauth = True
-            else:
-                needs_reauth = True
+                    print(f"Calendar token refresh failed ({e})")
 
-        if needs_reauth and os.path.exists(self._token_path):
-            os.remove(self._token_path)
+        if not self._allow_interactive_oauth:
+            raise RuntimeError(
+                f"Chýba platný Calendar token ({self._token_path}). "
+                "Pripoj účet cez dashboard → Google účty (jeden login = Gmail + Kalendár)."
+            )
 
         if not self._credentials_path or not os.path.exists(self._credentials_path):
             raise FileNotFoundError(
@@ -117,7 +141,9 @@ class RealCalendarProvider:
         if self._service is None:
             self._initialize_service()
         if self._service is None:
-            raise RuntimeError("Failed to initialize Calendar service.")
+            raise RuntimeError(
+                "Kalendár nie je pripojený. Zapni Google účty v nastaveniach a prihlás sa."
+            )
         return self._service
 
     async def get_events(self, days: int = 7, max_results: int = 10) -> dict[str, Any]:

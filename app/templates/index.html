@@ -82,13 +82,13 @@
                 <div class="tool-icon">📧</div>
                 <div class="tool-name">Gmail</div>
                 <div class="tool-desc">Čítanie a posielanie emailov</div>
-                <div class="tool-status active">Aktívny</div>
+                <div class="tool-status" id="gmail-tool-status">—</div>
               </div>
               <div class="tool-card" data-tool="calendar">
                 <div class="tool-icon">📅</div>
                 <div class="tool-name">Kalendár</div>
                 <div class="tool-desc">Google Calendar udalosti</div>
-                <div class="tool-status active">Aktívny</div>
+                <div class="tool-status" id="calendar-tool-status">—</div>
               </div>
               <div class="tool-card" data-tool="homeassistant">
                 <div class="tool-icon">🏠</div>
@@ -137,6 +137,30 @@
               </div>
             </form>
             <div id="chat-history" class="chat-history"></div>
+          </section>
+
+          <!-- Google accounts (Gmail + Calendar, multi-account OAuth) -->
+          <section class="google-section" id="google-section">
+            <h2 class="section-title">Google účty (Gmail + Kalendár)</h2>
+            <p class="skill-hint">
+              Ak Gmail/Kalendár nefunguje, zapni prepínač a prihlás Google účet.
+              Jeden login stiahne oprávnenia na <strong>čítanie mailov aj kalendár</strong>.
+              Môžeš pridať viac Gmail účtov. Potrebný je OAuth client JSON
+              (<code>gmailSecret.json</code>) v konfigurácii add-onu.
+            </p>
+            <div class="google-toolbar">
+              <label class="google-switch" title="Zapnúť Google OAuth">
+                <input type="checkbox" id="google-enabled" />
+                <span class="google-switch-slider"></span>
+                <span class="google-switch-label" id="google-enabled-label">Vypnuté</span>
+              </label>
+              <button type="button" id="google-connect-btn" class="skill-save-btn" disabled>
+                Pripojiť Google účet
+              </button>
+              <span id="google-status" class="skill-status" aria-live="polite"></span>
+            </div>
+            <div id="google-cred-hint" class="google-cred-hint" hidden></div>
+            <ul id="google-accounts" class="google-accounts"></ul>
           </section>
 
           <!-- Dating reply skill (multiline — HA Nastavenia má len jednoriadkové str?) -->
@@ -668,6 +692,131 @@
 
       if (skillSaveBtn) skillSaveBtn.addEventListener('click', saveDatingSkill);
       loadDatingSkill();
+
+      // Google accounts (Gmail + Calendar)
+      const googleEnabled = document.getElementById('google-enabled');
+      const googleEnabledLabel = document.getElementById('google-enabled-label');
+      const googleConnectBtn = document.getElementById('google-connect-btn');
+      const googleStatus = document.getElementById('google-status');
+      const googleAccountsEl = document.getElementById('google-accounts');
+      const googleCredHint = document.getElementById('google-cred-hint');
+      const gmailStatusEl = document.querySelector('.tool-card[data-tool="gmail"] .tool-status');
+      const calendarStatusEl = document.querySelector('.tool-card[data-tool="calendar"] .tool-status');
+
+      function renderGoogleAccounts(data) {
+        const accounts = data.accounts || [];
+        if (!accounts.length) {
+          googleAccountsEl.innerHTML = data.enabled
+            ? '<li class="google-empty">Žiadny účet — klikni „Pripojiť Google účet“.</li>'
+            : '<li class="google-empty">Zapni prepínač a pripoj Google účet.</li>';
+        } else {
+          googleAccountsEl.innerHTML = accounts.map(a => {
+            const email = escapeHtml(a.email || '?');
+            const badge = a.is_default ? '<span class="google-badge">predvolený</span>' : '';
+            const tok = a.token_ok ? '' : '<span class="google-badge warn">bez tokenu</span>';
+            const defBtn = a.is_default
+              ? ''
+              : `<button type="button" class="google-mini-btn" data-default="${escapeHtml(a.id)}">Predvolený</button>`;
+            return `<li class="google-account">
+              <div class="google-account-main">
+                <span class="google-email">${email}</span>
+                ${badge}${tok}
+              </div>
+              <div class="google-account-actions">
+                ${defBtn}
+                <button type="button" class="google-mini-btn danger" data-remove="${escapeHtml(a.id)}">Odpojiť</button>
+              </div>
+            </li>`;
+          }).join('');
+        }
+
+        googleEnabled.checked = !!data.enabled;
+        googleEnabledLabel.textContent = data.enabled ? 'Zapnuté' : 'Vypnuté';
+        googleConnectBtn.disabled = !data.enabled || !data.credentials_present;
+
+        if (!data.credentials_present && data.hint) {
+          googleCredHint.hidden = false;
+          googleCredHint.textContent = data.hint;
+        } else {
+          googleCredHint.hidden = true;
+          googleCredHint.textContent = '';
+        }
+
+        const n = data.account_count || 0;
+        if (gmailStatusEl) {
+          gmailStatusEl.textContent = n ? `${n} účet` : (data.enabled ? 'Čaká na login' : 'Mock');
+          gmailStatusEl.classList.toggle('active', n > 0);
+        }
+        if (calendarStatusEl) {
+          calendarStatusEl.textContent = n ? `${n} účet` : (data.enabled ? 'Čaká na login' : 'Mock');
+          calendarStatusEl.classList.toggle('active', n > 0);
+        }
+
+        googleStatus.textContent = data.credentials_present
+          ? (n ? `${n} pripojených účtov` : 'Pripravené na prihlásenie')
+          : 'Chýba OAuth client JSON';
+      }
+
+      async function loadGoogleStatus() {
+        try {
+          const res = await fetch('api/google/status');
+          const data = await res.json();
+          renderGoogleAccounts(data);
+        } catch (e) {
+          googleStatus.textContent = `Chyba: ${e.message}`;
+        }
+      }
+
+      if (googleEnabled) {
+        googleEnabled.addEventListener('change', async () => {
+          googleStatus.textContent = 'Ukladám…';
+          try {
+            const res = await fetch('api/google/settings', {
+              method: 'PUT',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({enabled: googleEnabled.checked}),
+            });
+            const data = await res.json();
+            renderGoogleAccounts(data);
+            googleStatus.textContent = data.message || 'Uložené';
+            if (data.enabled) loadCalendar();
+          } catch (e) {
+            googleStatus.textContent = `Chyba: ${e.message}`;
+          }
+        });
+      }
+
+      if (googleConnectBtn) {
+        googleConnectBtn.addEventListener('click', () => {
+          // Full navigation — Google OAuth redirect + callback
+          window.location.href = 'api/google/oauth/start?redirect=1';
+        });
+      }
+
+      if (googleAccountsEl) {
+        googleAccountsEl.addEventListener('click', async (ev) => {
+          const t = ev.target;
+          if (!(t instanceof HTMLElement)) return;
+          const removeId = t.getAttribute('data-remove');
+          const defaultId = t.getAttribute('data-default');
+          if (removeId) {
+            if (!confirm('Odpojiť tento Google účet?')) return;
+            googleStatus.textContent = 'Odpojujem…';
+            const res = await fetch(`api/google/accounts/${encodeURIComponent(removeId)}`, {method: 'DELETE'});
+            const data = await res.json();
+            renderGoogleAccounts(data);
+            loadCalendar();
+          } else if (defaultId) {
+            googleStatus.textContent = 'Nastavujem predvolený…';
+            const res = await fetch(`api/google/accounts/${encodeURIComponent(defaultId)}/default`, {method: 'PUT'});
+            const data = await res.json();
+            renderGoogleAccounts(data);
+            loadCalendar();
+          }
+        });
+      }
+
+      loadGoogleStatus();
     </script>
   </body>
 </html>

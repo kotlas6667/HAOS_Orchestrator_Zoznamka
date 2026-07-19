@@ -48,7 +48,9 @@ Docker: `docker build -t haos-orchestrator .` then `docker run -p 8000:8000 haos
 
 **Background jobs** in `app/main.py`'s `lifespan()`: periodic unread-email polling with Discord notification (`check_emails_periodically`, dedup via `.seen_email_ids`), a daily 07:00 weather+email summary (`send_morning_summary`), and optional Discord bot startup.
 
-**Persistence** is flat files, not a database: `todo.json` (todo_tool), `.seen_email_ids`, `token.pickle` / `token_calendar.pickle` (Google OAuth tokens from `google-auth-oauthlib`).
+**Persistence** is flat files, not a database: `todo.json` (todo_tool), `.seen_email_ids`, `token.pickle` / `token_calendar.pickle` (legacy single Google OAuth), plus multi-account `google_accounts.json` + `google_tokens/*.pickle` (combined Gmail+Calendar scopes via dashboard/HA switch `google_accounts_enabled`).
+
+**Google multi-account:** `app/tools/google_accounts.py` owns the registry and web OAuth (`/api/google/*`). Dashboard section + HA bool `google_accounts_enabled` turn on oauth providers; „Pripojiť Google účet“ runs consent once for Gmail+Calendar. `GmailTool` / `CalendarTool` resolve `account` from router params; background email poll walks all connected accounts. Client secrets: `gmailSecret.json` or `credentials.json` under `/data/orchestrator/config/`.
 
 **Networking note:** `app/main.py` sets `SSL_CERT_FILE`/`REQUESTS_CA_BUNDLE` at import time to a combined CA bundle (for a corporate proxy), and several `httpx`/aiohttp clients explicitly disable SSL verification (`verify=False` / `CERT_NONE`) — this is intentional for the target network environment, not an oversight.
 

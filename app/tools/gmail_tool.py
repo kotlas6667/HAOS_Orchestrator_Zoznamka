@@ -7,6 +7,7 @@ from app.config import settings
 from app.tools.base import Tool
 from app.tools.gmail_provider import MockGmailProvider, RealGmailProvider
 from app.tools.discord_notifier import DiscordNotifier
+from app.tools import google_accounts
 
 class GmailTool(Tool):
     name = "gmail"
@@ -19,23 +20,83 @@ class GmailTool(Tool):
     _DATE_PATTERN = re.compile(r"\b(\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?)\b")
 
     def __init__(self):
+        self._providers: dict[str, RealGmailProvider] = {}
         self.provider = self._create_provider()
         self.discord = DiscordNotifier()
 
-    def _create_provider(self):
-        """Create appropriate Gmail provider based on config."""
-        if settings.gmail_provider == "mock":
-            return MockGmailProvider()
+    def reload_providers(self) -> None:
+        """Rebuild providers after OAuth connect/disconnect."""
+        self._providers.clear()
+        self.provider = self._create_provider()
 
-        if settings.gmail_provider == "oauth":
+    def _oauth_active(self) -> bool:
+        if google_accounts.list_accounts():
+            return google_accounts.is_enabled() or (settings.gmail_provider or "").lower() == "oauth"
+        # Legacy: single token + provider=oauth
+        if (settings.gmail_provider or "").lower() != "oauth":
+            return False
+        from pathlib import Path
+        token = settings.gmail_token_pickle or "token.pickle"
+        return Path(token).is_file()
+
+    def _create_provider(self):
+        """Create default provider (default account or legacy single token)."""
+        accounts = google_accounts.list_accounts()
+        if accounts and (
+            google_accounts.is_enabled() or (settings.gmail_provider or "").lower() == "oauth"
+        ):
+            for acc in accounts:
+                self._providers[acc["id"]] = RealGmailProvider(
+                    credentials_path=str(google_accounts.find_credentials_path() or ""),
+                    token_path=acc.get("token_path"),
+                    user_email="me",
+                    account_id=acc.get("id"),
+                    allow_interactive_oauth=False,
+                )
+                # stash email on provider for tagging
+                self._providers[acc["id"]]._account_email = acc.get("email")
+            default = google_accounts.get_account()
+            if default and default["id"] in self._providers:
+                return self._providers[default["id"]]
+            return next(iter(self._providers.values()))
+
+        if self._oauth_active():
+            # Legacy single-account token.pickle
             return RealGmailProvider(
                 credentials_path=settings.gmail_credentials_json,
                 token_path=settings.gmail_token_pickle,
                 user_email=settings.gmail_user_email,
+                allow_interactive_oauth=False,
             )
 
-        # Default to mock if provider not recognized
         return MockGmailProvider()
+
+    def _resolve_provider(self, context: dict[str, Any]) -> Any:
+        """Pick provider by account / email param, else default."""
+        if not self._providers:
+            return self.provider
+        account_id = (context.get("account_id") or context.get("account") or "").strip()
+        email = (context.get("email") or context.get("account_email") or "").strip()
+        if account_id and account_id in self._providers:
+            return self._providers[account_id]
+        if email:
+            acc = google_accounts.get_account(email=email)
+            if acc and acc["id"] in self._providers:
+                return self._providers[acc["id"]]
+            # fuzzy: match local-part or full email in prompt param
+            needle = email.lower()
+            for acc in google_accounts.list_accounts():
+                if needle in (acc.get("email") or "").lower() or needle in (acc.get("label") or "").lower():
+                    if acc["id"] in self._providers:
+                        return self._providers[acc["id"]]
+        return self.provider
+
+    def all_real_providers(self) -> list[RealGmailProvider]:
+        if self._providers:
+            return list(self._providers.values())
+        if isinstance(self.provider, RealGmailProvider):
+            return [self.provider]
+        return []
 
     def _extract_subject(self, prompt: str) -> str | None:
         match = self._SUBJECT_PATTERN.search(prompt)
@@ -145,28 +206,60 @@ class GmailTool(Tool):
         max_results = int(ctx.get("max_results", 10))
         recipient = ctx.get("recipient") or self._extract_recipient(prompt)
         subject = ctx.get("subject") or self._extract_subject(prompt)
+        provider = self._resolve_provider(ctx)
+        account_email = getattr(provider, "account_email", None) or getattr(provider, "_account_email", None)
 
+        oauth_on = self._oauth_active() and not isinstance(provider, MockGmailProvider)
         base: dict[str, Any] = {
-            "status": "success" if settings.gmail_provider != "mock" else "mock",
+            "status": "success" if oauth_on else "mock",
             "action": action,
-            "provider": settings.gmail_provider,
+            "provider": "oauth" if oauth_on else "mock",
+            "account": account_email,
         }
+
+        if action == "accounts":
+            accounts = google_accounts.list_accounts()
+            return {
+                **base,
+                "status": "success",
+                "accounts": [
+                    {"email": a.get("email"), "label": a.get("label"), "is_default": a.get("is_default")}
+                    for a in accounts
+                ],
+                "total": len(accounts),
+            }
 
         if action == "send":
             if not recipient:
                 return {**base, "status": "error", "error": "No recipient email found in prompt"}
             body = ctx.get("body", prompt)
-            response = await self.provider.send_email(recipient, subject or "Message", body)
+            response = await provider.send_email(recipient, subject or "Message", body)
             return {**base, **response, "recipient": recipient, "subject": subject or "Message"}
 
         if action == "count":
-            response = await self.provider.get_emails(query=query, max_results=50)
+            # Across all accounts when no specific account requested
+            if self._providers and not (ctx.get("account") or ctx.get("account_id") or ctx.get("email")):
+                total = 0
+                per_account = []
+                for pid, prov in self._providers.items():
+                    response = await prov.get_emails(query=query, max_results=50)
+                    n = len(response.get("emails", []))
+                    total += n
+                    per_account.append({
+                        "account": getattr(prov, "_account_email", pid),
+                        "count": n,
+                    })
+                return {**base, "count": total, "query": query, "per_account": per_account}
+            response = await provider.get_emails(query=query, max_results=50)
             count = len(response.get("emails", []))
             return {**base, "count": count, "query": query}
 
         # Default: fetch
-        response = await self.provider.get_emails(query=query, max_results=max_results)
+        response = await provider.get_emails(query=query, max_results=max_results)
         emails = response.get("emails", [])
+        if account_email:
+            for mail in emails:
+                mail.setdefault("account", account_email)
         if not emails:
             return {**base, "emails": [], "query": query}
         if max_results == 1:

@@ -104,13 +104,26 @@ class RealGmailProvider:
         credentials_path: str | None = None,
         token_path: str | None = None,
         user_email: str | None = None,
+        account_id: str | None = None,
+        allow_interactive_oauth: bool = False,
     ) -> None:
         self._credentials_path = credentials_path
         self._token_path = token_path or "token.pickle"
         self._user_email = user_email or "me"
+        self._account_id = account_id
+        self._account_email = user_email if user_email and user_email != "me" else None
+        self._allow_interactive_oauth = allow_interactive_oauth
         self._service = None
         # Initialize service immediately in synchronous context
         self._initialize_service()
+
+    @property
+    def account_id(self) -> str | None:
+        return self._account_id
+
+    @property
+    def account_email(self) -> str | None:
+        return self._account_email
 
     def _initialize_service(self) -> None:
         """Initialize Gmail service once at startup (synchronous context)."""
@@ -144,15 +157,22 @@ class RealGmailProvider:
             # Try to initialize if not already done
             self._initialize_service()
         if self._service is None:
-            raise RuntimeError("Failed to initialize Gmail service. Check credentials and network connection.")
+            raise RuntimeError(
+                "Gmail nie je pripojený. Zapni Google účty v nastaveniach a prihlás sa cez OAuth."
+            )
         return self._service
 
     def _load_credentials(self) -> OAuth2Credentials | ServiceAccountCredentials:
-        """Load or create credentials. Auto-refreshes or re-authenticates when token is invalid."""
-        # Try to load token.pickle (cached OAuth token)
-        creds = None
-        needs_reauth = False
+        """Load credentials from pickle; refresh if needed. Interactive OAuth only if allowed."""
+        # Prefer multi-account helper (refresh without browser)
+        if os.path.exists(self._token_path):
+            try:
+                from app.tools.google_accounts import load_credentials as _ga_load
+                return _ga_load(self._token_path)
+            except Exception as e:
+                print(f"Token load/refresh via google_accounts failed ({e})")
 
+        creds = None
         if os.path.exists(self._token_path):
             with open(self._token_path, "rb") as token_file:
                 creds = pickle.load(token_file)
@@ -167,15 +187,14 @@ class RealGmailProvider:
                         pickle.dump(creds, tf)
                     return creds
                 except Exception as e:
-                    print(f"Token refresh failed ({e}), removing old token and re-authenticating...")
-                    needs_reauth = True
-            else:
-                needs_reauth = True
+                    print(f"Token refresh failed ({e})")
 
-        if needs_reauth and os.path.exists(self._token_path):
-            os.remove(self._token_path)
+        if not self._allow_interactive_oauth:
+            raise RuntimeError(
+                f"Chýba platný Gmail token ({self._token_path}). "
+                "Pripoj účet cez dashboard → Google účty."
+            )
 
-        # Load credentials from file and perform OAuth flow
         if not self._credentials_path or not os.path.exists(self._credentials_path):
             raise FileNotFoundError(
                 f"Credentials file not found: {self._credentials_path}. "
@@ -187,7 +206,6 @@ class RealGmailProvider:
         )
         creds = flow.run_local_server(port=0)
 
-        # Save token for next run
         with open(self._token_path, "wb") as token_file:
             pickle.dump(creds, token_file)
 

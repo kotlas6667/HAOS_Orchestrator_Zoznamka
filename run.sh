@@ -46,6 +46,12 @@ ELITEDATE_BOT_URL=http://8c003d88-haos-elitedate:8600
 ELITEDATE_AUTO_SEND=false
 TINDER_BOT_URL=http://8c003d88-haos-tinder:8601
 TINDER_AUTO_SEND=false
+
+# Google (Gmail + Calendar) — multi-account; zapni v HA Nastaveniach alebo na dashboarde
+GOOGLE_ACCOUNTS_ENABLED=false
+GMAIL_PROVIDER=mock
+CALENDAR_PROVIDER=mock
+GMAIL_CREDENTIALS_JSON=/data/orchestrator/config/gmailSecret.json
 EOF
     echo "Seeded $CFG/.env — vyplň Nastavenia add-onu a reštartuj."
 fi
@@ -86,6 +92,7 @@ if options_path.is_file():
         "tinder_bot_url": "TINDER_BOT_URL",
         "elitedate_auto_send": "ELITEDATE_AUTO_SEND",
         "tinder_auto_send": "TINDER_AUTO_SEND",
+        "google_accounts_enabled": "GOOGLE_ACCOUNTS_ENABLED",
     }
     for opt_key, env_key in mapping.items():
         if opt_key not in opts:
@@ -220,7 +227,7 @@ cp -f "$CFG/.env" /app/.env
 # ---------------------------------------------------------------------------
 # Persistent state
 # ---------------------------------------------------------------------------
-for f in gmailSecret.json token.pickle token_calendar.pickle todo.json; do
+for f in gmailSecret.json credentials.json token.pickle token_calendar.pickle todo.json google_accounts.json; do
     if [ ! -e "$CFG/$f" ] && [ -e "/app/$f" ] && [ ! -L "/app/$f" ]; then
         cp -f "/app/$f" "$CFG/$f"
         echo "Seeded $f into persistent config."
@@ -230,8 +237,38 @@ for f in gmailSecret.json token.pickle token_calendar.pickle todo.json; do
     fi
 done
 
+# Multi-account Google OAuth tokens (one pickle per account)
+mkdir -p "$CFG/google_tokens"
+ln -sfn "$CFG/google_tokens" /app/google_tokens
+
 [ -e "$CFG/.seen_email_ids" ] || : > "$CFG/.seen_email_ids"
 ln -sf "$CFG/.seen_email_ids" /app/.seen_email_ids
+
+# If HA switch is on, force oauth providers in .env for this boot
+if [ "${GOOGLE_ACCOUNTS_ENABLED:-false}" = "true" ] || [ "${GOOGLE_ACCOUNTS_ENABLED:-false}" = "True" ]; then
+    python3 - <<'PY'
+from pathlib import Path
+p = Path("/data/orchestrator/config/.env")
+text = p.read_text(encoding="utf-8") if p.is_file() else ""
+lines = text.splitlines()
+updates = {"GMAIL_PROVIDER": "oauth", "CALENDAR_PROVIDER": "oauth", "GOOGLE_ACCOUNTS_ENABLED": "true"}
+out, seen = [], set()
+for line in lines:
+    if "=" in line and not line.lstrip().startswith("#"):
+        key = line.split("=", 1)[0].strip()
+        if key in updates:
+            out.append(f"{key}={updates[key]}")
+            seen.add(key)
+            continue
+    out.append(line)
+for k, v in updates.items():
+    if k not in seen:
+        out.append(f"{k}={v}")
+p.write_text("\n".join(out) + "\n", encoding="utf-8")
+print("[orchestrator] GOOGLE_ACCOUNTS_ENABLED → GMAIL/CALENDAR_PROVIDER=oauth")
+PY
+    cp -f "$CFG/.env" /app/.env
+fi
 
 mkdir -p "$CFG/elitedate" "$CFG/tinder"
 [ -e "$CFG/elitedate_state.json" ] || echo '{"queue":[]}' > "$CFG/elitedate_state.json"

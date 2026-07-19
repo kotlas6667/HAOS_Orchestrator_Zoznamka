@@ -3,7 +3,7 @@ import json
 import os
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -101,33 +101,48 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
 def _gmail_background_enabled() -> bool:
+    from app.tools import google_accounts
+
+    if google_accounts.list_accounts():
+        return google_accounts.is_enabled()
     if settings.gmail_provider != "oauth":
         return False
     credentials = settings.gmail_credentials_json
     if not credentials:
-        return False
+        # Allow oauth if credentials file can be discovered
+        return google_accounts.find_credentials_path() is not None
     return Path(credentials).exists()
 
 
 async def check_emails_periodically():
-    """Check for new emails every 5 minutes, notify Discord only about new ones."""
+    """Check for new emails every minute across all connected Google accounts."""
     global _seen_email_ids
     while True:
         try:
-            response = await gmail_tool.provider.get_emails(query="is:unread", max_results=10)
-            emails = response.get("emails", [])
+            providers = gmail_tool.all_real_providers()
+            if not providers and hasattr(gmail_tool, "provider"):
+                providers = [gmail_tool.provider]
             new_ids_added = False
-            for email in emails:
-                msg_id = email.get("message_id")
-                if not msg_id or msg_id in _seen_email_ids:
-                    continue
-                _seen_email_ids.add(msg_id)
-                new_ids_added = True
-                # Send Discord notification for genuinely new emails
+            for provider in providers:
                 try:
-                    await gmail_tool.discord.send_email_summary(email)
+                    response = await provider.get_emails(query="is:unread", max_results=10)
                 except Exception as e:
-                    print(f"Error sending Discord notification: {e}")
+                    print(f"Error checking emails ({getattr(provider, 'account_email', '?')}): {e}")
+                    continue
+                emails = response.get("emails", [])
+                account = getattr(provider, "account_email", None) or getattr(provider, "_account_email", None)
+                for email in emails:
+                    msg_id = email.get("message_id")
+                    if not msg_id or msg_id in _seen_email_ids:
+                        continue
+                    _seen_email_ids.add(msg_id)
+                    new_ids_added = True
+                    if account:
+                        email.setdefault("account", account)
+                    try:
+                        await gmail_tool.discord.send_email_summary(email)
+                    except Exception as e:
+                        print(f"Error sending Discord notification: {e}")
             if new_ids_added:
                 _save_seen_ids(_seen_email_ids)
         except Exception as e:
@@ -158,9 +173,22 @@ async def send_morning_summary():
             temp = weather_result.get("temperature_c", "?")
             forecast = weather_result.get("forecast", "?")
 
-            # Email count
-            email_response = await gmail_tool.provider.get_emails(query="is:unread", max_results=50)
-            email_count = len(email_response.get("emails", []))
+            # Email count across all Google accounts
+            providers = gmail_tool.all_real_providers()
+            if not providers:
+                providers = [gmail_tool.provider]
+            all_emails: list[dict] = []
+            for provider in providers:
+                try:
+                    email_response = await provider.get_emails(query="is:unread", max_results=50)
+                    for mail in email_response.get("emails", []):
+                        acc = getattr(provider, "account_email", None) or getattr(provider, "_account_email", None)
+                        if acc:
+                            mail.setdefault("account", acc)
+                        all_emails.append(mail)
+                except Exception as e:
+                    print(f"Morning summary email fetch failed: {e}")
+            email_count = len(all_emails)
 
             # Build summary
             lines = [
@@ -171,12 +199,13 @@ async def send_morning_summary():
             ]
 
             if email_count > 0:
-                emails = email_response.get("emails", [])[:3]
                 lines.append("")
-                for mail in emails:
+                for mail in all_emails[:3]:
                     sender = mail.get("from", "?").split("<")[0].strip().strip('"')
                     subject = mail.get("subject", "(bez predmetu)")
-                    lines.append(f"  • **{subject}** od {sender}")
+                    acc = mail.get("account")
+                    suffix = f" ({acc})" if acc else ""
+                    lines.append(f"  • **{subject}** od {sender}{suffix}")
 
             await notifier.send_message("\n".join(lines))
             print(f"[OK] Morning summary sent at {datetime.now().strftime('%H:%M')}")
@@ -187,11 +216,22 @@ async def send_morning_summary():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Start background tasks when FastAPI starts."""
+    from app.tools import google_accounts
+
+    # Sync HA/env switch into google_accounts.json + migrate legacy token.pickle
+    if settings.google_accounts_enabled:
+        google_accounts.set_enabled(True)
+    google_accounts.migrate_legacy_single_account()
+    gmail_tool.reload_providers()
+    cal_tool = orchestrator.tools.get("calendar")
+    if cal_tool is not None and hasattr(cal_tool, "reload_providers"):
+        cal_tool.reload_providers()
+
     if _gmail_background_enabled():
         asyncio.create_task(check_emails_periodically())
         asyncio.create_task(send_morning_summary())
     else:
-        print("[INFO] Gmail background tasks disabled (missing OAuth credentials file or provider not oauth).")
+        print("[INFO] Gmail background tasks disabled (Google účty vypnuté alebo bez tokenu).")
 
     # Probe dating bots once at startup — wrong DNS shows up immediately in logs + Discord.
     async def _probe_dating_bots() -> None:
@@ -411,6 +451,115 @@ async def get_upcoming_events():
 
 # Shared dating reply skill (dashboard textarea — HA str? is single-line)
 from app.tools.dating_skill import read_user_skill_file, save_user_skill
+from app.tools import google_accounts
+
+
+def _reload_google_tools() -> None:
+    """Refresh Gmail/Calendar providers after enable/OAuth/remove."""
+    gmail_tool.reload_providers()
+    orch_gmail = orchestrator.tools.get("gmail")
+    if orch_gmail is not None and hasattr(orch_gmail, "reload_providers"):
+        orch_gmail.reload_providers()
+    orch_cal = orchestrator.tools.get("calendar")
+    if orch_cal is not None and hasattr(orch_cal, "reload_providers"):
+        orch_cal.reload_providers()
+    cal = globals().get("_calendar_tool")
+    if cal is not None and hasattr(cal, "reload_providers"):
+        cal.reload_providers()
+
+
+def _request_public_base(request: Request) -> str:
+    """Base URL for OAuth redirect (respects HA ingress / reverse proxy headers)."""
+    forwarded_host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+    forwarded_proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    # Home Assistant ingress often sets X-Ingress-Path
+    ingress = (request.headers.get("x-ingress-path") or "").rstrip("/")
+    if forwarded_host:
+        base = f"{forwarded_proto}://{forwarded_host}{ingress}"
+    else:
+        base = str(request.base_url).rstrip("/")
+    return base.rstrip("/")
+
+
+@app.get("/api/google/status")
+async def google_status():
+    """Dashboard: Google multi-account status (enabled switch, accounts, credentials)."""
+    return google_accounts.status_payload()
+
+
+@app.put("/api/google/settings")
+async def google_settings(request: Request):
+    """Zapni/vypni Google účty (Gmail + Kalendár). Pri zapnutí stačí prihlásiť účet."""
+    data = await request.json()
+    if "enabled" not in data:
+        return {"status": "error", "error": "enabled is required"}
+    enabled = bool(data.get("enabled"))
+    state = google_accounts.set_enabled(enabled)
+    _reload_google_tools()
+    payload = google_accounts.status_payload()
+    payload["message"] = (
+        "Google účty zapnuté — pripoj účet (Gmail + Kalendár naraz)."
+        if enabled
+        else "Google účty vypnuté — Gmail/Kalendár bežia v mock režime."
+    )
+    payload["state_enabled"] = state.get("enabled")
+    return payload
+
+
+@app.get("/api/google/oauth/start")
+async def google_oauth_start(request: Request, label: str = ""):
+    """Spustí Google OAuth — redirect na Google consent (Gmail + Calendar scopes)."""
+    try:
+        base = _request_public_base(request)
+        redirect_uri = google_accounts.build_callback_uri(base)
+        started = google_accounts.start_oauth(redirect_uri=redirect_uri, label=label)
+    except FileNotFoundError as e:
+        return {"status": "error", "error": str(e)}
+    except Exception as e:
+        return {"status": "error", "error": f"OAuth start zlyhal: {e}"}
+
+    # Browser navigation (?redirect=1) vs JSON for fetch
+    if request.query_params.get("redirect", "1") not in ("0", "false", "no"):
+        return RedirectResponse(url=started["auth_url"], status_code=302)
+    return {"status": "success", **started}
+
+
+@app.get("/api/google/oauth/callback")
+async def google_oauth_callback(request: Request, code: str | None = None, state: str | None = None, error: str | None = None):
+    """OAuth redirect URI — uloží token (Gmail + Kalendár) a pridá účet."""
+    if error:
+        return HTMLResponse(google_accounts.oauth_error_html(error), status_code=400)
+    if not code or not state:
+        return HTMLResponse(
+            google_accounts.oauth_error_html("Chýba authorization code alebo state."),
+            status_code=400,
+        )
+    try:
+        entry = google_accounts.complete_oauth(state=state, code=code)
+        _reload_google_tools()
+        return HTMLResponse(google_accounts.oauth_success_html(entry.get("email", "?")))
+    except Exception as e:
+        return HTMLResponse(google_accounts.oauth_error_html(str(e)), status_code=400)
+
+
+@app.delete("/api/google/accounts/{account_id}")
+async def google_delete_account(account_id: str):
+    try:
+        google_accounts.remove_account(account_id)
+        _reload_google_tools()
+        return google_accounts.status_payload()
+    except ValueError as e:
+        return {"status": "error", "error": str(e)}
+
+
+@app.put("/api/google/accounts/{account_id}/default")
+async def google_set_default_account(account_id: str):
+    try:
+        google_accounts.set_default_account(account_id)
+        _reload_google_tools()
+        return google_accounts.status_payload()
+    except ValueError as e:
+        return {"status": "error", "error": str(e)}
 
 
 @app.get("/api/dating-skill")

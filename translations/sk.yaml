@@ -79,6 +79,14 @@ configuration:
       Orchestrátora (panel / ingress) → „Skill pre AI návrhy (ED + Tinder)“.
       Ak sem niečo vložíš, pri štarte sa skopíruje do súboru (prepíše dashboard).
       Prázdne = ponechá uložený skill z dashboardu / vstavaný default.
+  google_accounts_enabled:
+    name: Google účty (Gmail + Kalendár)
+    description: >-
+      ZAPNUTÉ — orchestrátor používa OAuth Gmail a Google Calendar (viac účtov).
+      Po zapnutí choď na dashboard Orchestrátora → sekcia „Google účty“,
+      prihlás Google účet; stiahnu sa tokeny na čítanie mailov aj kalendára.
+      Potrebuješ OAuth client JSON (gmailSecret.json / credentials.json)
+      v /data/orchestrator/config/. VYPNUTÉ — Gmail/Kalendár v mock režime.
 
 network:
   8000/tcp: Orchestrátor API, web dashboard a ingress

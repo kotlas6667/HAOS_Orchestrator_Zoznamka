@@ -652,6 +652,159 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Google accounts */
+.google-section {
+  margin-top: 32px;
+  margin-bottom: 8px;
+}
+
+.google-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.google-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.google-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.google-switch-slider {
+  width: 44px;
+  height: 24px;
+  background: var(--border);
+  border-radius: 12px;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.google-switch-slider::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.google-switch input:checked + .google-switch-slider {
+  background: var(--accent);
+}
+
+.google-switch input:checked + .google-switch-slider::after {
+  transform: translateX(20px);
+}
+
+.google-switch-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.google-cred-hint {
+  background: rgba(220, 160, 60, 0.12);
+  border: 1px solid rgba(220, 160, 60, 0.35);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  color: var(--text);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.google-accounts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.google-empty {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  padding: 8px 0;
+}
+
+.google-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.google-account-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.google-email {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.google-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(80, 160, 100, 0.18);
+  color: var(--text);
+}
+
+.google-badge.warn {
+  background: rgba(220, 160, 60, 0.2);
+}
+
+.google-account-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.google-mini-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.google-mini-btn:hover {
+  border-color: var(--accent);
+}
+
+.google-mini-btn.danger:hover {
+  border-color: #c44;
+  color: #e88;
+}
+
 /* Dating skill editor */
 .skill-section {
   margin-top: 32px;
