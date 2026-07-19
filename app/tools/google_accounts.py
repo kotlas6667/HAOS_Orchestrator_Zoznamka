@@ -535,15 +535,17 @@ def status_payload() -> dict[str, Any]:
     elif enabled and novnc:
         hint = (
             "noVNC beží. Otvor http://<IP_HA>:6082/vnc.html a klikni "
-            "„Prihlásiť cez VNC“ — v Chromiu sa stiahnu práva na Gmail aj Kalendár."
+            "„Prihlásiť cez VNC“ — v Chromiu sa otvorí Google súhlas (nie len gmail.com)."
         )
-    return {
+    payload: dict[str, Any] = {
         "status": "success",
         "enabled": enabled,
         "novnc_listening": novnc,
         "vnc_url_hint": "http://<IP_HA>:6082/vnc.html",
         "credentials_present": cred is not None,
         "credentials_path": str(cred) if cred else None,
+        "state_path": str(state_path()),
+        "tokens_dir": str(tokens_dir()),
         "default_account_id": state.get("default_account_id"),
         "accounts": accounts,
         "account_count": len(accounts),
@@ -553,6 +555,22 @@ def status_payload() -> dict[str, Any]:
         },
         "hint": hint,
     }
+    try:
+        from app.tools.google_vnc_oauth import vnc_login_status
+
+        vnc = vnc_login_status()
+        payload["vnc"] = {
+            "running": vnc.get("running"),
+            "error": vnc.get("error"),
+            "message": vnc.get("message"),
+            "email": vnc.get("email"),
+            "display": vnc.get("display"),
+        }
+        if not accounts and vnc.get("error") and not vnc.get("running"):
+            payload["hint"] = f"Posledné VNC prihlásenie zlyhalo: {vnc['error']}"
+    except Exception:
+        pass
+    return payload
 
 
 def build_callback_uri(request_base: str) -> str:

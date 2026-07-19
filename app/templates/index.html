@@ -752,7 +752,7 @@
         googleEnabled.checked = !!data.enabled;
         googleEnabledLabel.textContent = data.enabled ? 'Zapnuté (VNC)' : 'Vypnuté';
         const canLogin = !!data.enabled && !!data.credentials_present && !!data.novnc_listening;
-        googleConnectBtn.disabled = !data.enabled || !data.credentials_present;
+        googleConnectBtn.disabled = !canLogin || !!vnc.running;
 
         if (googleVncLink) {
           if (data.enabled) {
@@ -792,12 +792,19 @@
           calendarStatusEl.classList.toggle('active', n > 0);
         }
 
-        if (!data.credentials_present) {
+        const vnc = data.vnc || {};
+        if (vnc.running) {
+          googleStatus.textContent = vnc.message || 'Čakám na Google súhlas vo VNC…';
+          googleConnectBtn.disabled = true;
+        } else if (!data.credentials_present) {
           googleStatus.textContent = 'Chýba Desktop OAuth JSON';
         } else if (data.enabled && !data.novnc_listening) {
           googleStatus.textContent = 'Reštartuj add-on pre noVNC';
+        } else if (vnc.error && !n) {
+          googleStatus.textContent = `VNC chyba: ${vnc.error}`;
+          googleConnectBtn.disabled = false;
         } else if (canLogin) {
-          googleStatus.textContent = n ? `${n} účtov · VNC pripravené` : 'VNC pripravené — prihlás sa';
+          googleStatus.textContent = n ? `${n} účtov · VNC pripravené` : 'VNC pripravené — klikni Prihlásiť cez VNC';
         } else {
           googleStatus.textContent = n ? `${n} pripojených účtov` : 'Switch vypnutý';
         }
