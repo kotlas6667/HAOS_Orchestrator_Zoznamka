@@ -1,11 +1,17 @@
 # Changelog
 
+## [1.2.25] - 2026-07-19
+
+### Fixed
+- **Konflikt portu 6080 s Tinder botom:** Orchestrátor noVNC (Google login) beží na
+  **6082**, Tinder si ponecháva **6080**. Oba add-ony môžu bežať súčasne.
+
 ## [1.2.24] - 2026-07-19
 
 ### Changed
 - **Google login cez noVNC** (ako Tinder), nie web redirect:
-  - Switch `google_accounts_enabled` → po Reštarte beží noVNC na porte **6080**.
-  - Otvor `http://<IP_HA>:6080/vnc.html` → dashboard „Prihlásiť cez VNC“ →
+  - Switch `google_accounts_enabled` → po Reštarte beží noVNC na porte **6082**.
+  - Otvor `http://<IP_HA>:6082/vnc.html` → dashboard „Prihlásiť cez VNC“ →
     Chromium na VNC displeji → Google consent → tokeny Gmail + Kalendár.
   - Image: Chromium + Xvfb + x11vnc + noVNC. OAuth client typu **Desktop**.
 

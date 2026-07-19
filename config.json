@@ -1,19 +1,23 @@
 {
   "name": "HAOS Orchestrator",
   "description": "AI orchestrátor pre Home Assistant — Gmail/Kalendár (noVNC login), Počasie, Discord a smart home. Elite Date a Tinder sú samostatné add-ony.",
-  "version": "1.2.24",
+  "version": "1.2.25",
   "slug": "haos_orchestrator",
   "init": false,
-  "arch": ["amd64", "aarch64", "armv7"],
+  "arch": [
+    "amd64",
+    "aarch64",
+    "armv7"
+  ],
   "startup": "application",
   "boot": "auto",
   "ports": {
     "8000/tcp": 8000,
-    "6080/tcp": 6080
+    "6082/tcp": 6082
   },
   "ports_description": {
     "8000/tcp": "Orchestrátor API a web dashboard",
-    "6080/tcp": "noVNC — Google login (zapni google_accounts_enabled)"
+    "6082/tcp": "noVNC — Google login (zapni google_accounts_enabled); port 6082 (Tinder má 6080)"
   },
   "ingress": true,
   "ingress_port": 8000,
@@ -66,7 +70,21 @@
   },
   "url": "https://github.com/kotlas6667/HAOS_Orchestrator_Zoznamka",
   "maintainer": "kotlas <kotlas6667@gmail.com>",
-  "authors": ["kotlas"],
-  "licenses": ["MIT"],
-  "keywords": ["orchestrator", "ai", "assistant", "automation", "gmail", "calendar", "weather", "discord", "homeassistant"]
+  "authors": [
+    "kotlas"
+  ],
+  "licenses": [
+    "MIT"
+  ],
+  "keywords": [
+    "orchestrator",
+    "ai",
+    "assistant",
+    "automation",
+    "gmail",
+    "calendar",
+    "weather",
+    "discord",
+    "homeassistant"
+  ]
 }

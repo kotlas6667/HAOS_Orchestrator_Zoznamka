@@ -508,7 +508,7 @@ def _novnc_listening() -> bool:
     import socket
 
     try:
-        with socket.create_connection(("127.0.0.1", 6080), timeout=0.3):
+        with socket.create_connection(("127.0.0.1", 6082), timeout=0.3):
             return True
     except OSError:
         return False
@@ -530,18 +530,18 @@ def status_payload() -> dict[str, Any]:
     elif enabled and not novnc:
         hint = (
             "Switch je zapnutý, ale noVNC ešte nebeží — Uložiť Nastavenia a "
-            "Reštartuj add-on. Potom otvor http://<IP_HA>:6080/vnc.html"
+            "Reštartuj add-on. Potom otvor http://<IP_HA>:6082/vnc.html"
         )
     elif enabled and novnc:
         hint = (
-            "noVNC beží. Otvor http://<IP_HA>:6080/vnc.html a klikni "
+            "noVNC beží. Otvor http://<IP_HA>:6082/vnc.html a klikni "
             "„Prihlásiť cez VNC“ — v Chromiu sa stiahnu práva na Gmail aj Kalendár."
         )
     return {
         "status": "success",
         "enabled": enabled,
         "novnc_listening": novnc,
-        "vnc_url_hint": "http://<IP_HA>:6080/vnc.html",
+        "vnc_url_hint": "http://<IP_HA>:6082/vnc.html",
         "credentials_present": cred is not None,
         "credentials_path": str(cred) if cred else None,
         "default_account_id": state.get("default_account_id"),

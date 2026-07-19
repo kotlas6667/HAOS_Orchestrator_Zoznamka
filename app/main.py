@@ -489,7 +489,7 @@ async def google_status():
 
 @app.put("/api/google/settings")
 async def google_settings(request: Request):
-    """Zapni/vypni Google VNC režim. Zapnuté + HA reštart = noVNC :6080."""
+    """Zapni/vypni Google VNC režim. Zapnuté + HA reštart = noVNC :6082."""
     data = await request.json()
     if "enabled" not in data:
         return {"status": "error", "error": "enabled is required"}
@@ -499,7 +499,7 @@ async def google_settings(request: Request):
     payload = google_accounts.status_payload()
     payload["message"] = (
         "Google VNC zapnuté — v HA Nastaveniach Uložiť + Reštart, potom "
-        "http://<IP_HA>:6080/vnc.html a „Prihlásiť cez VNC“."
+        "http://<IP_HA>:6082/vnc.html a „Prihlásiť cez VNC“."
         if enabled
         else "Google VNC vypnuté. Po reštarte noVNC zmizne; už uložené účty ostanú."
     )

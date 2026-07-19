@@ -144,7 +144,7 @@
             <h2 class="section-title">Google účty (Gmail + Kalendár)</h2>
             <p class="skill-hint">
               Zapni prepínač v HA Nastaveniach (alebo tu) → <strong>Uložiť → Reštart</strong>
-              → otvor noVNC <code>http://&lt;IP_HA&gt;:6080/vnc.html</code>
+              → otvor noVNC <code>http://&lt;IP_HA&gt;:6082/vnc.html</code>
               → klikni „Prihlásiť cez VNC“. V Chromiu sa prihlás na Google;
               stiahnu sa práva na <strong>maily aj kalendár</strong>. Viac účtov = zopakuj.
               Potom môžeš switch vypnúť (tokeny ostanú). OAuth JSON typu Desktop:
@@ -711,12 +711,12 @@
       let googlePollTimer = null;
 
       function guessVncUrl() {
-        // HA host IP nie je v browsery spoľahlivá — použij hostname:6080 ako tip
+        // HA host IP nie je v browsery spoľahlivá — použij hostname:6082 ako tip
         const host = location.hostname;
         if (!host || host === 'localhost' || host === '127.0.0.1') {
-          return 'http://<IP_HA>:6080/vnc.html';
+          return 'http://<IP_HA>:6082/vnc.html';
         }
-        return `http://${host}:6080/vnc.html`;
+        return `http://${host}:6082/vnc.html`;
       }
 
       function renderGoogleAccounts(data) {
@@ -724,7 +724,7 @@
         if (!accounts.length) {
           googleAccountsEl.innerHTML = data.enabled
             ? '<li class="google-empty">Žiadny účet — otvor VNC a klikni „Prihlásiť cez VNC“.</li>'
-            : '<li class="google-empty">Zapni switch → Reštart → otvor VNC :6080.</li>';
+            : '<li class="google-empty">Zapni switch → Reštart → otvor VNC :6082.</li>';
         } else {
           googleAccountsEl.innerHTML = accounts.map(a => {
             const email = escapeHtml(a.email || '?');
@@ -757,13 +757,13 @@
             const url = guessVncUrl();
             googleVncLink.href = url.startsWith('http') && !url.includes('<') ? url : '#';
             googleVncLink.textContent = data.novnc_listening
-              ? 'Otvoriť VNC (:6080)'
-              : 'VNC po reštarte (:6080)';
+              ? 'Otvoriť VNC (:6082)'
+              : 'VNC po reštarte (:6082)';
             if (url.includes('<')) {
               googleVncLink.removeAttribute('href');
               googleVncLink.onclick = (e) => {
                 e.preventDefault();
-                alert('Otvor v prehliadači: http://<IP_tvojho_HA>:6080/vnc.html');
+                alert('Otvor v prehliadači: http://<IP_tvojho_HA>:6082/vnc.html');
               };
             }
           } else {

@@ -390,7 +390,7 @@ docker run -p 8000:8000 haos-orchestrator
 
 ### Gmail not working
 - Zapni **Google VNC prihlásenie** v HA Nastaveniach → Uložiť → **Reštart**
-- Otvor `http://<IP_HA>:6080/vnc.html` (ako pri Tinderi)
+- Otvor `http://<IP_HA>:6082/vnc.html` (ako pri Tinderi)
 - Desktop OAuth JSON: `/data/orchestrator/config/gmailSecret.json`
 - Dashboard → **Prihlásiť cez VNC** → v Chromiu dokonči Google účet
 - Viac schránok = zopakuj. Potom switch vypni + reštart (tokeny ostanú)
@@ -405,7 +405,7 @@ Rovnaký model ako Tinder login:
 2. OAuth client ID typu **Desktop app** → stiahni JSON →
    `/data/orchestrator/config/gmailSecret.json`
 3. HA Nastavenia → **Google VNC prihlásenie** = zapnuté → Uložiť → Reštart
-4. Otvor `http://<IP_HA>:6080/vnc.html`
+4. Otvor `http://<IP_HA>:6082/vnc.html`
 5. Dashboard Orchestrátora → **Prihlásiť cez VNC** (Chromium sa otvorí vo VNC)
 6. Prihlás Google účet — stiahnu sa tokeny na maily aj kalendár
 7. Ďalší účet = znova krok 5–6. Vypnutie switchu + reštart vypne noVNC.

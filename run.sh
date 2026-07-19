@@ -286,7 +286,7 @@ echo "Dating bots: ELITEDATE_BOT_URL=${ELITEDATE_BOT_URL:-<unset>} TINDER_BOT_UR
 echo "Google VNC: GOOGLE_ACCOUNTS_ENABLED=${GOOGLE_ACCOUNTS_ENABLED:-false}"
 
 # ---------------------------------------------------------------------------
-# noVNC — Google login (ako Tinder). Zapni switch → Reštart → otvor :6080/vnc.html
+# noVNC — Google login (ako Tinder). Zapni switch → Reštart → otvor :6082/vnc.html
 # ---------------------------------------------------------------------------
 start_novnc_if_needed() {
     if [ "${GOOGLE_ACCOUNTS_ENABLED:-false}" = "true" ] || [ "${GOOGLE_ACCOUNTS_ENABLED:-false}" = "True" ] \
@@ -302,13 +302,13 @@ start_novnc_if_needed() {
             echo "[orchestrator] Starting x11vnc..."
             x11vnc -display "$DISPLAY" -forever -nopw -listen 0.0.0.0 -rfbport 5900 -shared -bg -o /tmp/x11vnc.log
         fi
-        if ! pgrep -f "websockify.*6080" >/dev/null 2>&1; then
-            echo "[orchestrator] Starting noVNC on port 6080..."
-            websockify --web=/usr/share/novnc 6080 localhost:5900 &
+        if ! pgrep -f "websockify.*6082" >/dev/null 2>&1; then
+            echo "[orchestrator] Starting noVNC on port 6082..."
+            websockify --web=/usr/share/novnc 6082 localhost:5900 &
         fi
         echo "[orchestrator] =============================================="
         echo "[orchestrator] Google login cez noVNC:"
-        echo "[orchestrator]   http://<IP_HA>:6080/vnc.html"
+        echo "[orchestrator]   http://<IP_HA>:6082/vnc.html"
         echo "[orchestrator] Dashboard → „Prihlásiť cez VNC“ (alebo API)."
         echo "[orchestrator] Jeden login = Gmail + Kalendár. Viac účtov = znova."
         echo "[orchestrator] Potom môžeš switch vypnúť → Reštart (tokeny ostanú)."

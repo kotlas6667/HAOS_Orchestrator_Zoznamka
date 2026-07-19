@@ -2,7 +2,7 @@
 
 Keď je zapnutý switch google_accounts_enabled, run.sh spustí Xvfb + noVNC.
 Tento modul otvorí Chromium v tom displeji, používateľ sa prihlási cez
-http://<IP_HA>:6080/vnc.html a stiahnu sa tokeny (Gmail + Calendar).
+http://<IP_HA>:6082/vnc.html a stiahnu sa tokeny (Gmail + Calendar).
 """
 from __future__ import annotations
 
@@ -36,9 +36,9 @@ def vnc_login_status() -> dict[str, Any]:
     return {
         "status": "success",
         **_VNC_STATUS,
-        "novnc_listening": _port_open(6080),
+        "novnc_listening": _port_open(6082),
         "display": os.environ.get("DISPLAY", ""),
-        "vnc_url_hint": "http://<IP_HA>:6080/vnc.html",
+        "vnc_url_hint": "http://<IP_HA>:6082/vnc.html",
     }
 
 
@@ -135,10 +135,10 @@ def run_vnc_oauth_login(*, label: str = "", timeout_sec: int = 600) -> dict[str,
     try:
         if not os.environ.get("DISPLAY"):
             os.environ["DISPLAY"] = ":99"
-        if not _port_open(6080):
+        if not _port_open(6082):
             raise RuntimeError(
-                "noVNC nebeží na porte 6080. Zapni switch „Google účty“, Uložiť → Reštart add-onu, "
-                "potom otvor http://<IP_HA>:6080/vnc.html"
+                "noVNC nebeží na porte 6082. Zapni switch „Google účty“, Uložiť → Reštart add-onu, "
+                "potom otvor http://<IP_HA>:6082/vnc.html"
             )
 
         cred_path = google_accounts.find_credentials_path()
@@ -168,7 +168,7 @@ def run_vnc_oauth_login(*, label: str = "", timeout_sec: int = 600) -> dict[str,
             )
             print("[google-vnc] ==============================================")
             print("[google-vnc] Otvor noVNC a prihlás Google účet:")
-            print("[google-vnc]   http://<IP_HA>:6080/vnc.html")
+            print("[google-vnc]   http://<IP_HA>:6082/vnc.html")
             print("[google-vnc] Chromium sa otvorí automaticky na VNC displeji.")
             print("[google-vnc] ==============================================")
             _open_chromium(auth_url)
@@ -185,7 +185,7 @@ def run_vnc_oauth_login(*, label: str = "", timeout_sec: int = 600) -> dict[str,
         )
         print("[google-vnc] ==============================================")
         print("[google-vnc] PRIHLÁSENIE Google cez noVNC:")
-        print("[google-vnc]   http://<IP_HA>:6080/vnc.html")
+        print("[google-vnc]   http://<IP_HA>:6082/vnc.html")
         print("[google-vnc] V Chromiu dokonči Google účet (Gmail + Kalendár).")
         print(f"[google-vnc] Timeout {timeout_sec}s")
         print("[google-vnc] ==============================================")
@@ -196,7 +196,7 @@ def run_vnc_oauth_login(*, label: str = "", timeout_sec: int = 600) -> dict[str,
             prompt="consent",
             open_browser=True,
             authorization_prompt_message=(
-                "[google-vnc] Otvor http://<IP_HA>:6080/vnc.html a dokonči prihlásenie v Chromiu.\n"
+                "[google-vnc] Otvor http://<IP_HA>:6082/vnc.html a dokonči prihlásenie v Chromiu.\n"
             ),
             success_message=(
                 "Google účet pripojený (Gmail + Kalendár). Môžeš zatvoriť toto okno."
@@ -257,7 +257,7 @@ def start_vnc_oauth_background(*, label: str = "", timeout_sec: int = 600) -> di
         "status": "started",
         "message": (
             "Chromium sa otvára na VNC displeji. "
-            "Otvor http://<IP_HA>:6080/vnc.html a prihlás Google účet "
+            "Otvor http://<IP_HA>:6082/vnc.html a prihlás Google účet "
             "(stiahnu sa práva na Gmail aj Kalendár)."
         ),
         **vnc_login_status(),

@@ -52,6 +52,6 @@ RUN chmod +x /app/run.sh && \
       'APP_NAME=HAOS Orchestrator' \
       > /app/.env
 
-EXPOSE 8000 6080
+EXPOSE 8000 6082
 
 ENTRYPOINT ["/app/run.sh"]
