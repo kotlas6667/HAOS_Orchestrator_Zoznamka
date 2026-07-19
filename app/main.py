@@ -227,6 +227,19 @@ async def lifespan(app: FastAPI):
     if cal_tool is not None and hasattr(cal_tool, "reload_providers"):
         cal_tool.reload_providers()
 
+    # Po štarte: ak beží noVNC, ukáž uvítaciu stránku (nie čierna obrazovka)
+    if settings.google_accounts_enabled:
+        async def _vnc_welcome_delayed() -> None:
+            await asyncio.sleep(4)
+            try:
+                from app.tools.google_vnc_oauth import show_vnc_welcome
+
+                show_vnc_welcome()
+            except Exception as exc:
+                print(f"[google-vnc] delayed welcome failed: {exc}")
+
+        asyncio.create_task(_vnc_welcome_delayed())
+
     if _gmail_background_enabled():
         asyncio.create_task(check_emails_periodically())
         asyncio.create_task(send_morning_summary())
@@ -505,6 +518,18 @@ async def google_settings(request: Request):
     )
     payload["state_enabled"] = state.get("enabled")
     return payload
+
+
+@app.post("/api/google/oauth/vnc-welcome")
+async def google_oauth_vnc_welcome():
+    """Znovu otvorí návod v Chromiu na VNC (ak je obrazovka čierna)."""
+    from app.tools.google_vnc_oauth import show_vnc_welcome
+
+    try:
+        show_vnc_welcome(force=True)
+        return {"status": "success", "message": "Chromium s návodom otvorený na VNC displeji."}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
 
 
 @app.get("/api/google/oauth/vnc-status")

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.26] - 2026-07-19
+
+### Fixed
+- **Čierna obrazovka v noVNC (:6082):** Pri štarte sa automaticky otvorí Chromium
+  s návodom. Tlačidlo „Obnoviť VNC“ na dashboarde. Google login až po
+  „Prihlásiť cez VNC“.
+
 ## [1.2.25] - 2026-07-19
 
 ### Fixed

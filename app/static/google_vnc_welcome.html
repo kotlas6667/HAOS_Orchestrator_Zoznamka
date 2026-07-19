@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="sk">
+<head>
+  <meta charset="utf-8" />
+  <title>Google login — Orchestrátor</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, sans-serif;
+      background: linear-gradient(135deg, #1a2332 0%, #2d3748 100%);
+      color: #e8edf5;
+      padding: 2rem;
+    }
+    .card {
+      max-width: 520px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 2rem;
+      line-height: 1.55;
+    }
+    h1 { margin: 0 0 1rem; font-size: 1.5rem; }
+    ol { padding-left: 1.25rem; }
+    li { margin: 0.5rem 0; }
+    code { background: rgba(0,0,0,0.25); padding: 2px 6px; border-radius: 4px; }
+    .hint { margin-top: 1.25rem; font-size: 0.9rem; opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔐 Google login (Gmail + Kalendár)</h1>
+    <p>noVNC je pripojené. Toto okno sa otvorí automaticky.</p>
+    <ol>
+      <li>Otvor <strong>dashboard Orchestrátora</strong> (HA panel / ingress).</li>
+      <li>Klikni <strong>„Prihlásiť cez VNC“</strong>.</li>
+      <li>V tomto Chromiu dokonči Google prihlásenie.</li>
+    </ol>
+    <p class="hint">
+      Ak ostane prázdne: klikni „Prihlásiť cez VNC“ na dashboarde — Chromium s Google loginom sa otvorí tu.
+      Ďalší Gmail účet = zopakuj krok 2.
+    </p>
+  </div>
+</body>
+</html>

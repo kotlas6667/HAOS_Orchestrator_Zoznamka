@@ -143,12 +143,11 @@
           <section class="google-section" id="google-section">
             <h2 class="section-title">Google účty (Gmail + Kalendár)</h2>
             <p class="skill-hint">
-              Zapni prepínač v HA Nastaveniach (alebo tu) → <strong>Uložiť → Reštart</strong>
-              → otvor noVNC <code>http://&lt;IP_HA&gt;:6082/vnc.html</code>
-              → klikni „Prihlásiť cez VNC“. V Chromiu sa prihlás na Google;
-              stiahnu sa práva na <strong>maily aj kalendár</strong>. Viac účtov = zopakuj.
-              Potom môžeš switch vypnúť (tokeny ostanú). OAuth JSON typu Desktop:
-              <code>gmailSecret.json</code>.
+              Zapni prepínač → <strong>Uložiť → Reštart</strong>
+              → otvor <code>http://&lt;IP_HA&gt;:6082/vnc.html</code>.
+              <strong>Čierna obrazovka?</strong> Klikni „Prihlásiť cez VNC“ na dashboarde
+              (alebo „Obnoviť VNC“) — otvorí sa Chromium s Google loginom.
+              Jeden login = Gmail + Kalendár. Viac účtov = zopakuj.
             </p>
             <div class="google-toolbar">
               <label class="google-switch" title="Zapnúť Google noVNC">
@@ -159,6 +158,9 @@
               <a id="google-vnc-link" class="google-vnc-link" href="#" target="_blank" rel="noopener" hidden>
                 Otvoriť VNC
               </a>
+              <button type="button" id="google-vnc-refresh-btn" class="google-mini-btn" title="Znovu otvoriť návod v Chromiu">
+                Obnoviť VNC
+              </button>
               <button type="button" id="google-connect-btn" class="skill-save-btn" disabled>
                 Prihlásiť cez VNC
               </button>
@@ -702,6 +704,7 @@
       const googleEnabled = document.getElementById('google-enabled');
       const googleEnabledLabel = document.getElementById('google-enabled-label');
       const googleConnectBtn = document.getElementById('google-connect-btn');
+      const googleVncRefreshBtn = document.getElementById('google-vnc-refresh-btn');
       const googleVncLink = document.getElementById('google-vnc-link');
       const googleStatus = document.getElementById('google-status');
       const googleAccountsEl = document.getElementById('google-accounts');
@@ -852,6 +855,19 @@
             googleStatus.textContent = googleEnabled.checked
               ? 'Uložené — v HA Nastaveniach tiež zapni switch a Reštartuj add-on pre VNC'
               : (data.message || 'Uložené');
+          } catch (e) {
+            googleStatus.textContent = `Chyba: ${e.message}`;
+          }
+        });
+      }
+
+      if (googleVncRefreshBtn) {
+        googleVncRefreshBtn.addEventListener('click', async () => {
+          googleStatus.textContent = 'Otváram Chromium na VNC…';
+          try {
+            const res = await fetch('api/google/oauth/vnc-welcome', {method: 'POST'});
+            const data = await res.json();
+            googleStatus.textContent = data.message || data.error || 'Hotovo';
           } catch (e) {
             googleStatus.textContent = `Chyba: ${e.message}`;
           }

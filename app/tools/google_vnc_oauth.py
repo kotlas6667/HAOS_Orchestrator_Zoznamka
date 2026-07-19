@@ -69,28 +69,65 @@ def _chrome_profile_dir() -> Path:
     return base
 
 
+def _chromium_running() -> bool:
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "chromium.*chrome-google"],
+            capture_output=True,
+            timeout=2,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def show_vnc_welcome(*, force: bool = False) -> None:
+    """Zobrazí návod v Chromiu na VNC displeji (nie čierna obrazovka)."""
+    if not force and _chromium_running():
+        return
+    welcome = Path(__file__).resolve().parent.parent / "static" / "google_vnc_welcome.html"
+    url = welcome.as_uri() if welcome.is_file() else "about:blank"
+    try:
+        _open_chromium(url)
+    except Exception as exc:
+        print(f"[google-vnc] welcome screen failed: {exc}")
+        # Fallback: aspoň farba pozadia cez xsetroot
+        display = os.environ.get("DISPLAY") or ":99"
+        subprocess.run(
+            ["xsetroot", "-solid", "#1a2332"],
+            env={**os.environ, "DISPLAY": display},
+            capture_output=True,
+            timeout=3,
+        )
+
+
 def _open_chromium(url: str) -> None:
     display = os.environ.get("DISPLAY") or ":99"
     os.environ["DISPLAY"] = display
     binary = _chromium_bin()
     profile = _chrome_profile_dir()
+    log_path = google_accounts._config_dir() / "chrome-google.log"
     cmd = [
         binary,
         "--no-sandbox",
         "--disable-dev-shm-usage",
         "--disable-gpu",
+        "--disable-software-rasterizer",
+        "--disable-setuid-sandbox",
         "--window-size=1280,800",
+        "--start-maximized",
         "--password-store=basic",
         f"--user-data-dir={profile}",
         "--new-window",
         url,
     ]
     print(f"[google-vnc] Opening Chromium on DISPLAY={display}: {url[:80]}…")
+    log_fh = open(log_path, "a", encoding="utf-8")
     subprocess.Popen(
         cmd,
         env={**os.environ, "DISPLAY": display},
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=log_fh,
+        stderr=subprocess.STDOUT,
         start_new_session=True,
     )
 

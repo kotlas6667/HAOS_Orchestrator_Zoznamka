@@ -305,6 +305,15 @@ start_novnc_if_needed() {
         if ! pgrep -f "websockify.*6082" >/dev/null 2>&1; then
             echo "[orchestrator] Starting noVNC on port 6082..."
             websockify --web=/usr/share/novnc 6082 localhost:5900 &
+            sleep 1
+        fi
+        # Nie čierna obrazovka — uvítacia stránka v Chromiu
+        xsetroot -solid "#1a2332" 2>/dev/null || true
+        if command -v python3 >/dev/null 2>&1; then
+            (cd /app && DISPLAY="$DISPLAY" python3 -c "
+from app.tools.google_vnc_oauth import show_vnc_welcome
+show_vnc_welcome()
+" 2>/dev/null || true) &
         fi
         echo "[orchestrator] =============================================="
         echo "[orchestrator] Google login cez noVNC:"
