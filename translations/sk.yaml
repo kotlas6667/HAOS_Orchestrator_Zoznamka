@@ -80,13 +80,15 @@ configuration:
       Ak sem niečo vložíš, pri štarte sa skopíruje do súboru (prepíše dashboard).
       Prázdne = ponechá uložený skill z dashboardu / vstavaný default.
   google_accounts_enabled:
-    name: Google účty (Gmail + Kalendár)
+    name: Google VNC prihlásenie (Gmail + Kalendár)
     description: >-
-      ZAPNUTÉ — orchestrátor používa OAuth Gmail a Google Calendar (viac účtov).
-      Po zapnutí choď na dashboard Orchestrátora → sekcia „Google účty“,
-      prihlás Google účet; stiahnu sa tokeny na čítanie mailov aj kalendára.
-      Potrebuješ OAuth client JSON (gmailSecret.json / credentials.json)
-      v /data/orchestrator/config/. VYPNUTÉ — Gmail/Kalendár v mock režime.
+      ZAPNUTÉ — spustí noVNC na porte 6080 (ako Tinder). Uložiť → Reštart,
+      otvor http://<IP_HA>:6080/vnc.html, na dashboarde klikni „Prihlásiť cez VNC“.
+      V Chromiu sa prihlás na Google — stiahnu sa tokeny na maily aj kalendár.
+      Viac Gmail účtov = zopakuj prihlásenie. Potrebný Desktop OAuth JSON
+      (gmailSecret.json) v /data/orchestrator/config/.
+      VYPNUTÉ + Reštart — noVNC sa vypne; už pripojené účty ostanú.
 
 network:
   8000/tcp: Orchestrátor API, web dashboard a ingress
+  6080/tcp: noVNC — Google login (len keď je zapnutý switch Google VNC)

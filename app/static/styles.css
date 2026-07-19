@@ -717,6 +717,18 @@ body {
   color: var(--text);
 }
 
+.google-vnc-link {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.google-vnc-link:hover {
+  opacity: 0.85;
+}
+
 .google-cred-hint {
   background: rgba(220, 160, 60, 0.12);
   border: 1px solid rgba(220, 160, 60, 0.35);

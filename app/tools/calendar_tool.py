@@ -22,20 +22,17 @@ class CalendarTool(Tool):
 
     def _oauth_active(self) -> bool:
         if google_accounts.list_accounts():
-            return google_accounts.is_enabled() or getattr(settings, "calendar_provider", "mock") == "oauth"
+            return True
         if getattr(settings, "calendar_provider", "mock") != "oauth":
             return False
         from pathlib import Path
         token = getattr(settings, "calendar_token_pickle", "token_calendar.pickle")
-        # Combined multi-account token also covers calendar; legacy needs its pickle
         return Path(token).is_file()
 
     def _create_provider(self):
         accounts = google_accounts.list_accounts()
         cred_path = str(google_accounts.find_credentials_path() or settings.gmail_credentials_json or "")
-        if accounts and (
-            google_accounts.is_enabled() or getattr(settings, "calendar_provider", "mock") == "oauth"
-        ):
+        if accounts:
             for acc in accounts:
                 self._providers[acc["id"]] = RealCalendarProvider(
                     credentials_path=cred_path,

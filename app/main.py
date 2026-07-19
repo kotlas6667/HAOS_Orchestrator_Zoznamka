@@ -103,13 +103,13 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 def _gmail_background_enabled() -> bool:
     from app.tools import google_accounts
 
+    # Background poll as soon as at least one account has a token
     if google_accounts.list_accounts():
-        return google_accounts.is_enabled()
+        return True
     if settings.gmail_provider != "oauth":
         return False
     credentials = settings.gmail_credentials_json
     if not credentials:
-        # Allow oauth if credentials file can be discovered
         return google_accounts.find_credentials_path() is not None
     return Path(credentials).exists()
 
@@ -489,7 +489,7 @@ async def google_status():
 
 @app.put("/api/google/settings")
 async def google_settings(request: Request):
-    """Zapni/vypni Google účty (Gmail + Kalendár). Pri zapnutí stačí prihlásiť účet."""
+    """Zapni/vypni Google VNC režim. Zapnuté + HA reštart = noVNC :6080."""
     data = await request.json()
     if "enabled" not in data:
         return {"status": "error", "error": "enabled is required"}
@@ -498,17 +498,70 @@ async def google_settings(request: Request):
     _reload_google_tools()
     payload = google_accounts.status_payload()
     payload["message"] = (
-        "Google účty zapnuté — pripoj účet (Gmail + Kalendár naraz)."
+        "Google VNC zapnuté — v HA Nastaveniach Uložiť + Reštart, potom "
+        "http://<IP_HA>:6080/vnc.html a „Prihlásiť cez VNC“."
         if enabled
-        else "Google účty vypnuté — Gmail/Kalendár bežia v mock režime."
+        else "Google VNC vypnuté. Po reštarte noVNC zmizne; už uložené účty ostanú."
     )
     payload["state_enabled"] = state.get("enabled")
     return payload
 
 
+@app.get("/api/google/oauth/vnc-status")
+async def google_oauth_vnc_status():
+    """Stav bežiaceho VNC Google prihlásenia."""
+    from app.tools.google_vnc_oauth import vnc_login_status
+
+    return vnc_login_status()
+
+
+@app.post("/api/google/oauth/vnc-start")
+async def google_oauth_vnc_start(request: Request):
+    """Spustí Google login v Chromiu na noVNC displeji (switch musí byť zapnutý + reštart)."""
+    from app.tools.google_vnc_oauth import start_vnc_oauth_background
+
+    label = ""
+    try:
+        data = await request.json()
+        if isinstance(data, dict):
+            label = str(data.get("label") or "")
+    except Exception:
+        pass
+    result = start_vnc_oauth_background(label=label)
+    if result.get("status") == "started":
+        # Po úspešnom logine thread uloží účet — poll status a reload tools cez callback
+        asyncio.create_task(_watch_vnc_oauth_and_reload())
+    return result
+
+
+async def _watch_vnc_oauth_and_reload() -> None:
+    """Po dokončení VNC OAuth obnov providery."""
+    from app.tools.google_vnc_oauth import vnc_login_status
+
+    for _ in range(200):  # ~10 min @ 3s
+        await asyncio.sleep(3)
+        st = vnc_login_status()
+        if st.get("running"):
+            continue
+        if st.get("email"):
+            _reload_google_tools()
+            print(f"[google-vnc] providers reloaded after {st.get('email')}")
+        break
+
+
 @app.get("/api/google/oauth/start")
 async def google_oauth_start(request: Request, label: str = ""):
-    """Spustí Google OAuth — redirect na Google consent (Gmail + Calendar scopes)."""
+    """Predvolene spustí VNC login; ?mode=web = starý browser redirect (ingress)."""
+    mode = (request.query_params.get("mode") or "vnc").strip().lower()
+    if mode != "web":
+        from app.tools.google_vnc_oauth import start_vnc_oauth_background
+
+        result = start_vnc_oauth_background(label=label)
+        if result.get("status") == "started":
+            asyncio.create_task(_watch_vnc_oauth_and_reload())
+        # JSON always for VNC (dashboard fetch); redirect would be useless
+        return result
+
     try:
         base = _request_public_base(request)
         redirect_uri = google_accounts.build_callback_uri(base)
@@ -518,7 +571,6 @@ async def google_oauth_start(request: Request, label: str = ""):
     except Exception as e:
         return {"status": "error", "error": f"OAuth start zlyhal: {e}"}
 
-    # Browser navigation (?redirect=1) vs JSON for fetch
     if request.query_params.get("redirect", "1") not in ("0", "false", "no"):
         return RedirectResponse(url=started["auth_url"], status_code=302)
     return {"status": "success", **started}

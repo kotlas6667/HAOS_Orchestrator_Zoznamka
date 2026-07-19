@@ -143,31 +143,37 @@ def save_state(state: dict[str, Any]) -> Path:
 
 
 def is_enabled() -> bool:
-    """Google multi-account mode on (HA switch or dashboard)."""
+    """VNC login switch on (HA / dashboard) — spúšťa noVNC, nie nutne Gmail runtime."""
     state = load_state()
-    if state["enabled"]:
+    if state.get("enabled"):
         return True
-    # Legacy single-account oauth still counts as "enabled" for background jobs
-    if (settings.gmail_provider or "").lower() == "oauth":
-        return True
-    return False
+    return bool(settings.google_accounts_enabled)
+
+
+def has_connected_accounts() -> bool:
+    return bool(load_state().get("accounts"))
 
 
 def set_enabled(enabled: bool) -> dict[str, Any]:
+    """Zapni/vypni VNC režim. Tokeny ostávajú; oauth provider ostane ak sú účty."""
     with _LOCK:
         state = load_state()
         state["enabled"] = bool(enabled)
         save_state(state)
-        _sync_env_providers(bool(enabled))
+        # VNC off ≠ mock: ak už máme účty, Gmail/Calendar ostanú oauth
+        use_oauth = bool(enabled) or bool(state.get("accounts"))
+        _sync_env_providers(use_oauth, vnc_enabled=bool(enabled))
         return state
 
 
-def _sync_env_providers(enabled: bool) -> None:
-    """Best-effort: keep runtime settings + .env in sync with the switch."""
-    value = "oauth" if enabled else "mock"
+def _sync_env_providers(use_oauth: bool, *, vnc_enabled: bool | None = None) -> None:
+    """Best-effort: keep runtime settings + .env in sync."""
+    value = "oauth" if use_oauth else "mock"
     try:
         settings.gmail_provider = value
         settings.calendar_provider = value
+        if vnc_enabled is not None:
+            settings.google_accounts_enabled = bool(vnc_enabled)
     except Exception:
         pass
     env_path = _config_dir() / ".env"
@@ -182,6 +188,8 @@ def _sync_env_providers(enabled: bool) -> None:
                 "GMAIL_PROVIDER": value,
                 "CALENDAR_PROVIDER": value,
             }
+            if vnc_enabled is not None:
+                updates["GOOGLE_ACCOUNTS_ENABLED"] = "true" if vnc_enabled else "false"
             out: list[str] = []
             seen: set[str] = set()
             for line in lines:
@@ -351,6 +359,41 @@ def _fetch_profile_email(creds: OAuth2Credentials) -> str:
         return ""
 
 
+def save_account_from_credentials(creds: OAuth2Credentials, *, label: str = "") -> dict[str, Any]:
+    """Persist OAuth2 credentials as a multi-account entry (Gmail + Calendar scopes)."""
+    if not isinstance(creds, OAuth2Credentials):
+        raise TypeError("Očakávam OAuth2Credentials")
+    email = _fetch_profile_email(creds) or f"account-{uuid.uuid4().hex[:8]}@unknown"
+    account_id = uuid.uuid4().hex[:12]
+    token_path = tokens_dir() / f"{account_id}.pickle"
+    with open(token_path, "wb") as fh:
+        pickle.dump(creds, fh)
+
+    entry_label = (label or "").strip() or email.split("@")[0]
+    with _LOCK:
+        state_data = load_state()
+        accounts = [
+            a for a in state_data.get("accounts", [])
+            if (a.get("email") or "").lower() != email.lower()
+        ]
+        entry = {
+            "id": account_id,
+            "email": email,
+            "label": entry_label,
+            "token_path": str(token_path),
+            "connected_at": datetime.now(timezone.utc).isoformat(),
+            "scopes": list(GOOGLE_SCOPES),
+        }
+        accounts.append(entry)
+        state_data["accounts"] = accounts
+        state_data["enabled"] = True
+        if not state_data.get("default_account_id"):
+            state_data["default_account_id"] = account_id
+        save_state(state_data)
+        _sync_env_providers(True)
+    return entry
+
+
 def complete_oauth(state: str, code: str) -> dict[str, Any]:
     """Exchange authorization code; persist token + account entry."""
     with _LOCK:
@@ -369,38 +412,7 @@ def complete_oauth(state: str, code: str) -> dict[str, Any]:
     if not isinstance(creds, OAuth2Credentials):
         raise RuntimeError("OAuth nevrátil OAuth2 credentials")
 
-    email = _fetch_profile_email(creds) or f"account-{uuid.uuid4().hex[:8]}@unknown"
-    account_id = uuid.uuid4().hex[:12]
-    token_path = tokens_dir() / f"{account_id}.pickle"
-    with open(token_path, "wb") as fh:
-        pickle.dump(creds, fh)
-
-    label = pending.get("label") or email.split("@")[0]
-
-    with _LOCK:
-        state_data = load_state()
-        # Replace existing account with same email
-        accounts = [
-            a for a in state_data.get("accounts", [])
-            if (a.get("email") or "").lower() != email.lower()
-        ]
-        entry = {
-            "id": account_id,
-            "email": email,
-            "label": label,
-            "token_path": str(token_path),
-            "connected_at": datetime.now(timezone.utc).isoformat(),
-            "scopes": list(GOOGLE_SCOPES),
-        }
-        accounts.append(entry)
-        state_data["accounts"] = accounts
-        state_data["enabled"] = True
-        if not state_data.get("default_account_id"):
-            state_data["default_account_id"] = account_id
-        save_state(state_data)
-        _sync_env_providers(True)
-
-    return entry
+    return save_account_from_credentials(creds, label=pending.get("label") or "")
 
 
 def load_credentials(token_path: str | Path) -> OAuth2Credentials:
@@ -471,14 +483,44 @@ def migrate_legacy_single_account() -> dict[str, Any] | None:
     return entry
 
 
+def _novnc_listening() -> bool:
+    import socket
+
+    try:
+        with socket.create_connection(("127.0.0.1", 6080), timeout=0.3):
+            return True
+    except OSError:
+        return False
+
+
 def status_payload() -> dict[str, Any]:
     migrate_legacy_single_account()
     state = load_state()
     cred = find_credentials_path()
     accounts = list_accounts()
+    enabled = bool(state.get("enabled")) or bool(settings.google_accounts_enabled)
+    novnc = _novnc_listening()
+    hint = None
+    if not cred:
+        hint = (
+            "Nahraj OAuth client JSON typu **Desktop** ako gmailSecret.json "
+            "do /data/orchestrator/config/ (Google Cloud → OAuth client ID)."
+        )
+    elif enabled and not novnc:
+        hint = (
+            "Switch je zapnutý, ale noVNC ešte nebeží — Uložiť Nastavenia a "
+            "Reštartuj add-on. Potom otvor http://<IP_HA>:6080/vnc.html"
+        )
+    elif enabled and novnc:
+        hint = (
+            "noVNC beží. Otvor http://<IP_HA>:6080/vnc.html a klikni "
+            "„Prihlásiť cez VNC“ — v Chromiu sa stiahnu práva na Gmail aj Kalendár."
+        )
     return {
         "status": "success",
-        "enabled": bool(state.get("enabled")),
+        "enabled": enabled,
+        "novnc_listening": novnc,
+        "vnc_url_hint": "http://<IP_HA>:6080/vnc.html",
         "credentials_present": cred is not None,
         "credentials_path": str(cred) if cred else None,
         "default_account_id": state.get("default_account_id"),
@@ -488,14 +530,7 @@ def status_payload() -> dict[str, Any]:
             "gmail": settings.gmail_provider,
             "calendar": settings.calendar_provider,
         },
-        "hint": (
-            None
-            if cred
-            else (
-                "Nahraj OAuth client JSON ako gmailSecret.json alebo credentials.json "
-                "do /data/orchestrator/config/ (Google Cloud Console → OAuth client ID)."
-            )
-        ),
+        "hint": hint,
     }
 
 

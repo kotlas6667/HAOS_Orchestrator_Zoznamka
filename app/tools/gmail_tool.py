@@ -31,7 +31,7 @@ class GmailTool(Tool):
 
     def _oauth_active(self) -> bool:
         if google_accounts.list_accounts():
-            return google_accounts.is_enabled() or (settings.gmail_provider or "").lower() == "oauth"
+            return True
         # Legacy: single token + provider=oauth
         if (settings.gmail_provider or "").lower() != "oauth":
             return False
@@ -42,9 +42,7 @@ class GmailTool(Tool):
     def _create_provider(self):
         """Create default provider (default account or legacy single token)."""
         accounts = google_accounts.list_accounts()
-        if accounts and (
-            google_accounts.is_enabled() or (settings.gmail_provider or "").lower() == "oauth"
-        ):
+        if accounts:
             for acc in accounts:
                 self._providers[acc["id"]] = RealGmailProvider(
                     credentials_path=str(google_accounts.find_credentials_path() or ""),

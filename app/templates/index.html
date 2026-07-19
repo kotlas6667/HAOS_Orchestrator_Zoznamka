@@ -139,23 +139,28 @@
             <div id="chat-history" class="chat-history"></div>
           </section>
 
-          <!-- Google accounts (Gmail + Calendar, multi-account OAuth) -->
+          <!-- Google accounts — VNC login (ako Tinder), multi-account -->
           <section class="google-section" id="google-section">
             <h2 class="section-title">Google účty (Gmail + Kalendár)</h2>
             <p class="skill-hint">
-              Ak Gmail/Kalendár nefunguje, zapni prepínač a prihlás Google účet.
-              Jeden login stiahne oprávnenia na <strong>čítanie mailov aj kalendár</strong>.
-              Môžeš pridať viac Gmail účtov. Potrebný je OAuth client JSON
-              (<code>gmailSecret.json</code>) v konfigurácii add-onu.
+              Zapni prepínač v HA Nastaveniach (alebo tu) → <strong>Uložiť → Reštart</strong>
+              → otvor noVNC <code>http://&lt;IP_HA&gt;:6080/vnc.html</code>
+              → klikni „Prihlásiť cez VNC“. V Chromiu sa prihlás na Google;
+              stiahnu sa práva na <strong>maily aj kalendár</strong>. Viac účtov = zopakuj.
+              Potom môžeš switch vypnúť (tokeny ostanú). OAuth JSON typu Desktop:
+              <code>gmailSecret.json</code>.
             </p>
             <div class="google-toolbar">
-              <label class="google-switch" title="Zapnúť Google OAuth">
+              <label class="google-switch" title="Zapnúť Google noVNC">
                 <input type="checkbox" id="google-enabled" />
                 <span class="google-switch-slider"></span>
                 <span class="google-switch-label" id="google-enabled-label">Vypnuté</span>
               </label>
+              <a id="google-vnc-link" class="google-vnc-link" href="#" target="_blank" rel="noopener" hidden>
+                Otvoriť VNC
+              </a>
               <button type="button" id="google-connect-btn" class="skill-save-btn" disabled>
-                Pripojiť Google účet
+                Prihlásiť cez VNC
               </button>
               <span id="google-status" class="skill-status" aria-live="polite"></span>
             </div>
@@ -697,18 +702,29 @@
       const googleEnabled = document.getElementById('google-enabled');
       const googleEnabledLabel = document.getElementById('google-enabled-label');
       const googleConnectBtn = document.getElementById('google-connect-btn');
+      const googleVncLink = document.getElementById('google-vnc-link');
       const googleStatus = document.getElementById('google-status');
       const googleAccountsEl = document.getElementById('google-accounts');
       const googleCredHint = document.getElementById('google-cred-hint');
       const gmailStatusEl = document.querySelector('.tool-card[data-tool="gmail"] .tool-status');
       const calendarStatusEl = document.querySelector('.tool-card[data-tool="calendar"] .tool-status');
+      let googlePollTimer = null;
+
+      function guessVncUrl() {
+        // HA host IP nie je v browsery spoľahlivá — použij hostname:6080 ako tip
+        const host = location.hostname;
+        if (!host || host === 'localhost' || host === '127.0.0.1') {
+          return 'http://<IP_HA>:6080/vnc.html';
+        }
+        return `http://${host}:6080/vnc.html`;
+      }
 
       function renderGoogleAccounts(data) {
         const accounts = data.accounts || [];
         if (!accounts.length) {
           googleAccountsEl.innerHTML = data.enabled
-            ? '<li class="google-empty">Žiadny účet — klikni „Pripojiť Google účet“.</li>'
-            : '<li class="google-empty">Zapni prepínač a pripoj Google účet.</li>';
+            ? '<li class="google-empty">Žiadny účet — otvor VNC a klikni „Prihlásiť cez VNC“.</li>'
+            : '<li class="google-empty">Zapni switch → Reštart → otvor VNC :6080.</li>';
         } else {
           googleAccountsEl.innerHTML = accounts.map(a => {
             const email = escapeHtml(a.email || '?');
@@ -731,10 +747,31 @@
         }
 
         googleEnabled.checked = !!data.enabled;
-        googleEnabledLabel.textContent = data.enabled ? 'Zapnuté' : 'Vypnuté';
+        googleEnabledLabel.textContent = data.enabled ? 'Zapnuté (VNC)' : 'Vypnuté';
+        const canLogin = !!data.enabled && !!data.credentials_present && !!data.novnc_listening;
         googleConnectBtn.disabled = !data.enabled || !data.credentials_present;
 
-        if (!data.credentials_present && data.hint) {
+        if (googleVncLink) {
+          if (data.enabled) {
+            googleVncLink.hidden = false;
+            const url = guessVncUrl();
+            googleVncLink.href = url.startsWith('http') && !url.includes('<') ? url : '#';
+            googleVncLink.textContent = data.novnc_listening
+              ? 'Otvoriť VNC (:6080)'
+              : 'VNC po reštarte (:6080)';
+            if (url.includes('<')) {
+              googleVncLink.removeAttribute('href');
+              googleVncLink.onclick = (e) => {
+                e.preventDefault();
+                alert('Otvor v prehliadači: http://<IP_tvojho_HA>:6080/vnc.html');
+              };
+            }
+          } else {
+            googleVncLink.hidden = true;
+          }
+        }
+
+        if (data.hint) {
           googleCredHint.hidden = false;
           googleCredHint.textContent = data.hint;
         } else {
@@ -744,17 +781,23 @@
 
         const n = data.account_count || 0;
         if (gmailStatusEl) {
-          gmailStatusEl.textContent = n ? `${n} účet` : (data.enabled ? 'Čaká na login' : 'Mock');
+          gmailStatusEl.textContent = n ? `${n} účet` : (data.enabled ? 'VNC login' : 'Mock');
           gmailStatusEl.classList.toggle('active', n > 0);
         }
         if (calendarStatusEl) {
-          calendarStatusEl.textContent = n ? `${n} účet` : (data.enabled ? 'Čaká na login' : 'Mock');
+          calendarStatusEl.textContent = n ? `${n} účet` : (data.enabled ? 'VNC login' : 'Mock');
           calendarStatusEl.classList.toggle('active', n > 0);
         }
 
-        googleStatus.textContent = data.credentials_present
-          ? (n ? `${n} pripojených účtov` : 'Pripravené na prihlásenie')
-          : 'Chýba OAuth client JSON';
+        if (!data.credentials_present) {
+          googleStatus.textContent = 'Chýba Desktop OAuth JSON';
+        } else if (data.enabled && !data.novnc_listening) {
+          googleStatus.textContent = 'Reštartuj add-on pre noVNC';
+        } else if (canLogin) {
+          googleStatus.textContent = n ? `${n} účtov · VNC pripravené` : 'VNC pripravené — prihlás sa';
+        } else {
+          googleStatus.textContent = n ? `${n} pripojených účtov` : 'Switch vypnutý';
+        }
       }
 
       async function loadGoogleStatus() {
@@ -764,6 +807,34 @@
           renderGoogleAccounts(data);
         } catch (e) {
           googleStatus.textContent = `Chyba: ${e.message}`;
+        }
+      }
+
+      async function pollVncLogin() {
+        try {
+          const res = await fetch('api/google/oauth/vnc-status');
+          const st = await res.json();
+          if (st.running) {
+            googleStatus.textContent = st.message || 'Čakám na Google login vo VNC…';
+            googleConnectBtn.disabled = true;
+            return;
+          }
+          if (googlePollTimer) {
+            clearInterval(googlePollTimer);
+            googlePollTimer = null;
+          }
+          if (st.email) {
+            googleStatus.textContent = `Pripojené: ${st.email}`;
+            loadGoogleStatus();
+            loadCalendar();
+          } else if (st.error) {
+            googleStatus.textContent = st.error;
+            googleConnectBtn.disabled = false;
+          } else {
+            loadGoogleStatus();
+          }
+        } catch (e) {
+          googleStatus.textContent = `VNC status: ${e.message}`;
         }
       }
 
@@ -778,8 +849,9 @@
             });
             const data = await res.json();
             renderGoogleAccounts(data);
-            googleStatus.textContent = data.message || 'Uložené';
-            if (data.enabled) loadCalendar();
+            googleStatus.textContent = googleEnabled.checked
+              ? 'Uložené — v HA Nastaveniach tiež zapni switch a Reštartuj add-on pre VNC'
+              : (data.message || 'Uložené');
           } catch (e) {
             googleStatus.textContent = `Chyba: ${e.message}`;
           }
@@ -787,9 +859,28 @@
       }
 
       if (googleConnectBtn) {
-        googleConnectBtn.addEventListener('click', () => {
-          // Full navigation — Google OAuth redirect + callback
-          window.location.href = 'api/google/oauth/start?redirect=1';
+        googleConnectBtn.addEventListener('click', async () => {
+          googleConnectBtn.disabled = true;
+          googleStatus.textContent = 'Spúšťam Chromium na VNC…';
+          try {
+            const res = await fetch('api/google/oauth/vnc-start', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({}),
+            });
+            const data = await res.json();
+            if (data.status === 'started' || data.running) {
+              googleStatus.textContent = data.message || 'Otvor VNC a dokonči Google login';
+              if (googlePollTimer) clearInterval(googlePollTimer);
+              googlePollTimer = setInterval(pollVncLogin, 2500);
+            } else {
+              googleStatus.textContent = data.error || 'Spustenie zlyhalo';
+              googleConnectBtn.disabled = false;
+            }
+          } catch (e) {
+            googleStatus.textContent = `Chyba: ${e.message}`;
+            googleConnectBtn.disabled = false;
+          }
         });
       }
 

@@ -1,16 +1,20 @@
 # Changelog
 
+## [1.2.24] - 2026-07-19
+
+### Changed
+- **Google login cez noVNC** (ako Tinder), nie web redirect:
+  - Switch `google_accounts_enabled` → po Reštarte beží noVNC na porte **6080**.
+  - Otvor `http://<IP_HA>:6080/vnc.html` → dashboard „Prihlásiť cez VNC“ →
+    Chromium na VNC displeji → Google consent → tokeny Gmail + Kalendár.
+  - Image: Chromium + Xvfb + x11vnc + noVNC. OAuth client typu **Desktop**.
+
 ## [1.2.23] - 2026-07-19
 
 ### Added
 - **Google účty (multi-account Gmail + Kalendár):**
-  - Prepínač v HA Nastaveniach (`google_accounts_enabled`) a na dashboarde.
-  - Po zapnutí → „Pripojiť Google účet“ spustí web OAuth; jeden login stiahne
-    tokeny pre čítanie/posielanie mailov **aj** Google Calendar.
-  - Viac Gmail účtov naraz (`google_accounts.json` + `google_tokens/`).
-  - API: `GET/PUT /api/google/settings`, `GET /api/google/status`,
-    `GET /api/google/oauth/start|callback`, správa účtov (default / odpojiť).
-  - Router: parameter `account` pre konkrétny inbox/kalendár; `action: accounts`.
+  - Prepínač, registry `google_accounts.json` + `google_tokens/`, viac účtov.
+  - API `/api/google/*`, router param `account`.
 
 ## [1.2.21] / Elite Date [1.3.11] / Tinder [1.2.17] - 2026-07-18
 

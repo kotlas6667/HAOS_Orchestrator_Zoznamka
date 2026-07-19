@@ -389,27 +389,26 @@ docker run -p 8000:8000 haos-orchestrator
 - Check that the bot has been added to the server
 
 ### Gmail not working
-- Zapni v HA Nastaveniach **Google účty (Gmail + Kalendár)** alebo rovnaký prepínač na dashboarde
-- Ulož OAuth client JSON ako `/data/orchestrator/config/gmailSecret.json` (alebo `credentials.json`)
-- Na dashboarde klikni **Pripojiť Google účet** (jeden login = Gmail + Kalendár)
-- Pre viac schránok zopakuj prihlásenie s iným Google účtom
+- Zapni **Google VNC prihlásenie** v HA Nastaveniach → Uložiť → **Reštart**
+- Otvor `http://<IP_HA>:6080/vnc.html` (ako pri Tinderi)
+- Desktop OAuth JSON: `/data/orchestrator/config/gmailSecret.json`
+- Dashboard → **Prihlásiť cez VNC** → v Chromiu dokonči Google účet
+- Viac schránok = zopakuj. Potom switch vypni + reštart (tokeny ostanú)
 
 ---
 
-## 📄 Gmail / Calendar OAuth Setup (multi-account)
+## 📄 Gmail / Calendar cez noVNC (multi-account)
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing
-3. Enable **Gmail API** and **Google Calendar API**
-4. Create OAuth credentials:
-   - "APIs & Services" → "Credentials" → "OAuth client ID"
-   - Type: **Web application** (pre HA ingress) alebo Desktop
-   - Redirect URI: `https://<tvoja-ha-url>/api/google/oauth/callback`
-     (pri ingresse použi URL dashboardu Orchestrátora + `/api/google/oauth/callback`)
-5. Download JSON → ulož ako `/data/orchestrator/config/gmailSecret.json`
-6. V HA Nastaveniach zapni **Google účty (Gmail + Kalendár)** a reštartuj add-on
-7. Dashboard → **Pripojiť Google účet** → Google consent (maily + kalendár naraz)
-8. Ďalšie účty = znova „Pripojiť Google účet“. Stav: `google_accounts.json` + `google_tokens/`
+Rovnaký model ako Tinder login:
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → zapni **Gmail API** + **Calendar API**
+2. OAuth client ID typu **Desktop app** → stiahni JSON →
+   `/data/orchestrator/config/gmailSecret.json`
+3. HA Nastavenia → **Google VNC prihlásenie** = zapnuté → Uložiť → Reštart
+4. Otvor `http://<IP_HA>:6080/vnc.html`
+5. Dashboard Orchestrátora → **Prihlásiť cez VNC** (Chromium sa otvorí vo VNC)
+6. Prihlás Google účet — stiahnu sa tokeny na maily aj kalendár
+7. Ďalší účet = znova krok 5–6. Vypnutie switchu + reštart vypne noVNC.
 
 ---
 
