@@ -12,6 +12,7 @@ import socket
 import subprocess
 import threading
 import time
+import traceback
 import webbrowser
 from pathlib import Path
 from typing import Any
@@ -220,18 +221,29 @@ def run_vnc_oauth_login(*, label: str = "", timeout_sec: int = 600) -> dict[str,
         flow = InstalledAppFlow.from_client_secrets_file(
             str(cred_path), google_accounts.GOOGLE_SCOPES
         )
+        auth_url, _state = flow.authorization_url(
+            access_type="offline",
+            include_granted_scopes="true",
+            prompt="consent",
+        )
         print("[google-vnc] ==============================================")
         print("[google-vnc] PRIHLÁSENIE Google cez noVNC:")
         print("[google-vnc]   http://<IP_HA>:6082/vnc.html")
-        print("[google-vnc] V Chromiu dokonči Google účet (Gmail + Kalendár).")
+        print("[google-vnc] V Chromiu dokonči Google súhlas (Gmail + Kalendár).")
         print(f"[google-vnc] Timeout {timeout_sec}s")
         print("[google-vnc] ==============================================")
 
-        # run_local_server otvorí BROWSER=chromium-vnc na DISPLAY
+        with _VNC_LOCK:
+            _VNC_STATUS["message"] = (
+                "V Chromiu na VNC dokonči Google súhlas (nie len prihlásenie do Gmailu)…"
+            )
+        _open_chromium(auth_url)
+
+        # localhost callback — browser už otvorený, neotváraj znova
         kwargs = dict(
             port=_OAUTH_LOCAL_PORT,
             prompt="consent",
-            open_browser=True,
+            open_browser=False,
             authorization_prompt_message=(
                 "[google-vnc] Otvor http://<IP_HA>:6082/vnc.html a dokonči prihlásenie v Chromiu.\n"
             ),
@@ -284,8 +296,9 @@ def start_vnc_oauth_background(*, label: str = "", timeout_sec: int = 600) -> di
     def _worker() -> None:
         try:
             run_vnc_oauth_login(label=label, timeout_sec=timeout_sec)
-        except Exception:
-            pass  # status already stored
+        except Exception as exc:
+            traceback.print_exc()
+            print(f"[google-vnc] worker failed: {exc}")
 
     threading.Thread(target=_worker, name="google-vnc-oauth", daemon=True).start()
     # Give thread a moment to flip running=True

@@ -217,7 +217,7 @@ class GmailTool(Tool):
 
         if action == "accounts":
             accounts = google_accounts.list_accounts()
-            return {
+            result: dict[str, Any] = {
                 **base,
                 "status": "success",
                 "accounts": [
@@ -226,6 +226,22 @@ class GmailTool(Tool):
                 ],
                 "total": len(accounts),
             }
+            if not accounts:
+                result["provider"] = "mock"
+                st = google_accounts.status_payload()
+                result["hint"] = st.get("hint")
+                vnc = st.get("vnc") or {}
+                if vnc.get("error"):
+                    result["vnc_error"] = vnc["error"]
+                if not st.get("credentials_present"):
+                    result["setup"] = "Chýba gmailSecret.json (Desktop OAuth client) v /data/orchestrator/config/"
+                elif st.get("enabled") and not st.get("novnc_listening"):
+                    result["setup"] = "Zapni switch, Uložiť v HA, reštart add-onu (noVNC :6082)"
+                elif st.get("enabled"):
+                    result["setup"] = (
+                        "Klikni „Prihlásiť cez VNC“ na dashboarde a dokonči Google súhlas v Chromiu na VNC"
+                    )
+            return result
 
         if action == "send":
             if not recipient:

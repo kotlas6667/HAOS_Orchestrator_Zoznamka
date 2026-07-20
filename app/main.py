@@ -114,6 +114,20 @@ def _gmail_background_enabled() -> bool:
     return Path(credentials).exists()
 
 
+def _reload_google_tools() -> None:
+    """Refresh Gmail/Calendar providers after enable/OAuth/remove (module + orchestrator)."""
+    gmail_tool.reload_providers()
+    orch_gmail = orchestrator.tools.get("gmail")
+    if orch_gmail is not None and hasattr(orch_gmail, "reload_providers"):
+        orch_gmail.reload_providers()
+    orch_cal = orchestrator.tools.get("calendar")
+    if orch_cal is not None and hasattr(orch_cal, "reload_providers"):
+        orch_cal.reload_providers()
+    cal = globals().get("_calendar_tool")
+    if cal is not None and hasattr(cal, "reload_providers"):
+        cal.reload_providers()
+
+
 async def check_emails_periodically():
     """Check for new emails every minute across all connected Google accounts."""
     global _seen_email_ids
@@ -222,10 +236,7 @@ async def lifespan(app: FastAPI):
     if settings.google_accounts_enabled:
         google_accounts.set_enabled(True)
     google_accounts.migrate_legacy_single_account()
-    gmail_tool.reload_providers()
-    cal_tool = orchestrator.tools.get("calendar")
-    if cal_tool is not None and hasattr(cal_tool, "reload_providers"):
-        cal_tool.reload_providers()
+    _reload_google_tools()
 
     # Po štarte: ak beží noVNC, ukáž uvítaciu stránku (nie čierna obrazovka)
     if settings.google_accounts_enabled:
@@ -465,20 +476,6 @@ async def get_upcoming_events():
 # Shared dating reply skill (dashboard textarea — HA str? is single-line)
 from app.tools.dating_skill import read_user_skill_file, save_user_skill
 from app.tools import google_accounts
-
-
-def _reload_google_tools() -> None:
-    """Refresh Gmail/Calendar providers after enable/OAuth/remove."""
-    gmail_tool.reload_providers()
-    orch_gmail = orchestrator.tools.get("gmail")
-    if orch_gmail is not None and hasattr(orch_gmail, "reload_providers"):
-        orch_gmail.reload_providers()
-    orch_cal = orchestrator.tools.get("calendar")
-    if orch_cal is not None and hasattr(orch_cal, "reload_providers"):
-        orch_cal.reload_providers()
-    cal = globals().get("_calendar_tool")
-    if cal is not None and hasattr(cal, "reload_providers"):
-        cal.reload_providers()
 
 
 def _request_public_base(request: Request) -> str:
