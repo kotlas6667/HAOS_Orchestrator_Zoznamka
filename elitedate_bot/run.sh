@@ -7,7 +7,7 @@ set -e
 echo "Starting HAOS Elite Date Bot add-on..."
 
 DATA=/data
-mkdir -p "$DATA"
+mkdir -p "$DATA" /data/elitedate_chrome_profile
 
 # Persistent .env — seed empty template on first boot if missing.
 if [ ! -f "$DATA/.env" ]; then
