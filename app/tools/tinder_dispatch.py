@@ -253,55 +253,19 @@ def _parse_choice(choice_text: str) -> tuple[str, str | None] | None:
     return None
 
 
-_THREAD_HINT_RE = re.compile(
-    r"Vlákno:\s*`([^`|]+)\s*\|\s*([a-f0-9]{6,16})`",
-    re.IGNORECASE,
-)
-
-
-def _parse_thread_hint(content: str) -> tuple[str, str] | None:
-    m = _THREAD_HINT_RE.search(content or "")
-    if not m:
-        return None
-    return m.group(1).strip(), m.group(2).strip()
-
-
-def _resolve_entry(
-    replied_to_message_id: str | None = None,
-    replied_to_content: str | None = None,
-) -> dict[str, Any] | None:
-    """Resolve queue entry for a Discord Reply — never guess wrong thread."""
+def _resolve_entry(replied_to_message_id: str | None = None) -> dict[str, Any] | None:
+    entry = None
     if replied_to_message_id:
         entry = tinder_state.find_by_prompt_message_id(replied_to_message_id)
-        if entry is not None:
-            return entry
-        hint = _parse_thread_hint(replied_to_content or "")
-        if hint:
-            entry = tinder_state.find_by_thread_hint(hint[0], hint[1])
-            if entry is not None:
-                return entry
-        return None
-    if replied_to_content:
-        hint = _parse_thread_hint(replied_to_content)
-        if hint:
-            entry = tinder_state.find_by_thread_hint(hint[0], hint[1])
-            if entry is not None:
-                return entry
-    return tinder_state.current()
-
-
-async def regenerate_suggestions(
-    replied_to_message_id: str | None = None,
-    replied_to_content: str | None = None,
-) -> str | None:
-    """Generate fresh options and re-post the Discord prompt for the same thread."""
-    entry = _resolve_entry(replied_to_message_id, replied_to_content)
     if entry is None:
-        if replied_to_message_id or replied_to_content:
-            return (
-                "⚠️ Nenašiel som Tinder vlákno pre túto odpoveď. "
-                "Klikni **Reply** na správny prompt (🔥 Nová správa na Tinder…) a pošli `4` znova."
-            )
+        entry = tinder_state.current()
+    return entry
+
+
+async def regenerate_suggestions(replied_to_message_id: str | None = None) -> str | None:
+    """Generate fresh options and re-post the Discord prompt for the same thread."""
+    entry = _resolve_entry(replied_to_message_id)
+    if entry is None:
         return None
 
     previous_options = list(entry.get("options") or [])
@@ -329,11 +293,7 @@ async def regenerate_suggestions(
     return f"🔄 Nové návrhy pre `{sender} | {conv_short}` sú vyššie. Vyber `1/2/3` alebo znova `4`."
 
 
-async def handle_selection(
-    choice_text: str,
-    replied_to_message_id: str | None = None,
-    replied_to_content: str | None = None,
-) -> str | None:
+async def handle_selection(choice_text: str, replied_to_message_id: str | None = None) -> str | None:
     """Called from the Discord bot when a message arrives while a conversation is
     awaiting_selection. Returns the reply to send back to Discord, or None if there
     is nothing pending (caller should fall back to normal LLM routing)."""
@@ -343,15 +303,10 @@ async def handle_selection(
 
     choice_kind, custom_text = parsed
     if choice_kind == "regenerate":
-        return await regenerate_suggestions(replied_to_message_id, replied_to_content)
+        return await regenerate_suggestions(replied_to_message_id)
 
-    entry = _resolve_entry(replied_to_message_id, replied_to_content)
+    entry = _resolve_entry(replied_to_message_id)
     if entry is None:
-        if replied_to_message_id or replied_to_content:
-            return (
-                "⚠️ Nenašiel som Tinder vlákno pre túto odpoveď — odpoveď sa **neodoslala**. "
-                "Klikni **Reply** na správny prompt (riadok `Vlákno: Meno | …`) a pošli `1`/`2`/`3` znova."
-            )
         return None
     if choice_kind == "1":
         chosen_text = entry["options"][0]
