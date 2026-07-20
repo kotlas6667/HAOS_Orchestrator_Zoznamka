@@ -98,6 +98,7 @@ async def poll_loop() -> None:
         first = False
 
         if shared_state.client is None:
+            print("[elitedate_bot] poll: client missing — trying session rebuild…")
             try:
                 async with shared_state.driver_lock:
                     await rebuild_session()
@@ -111,6 +112,9 @@ async def poll_loop() -> None:
         except Exception as exc:  # noqa: BLE001
             print(f"[elitedate_bot] check_new_messages failed: {exc}")
             continue
+
+        if not messages:
+            print("[elitedate_bot] poll: no new messages this cycle")
 
         new_count = 0
         for msg in messages:
