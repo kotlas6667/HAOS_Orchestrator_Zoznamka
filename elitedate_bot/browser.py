@@ -39,7 +39,10 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
     options.add_argument("--disable-features=VizDisplayCompositor,TranslateUI")
     options.add_argument("--renderer-process-limit=2")
     options.add_argument("--js-flags=--max-old-space-size=256")
+    options.add_argument("--password-store=basic")
     options.add_argument(f"--window-size={settings.window_size}")
+    # Izolovaný profil — menej konfliktov s orchestrátor/Tinder Chromium na tom istom hoste.
+    options.add_argument("--user-data-dir=/data/elitedate_chrome_profile")
 
     # Skip loading images: cuts per-page memory a lot and this bot only reads
     # text (messages, sender names), never needs rendered images.

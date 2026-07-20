@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, TypeVar
 
 from selenium.common.exceptions import InvalidSessionIdException
@@ -24,7 +25,28 @@ _DEAD_SESSION_MARKERS = (
     "chrome not reachable",
     "session deleted as the browser has closed",
     "tab crashed",
+    "session not created",
+    "cannot find chrome binary",
+    "devtoolsactiveport",
+    "failed to write prefs",
+    "user data directory",
 )
+
+
+def _retryable_startup_error(exc: BaseException) -> bool:
+    if is_dead_session_error(exc):
+        return True
+    msg = str(exc).lower()
+    return any(
+        marker in msg
+        for marker in (
+            "failed to write prefs",
+            "user data directory",
+            "session not created",
+            "chrome failed to start",
+            "unknown error",
+        )
+    )
 
 
 def is_dead_session_error(exc: BaseException) -> bool:
@@ -54,7 +76,18 @@ async def rebuild_session() -> EliteDateClient:
             pass
     shared_state.client = None
 
-    await asyncio.sleep(2)
+    await asyncio.sleep(3)
+
+    profile = Path("/data/elitedate_chrome_profile")
+    if profile.exists():
+        for name in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+            lock = profile / name
+            try:
+                if lock.exists() or lock.is_symlink():
+                    lock.unlink(missing_ok=True)
+                    print(f"[elitedate_bot] Removed stale {name}")
+            except OSError as exc:
+                print(f"[elitedate_bot] Profile lock cleanup failed ({name}): {exc}")
 
     last_exc: Exception | None = None
     for attempt in range(3):
@@ -67,9 +100,12 @@ async def rebuild_session() -> EliteDateClient:
             return client
         except Exception as exc:  # noqa: BLE001
             last_exc = exc
-            if attempt < 2 and is_dead_session_error(exc):
-                print(f"[elitedate_bot] Chrome startup failed on rebuild attempt {attempt + 1}, retrying...")
-                await asyncio.sleep(4)
+            if attempt < 2 and _retryable_startup_error(exc):
+                print(
+                    f"[elitedate_bot] Chrome startup failed on rebuild attempt {attempt + 1} "
+                    f"({exc}); retrying..."
+                )
+                await asyncio.sleep(5)
                 continue
             raise
     if last_exc is not None:

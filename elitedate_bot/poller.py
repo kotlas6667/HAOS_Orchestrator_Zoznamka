@@ -10,7 +10,7 @@ import httpx
 
 from elitedate_bot import shared_state
 from elitedate_bot.config import settings
-from elitedate_bot.session import run_client_method
+from elitedate_bot.session import rebuild_session, run_client_method
 
 _SEEN_FILE = Path(settings.seen_messages_file)
 # GPT drafts + Discord (photo) can exceed 45s; keep headroom for retries.
@@ -98,6 +98,11 @@ async def poll_loop() -> None:
         first = False
 
         if shared_state.client is None:
+            try:
+                async with shared_state.driver_lock:
+                    await rebuild_session()
+            except Exception as exc:  # noqa: BLE001
+                print(f"[elitedate_bot] poll: session rebuild failed: {exc}")
             continue
 
         try:

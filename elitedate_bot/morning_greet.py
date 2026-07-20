@@ -22,7 +22,7 @@ import httpx
 
 from elitedate_bot import shared_state
 from elitedate_bot.config import settings
-from elitedate_bot.session import run_client_method
+from elitedate_bot.session import rebuild_session, run_client_method
 
 _GREETED_FILE = Path(settings.seen_messages_file).parent / ".morning_greeted.json"
 
@@ -128,7 +128,29 @@ async def morning_greet_loop() -> None:
             continue
 
         if shared_state.client is None:
-            print("[elitedate_bot] Morning greet skipped — client not ready.")
+            print("[elitedate_bot] Morning greet: client missing — trying session rebuild…")
+            try:
+                async with shared_state.driver_lock:
+                    await rebuild_session()
+            except Exception as exc:  # noqa: BLE001
+                print(f"[elitedate_bot] Morning greet skipped — rebuild failed: {exc}")
+                await _notify_orchestrator_summary(
+                    {
+                        "sent": 0,
+                        "checked": 0,
+                        "skipped_history": 0,
+                        "skipped_known": 0,
+                        "errors": 0,
+                        "sent_names": [],
+                        "failed": True,
+                        "error": f"client not ready — rebuild zlyhal: {exc}",
+                    }
+                )
+                # Neoznačuj last_run_date — pri ďalšom reštarte / zajtra to skúsi znova.
+                continue
+
+        if shared_state.client is None:
+            print("[elitedate_bot] Morning greet skipped — client still not ready after rebuild.")
             await _notify_orchestrator_summary(
                 {
                     "sent": 0,
@@ -141,7 +163,6 @@ async def morning_greet_loop() -> None:
                     "error": "client not ready (nie je prihlásený / Chromium)",
                 }
             )
-            mark_greeted(set(), last_run_date=today)
             continue
 
         try:
@@ -157,7 +178,6 @@ async def morning_greet_loop() -> None:
             )
         except Exception as exc:  # noqa: BLE001
             print(f"[elitedate_bot] Morning greet failed: {exc}")
-            mark_greeted(set(), last_run_date=today)
             await _notify_orchestrator_summary(
                 {
                     "sent": 0,
@@ -170,6 +190,7 @@ async def morning_greet_loop() -> None:
                     "error": str(exc).strip() or type(exc).__name__,
                 }
             )
+            # Infra chyba — nechaj last_run_date prázdny, aby sa dalo skúsiť znova.
 
 
 async def run_morning_greet_once() -> dict:
