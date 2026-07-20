@@ -97,23 +97,6 @@ def find_by_prompt_message_id(prompt_message_id: str) -> dict[str, Any] | None:
     return None
 
 
-def find_by_thread_hint(sender: str, conv_short: str) -> dict[str, Any] | None:
-    """Match queue entry by sender name + conversation_id prefix (from Discord Vlákno line)."""
-    needle_sender = (sender or "").strip().lower()
-    needle_id = (conv_short or "").strip().lower()
-    if not needle_sender or not needle_id:
-        return None
-    state = _load()
-    for entry in state["queue"]:
-        entry_sender = str(entry.get("sender") or "").strip().lower()
-        entry_id = str(entry.get("conversation_id") or "").strip().lower()
-        if not entry_id.startswith(needle_id):
-            continue
-        if entry_sender == needle_sender or needle_sender in entry_sender or entry_sender in needle_sender:
-            return entry
-    return None
-
-
 def set_prompt_message_id(entry: dict[str, Any], prompt_message_id: str) -> bool:
     """Attach Discord prompt message id to a queued entry."""
     state = _load()

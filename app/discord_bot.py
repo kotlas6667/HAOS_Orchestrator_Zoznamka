@@ -151,7 +151,6 @@ class OrchestratorDiscordClient(discord.Client):
             from app.tools import elitedate_dispatch, tinder_dispatch
 
             replied_to_message_id: str | None = None
-            replied_to_content: str = ""
             _is_dating_reply = False
             _dating_dispatchers = (elitedate_dispatch,)
             if message.reference and message.reference.message_id:
@@ -161,7 +160,6 @@ class OrchestratorDiscordClient(discord.Client):
                     # (message.reference.resolved may be None if not already cached)
                     ref_msg = await message.channel.fetch_message(message.reference.message_id)
                     ref_content: str = ref_msg.content or ""
-                    replied_to_content = ref_content
                     _DATING_KEYWORDS = ("Elite Date", "Tinder", "Badoo", "Bumble", "Hinge", "Vlákno:")
                     _is_dating_reply = any(kw in ref_content for kw in _DATING_KEYWORDS)
                     LOGGER.info(f"Reply detected to message: {ref_content[:100]}... -> is_dating={_is_dating_reply}")
@@ -183,7 +181,6 @@ class OrchestratorDiscordClient(discord.Client):
                     dating_reply = await dispatcher.handle_selection(
                         prompt,
                         replied_to_message_id=replied_to_message_id,
-                        replied_to_content=replied_to_content,
                     )
                     if dating_reply is not None:
                         await message.channel.send(dating_reply)

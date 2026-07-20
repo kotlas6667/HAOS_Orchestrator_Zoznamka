@@ -1,7 +1,7 @@
 {
   "name": "HAOS Orchestrator",
   "description": "AI orchestrátor pre Home Assistant — Gmail/Kalendár (noVNC login), Počasie, Discord a smart home. Elite Date a Tinder sú samostatné add-ony.",
-  "version": "1.2.28",
+  "version": "1.2.27",
   "slug": "haos_orchestrator",
   "init": false,
   "arch": [
