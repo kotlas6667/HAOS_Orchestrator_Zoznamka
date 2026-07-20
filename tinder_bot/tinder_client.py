@@ -16,6 +16,7 @@ from tinder_bot.config import settings
 
 _PREVIEW_CACHE_FILE = Path(settings.seen_messages_file).parent / ".conversation_previews.json"
 _NEW_MATCH_LABEL = "Nová zhoda"
+_CACHE_META_KEY = "__meta__"
 
 
 _INBOX_ROW_JS = """
@@ -333,17 +334,29 @@ class TinderClient:
             return True
         return preview.startswith("Klikni a začni chatovať")
 
-    def _load_preview_cache(self) -> dict[str, str]:
+    def _load_preview_cache(self) -> dict[str, Any]:
         if _PREVIEW_CACHE_FILE.exists():
             try:
-                return json.loads(_PREVIEW_CACHE_FILE.read_text(encoding="utf-8"))
+                data = json.loads(_PREVIEW_CACHE_FILE.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    return data
             except Exception:  # noqa: BLE001
                 return {}
         return {}
 
-    def _save_preview_cache(self, cache: dict[str, str]) -> None:
+    def _save_preview_cache(self, cache: dict[str, Any]) -> None:
         _PREVIEW_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
         _PREVIEW_CACHE_FILE.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _preview_cache_bootstrapped(self, cache: dict[str, Any]) -> bool:
+        meta = cache.get(_CACHE_META_KEY)
+        if isinstance(meta, dict) and "bootstrapped" in meta:
+            return bool(meta.get("bootstrapped"))
+        # Legacy cache without meta — treat non-empty thread map as bootstrapped.
+        return any(k != _CACHE_META_KEY for k in cache)
+
+    def _thread_preview_cache(self, cache: dict[str, Any]) -> dict[str, str]:
+        return {k: str(v) for k, v in cache.items() if k != _CACHE_META_KEY and v is not None}
 
     def commit_preview(self, conversation_id: str, preview: str) -> None:
         """Persist inbox preview only after Discord notify succeeded (retry-safe)."""
@@ -353,6 +366,8 @@ class TinderClient:
             return
         cache = self._load_preview_cache()
         cache[cid] = text
+        if _CACHE_META_KEY not in cache:
+            cache[_CACHE_META_KEY] = {"bootstrapped": True}
         self._save_preview_cache(cache)
 
     def _clean_chat_message_text(self, text: str) -> str:
@@ -812,22 +827,62 @@ class TinderClient:
         )
         return rows if isinstance(rows, list) else []
 
+    def _scroll_inbox_down(self) -> bool:
+        return bool(
+            self.driver.execute_script(
+                """
+                const grid = document.querySelector('.ReactVirtualized__Grid') ||
+                             document.querySelector('[class*="messageList"]') ||
+                             document.querySelector('main');
+                if (!grid) return false;
+                const before = grid.scrollTop;
+                grid.scrollTop = before + Math.max(300, grid.clientHeight * 0.8);
+                return grid.scrollTop > before;
+                """
+            )
+        )
+
+    def _list_conversations_scrolled(self, *, max_steps: int = 5) -> list[dict[str, str]]:
+        """Merge inbox rows across virtual-list scroll steps (off-screen chats)."""
+        merged: list[dict[str, str]] = []
+        seen_ids: set[str] = set()
+        for step in range(max(1, max_steps)):
+            for row in self._list_conversations():
+                match_id = (row.get("match_id") or "").strip()
+                if not match_id or match_id in seen_ids:
+                    continue
+                seen_ids.add(match_id)
+                merged.append(row)
+            if step + 1 >= max_steps:
+                break
+            if not self._scroll_inbox_down():
+                break
+            time.sleep(0.35)
+        return merged
+
     def check_new_messages(self) -> list[dict[str, Any]]:
         """Return conversations whose preview changed and whose last message is from them.
 
-        Reads Správy list via JS only. Opens a chat ONLY when preview changed
-        from a cached value — never on first sighting (seeding).
+        Reads Správy list via JS only. Opens a chat when preview changed from cache,
+        or when a **new** thread appears after bootstrap (not on first empty-cache seed).
 
         Pending candidates keep the *old* preview until ``commit_preview`` after
         a successful Discord notify (same retry-safe pattern as Elite Date).
         """
         self._navigate_to_inbox()
 
-        preview_cache = self._load_preview_cache()
-        results: list[dict[str, Any]] = []
-        updated_cache = dict(preview_cache)
+        raw_cache = self._load_preview_cache()
+        bootstrapped = self._preview_cache_bootstrapped(raw_cache)
+        preview_cache = self._thread_preview_cache(raw_cache)
+        seeding = not bootstrapped
+        scroll_steps = 20 if seeding else 5
+        rows = self._list_conversations_scrolled(max_steps=scroll_steps)
 
-        for row in self._list_conversations():
+        results: list[dict[str, Any]] = []
+        updated_threads = dict(preview_cache)
+        preview_changes = 0
+
+        for row in rows:
             match_id = (row.get("match_id") or "").strip()
             sender = (row.get("name") or "").strip() or "Neznámy"
             preview = (row.get("preview") or "").strip()
@@ -836,48 +891,93 @@ class TinderClient:
 
             previous_preview = preview_cache.get(match_id)
 
-            # First sighting or unchanged preview — seed/update only, no notification.
-            if previous_preview is None or previous_preview == preview:
-                updated_cache[match_id] = preview
+            if seeding:
+                if not self._preview_looks_sent_by_me(preview):
+                    try:
+                        self._open_conversation(match_id)
+                        if self._last_message_is_received():
+                            message_text = self._latest_received_message() or preview
+                            if message_text:
+                                results.append(
+                                    self._build_message_result(
+                                        match_id, sender, message_text, preview
+                                    )
+                                )
+                                print(
+                                    f"[tinder_bot] Bootstrap unread from {sender} "
+                                    f"(preview seed + verify)"
+                                )
+                                continue
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"[tinder_bot] bootstrap verify skip {match_id}: {exc}")
+                updated_threads[match_id] = preview
                 continue
+
+            # Unchanged preview — nothing to do.
+            if previous_preview == preview:
+                continue
+
+            preview_changes += 1
+
+            # Brand-new thread since bootstrap — open if preview isn't clearly ours.
+            if previous_preview is None:
+                if self._preview_looks_sent_by_me(preview):
+                    updated_threads[match_id] = preview
+                    continue
 
             try:
                 self._open_conversation(match_id)
                 if not self._last_message_is_received():
                     # Our own last bubble — advance cache so we do not reopen forever.
-                    updated_cache[match_id] = preview
+                    updated_threads[match_id] = preview
+                    print(f"[tinder_bot] Preview changed but last bubble is ours: {sender}")
                     continue
 
                 message_text = self._latest_received_message() or preview
-                my_last_message = self._latest_sent_message()
-                history = self._extract_chat_history(max_messages=24)
-                photo = self._profile_photo_fields()
-
                 if not message_text:
                     continue
 
                 results.append(
-                    {
-                        "conversation_id": match_id,
-                        "sender": sender,
-                        "message": message_text,
-                        "my_last_message": my_last_message,
-                        "preview": preview,
-                        "history": history,
-                        **photo,
-                    }
+                    self._build_message_result(match_id, sender, message_text, preview)
                 )
                 print(
                     f"[tinder_bot] New message from {sender} "
-                    f"(history_turns={len(history)}, photo={'yes' if photo.get('photo_base64') else 'no'})"
+                    f"(history_turns={len(results[-1].get('history') or [])}, "
+                    f"photo={'yes' if results[-1].get('photo_base64') else 'no'})"
                 )
                 # Do NOT write the new preview yet — poller commits after Discord OK.
             except Exception as exc:  # noqa: BLE001
                 print(f"[tinder_bot] check_new_messages skip {match_id}: {exc}")
                 continue
 
-        self._save_preview_cache(updated_cache)
+        save_cache: dict[str, Any] = dict(updated_threads)
+        save_cache[_CACHE_META_KEY] = {"bootstrapped": True}
+        self._save_preview_cache(save_cache)
+        print(
+            f"[tinder_bot] Poll done: rows={len(rows)} preview_changes={preview_changes} "
+            f"new={len(results)} seeding={seeding}"
+        )
         return results
+
+    def _build_message_result(
+        self,
+        match_id: str,
+        sender: str,
+        message_text: str,
+        preview: str,
+    ) -> dict[str, Any]:
+        my_last_message = self._latest_sent_message()
+        history = self._extract_chat_history(max_messages=24)
+        photo = self._profile_photo_fields()
+        return {
+            "conversation_id": match_id,
+            "sender": sender,
+            "message": message_text,
+            "my_last_message": my_last_message,
+            "preview": preview,
+            "history": history,
+            **photo,
+        }
 
     def send_reply(
         self,

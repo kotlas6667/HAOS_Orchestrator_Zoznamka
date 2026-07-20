@@ -10,7 +10,7 @@ import httpx
 
 from tinder_bot import shared_state
 from tinder_bot.config import settings
-from tinder_bot.session import run_client_method
+from tinder_bot.session import rebuild_session, run_client_method
 
 _SEEN_FILE = Path(settings.seen_messages_file)
 _ORCHESTRATOR_TIMEOUT_SEC = 120.0
@@ -93,6 +93,12 @@ async def poll_loop() -> None:
         first = False
 
         if shared_state.client is None:
+            print("[tinder_bot] poll: client missing — trying session rebuild…")
+            try:
+                async with shared_state.driver_lock:
+                    await rebuild_session()
+            except Exception as exc:  # noqa: BLE001
+                print(f"[tinder_bot] poll: session rebuild failed: {exc}")
             continue
 
         try:
@@ -101,6 +107,9 @@ async def poll_loop() -> None:
         except Exception as exc:  # noqa: BLE001
             print(f"[tinder_bot] check_new_messages failed: {exc}")
             continue
+
+        if not messages:
+            print("[tinder_bot] poll: no new messages this cycle")
 
         new_count = 0
         for msg in messages:
