@@ -16,6 +16,7 @@ from elitedate_bot.config import settings
 
 # Per-thread inbox preview + last bubble — same idea as tinder_bot/.conversation_previews.json
 _PREVIEW_CACHE_FILE = Path(settings.seen_messages_file).parent / ".conversation_previews.json"
+_CACHE_META_KEY = "__meta__"
 
 
 class EliteDateClient:
@@ -628,6 +629,26 @@ class EliteDateClient:
         _PREVIEW_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
         _PREVIEW_CACHE_FILE.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    def _preview_cache_bootstrapped(self, cache: dict[str, Any]) -> bool:
+        meta = cache.get(_CACHE_META_KEY)
+        if isinstance(meta, dict) and "bootstrapped" in meta:
+            return bool(meta.get("bootstrapped"))
+        return any(k != _CACHE_META_KEY for k in cache)
+
+    def _thread_preview_cache(self, cache: dict[str, Any]) -> dict[str, Any]:
+        return {k: v for k, v in cache.items() if k != _CACHE_META_KEY}
+
+    def _preview_looks_sent_by_me(self, preview: str) -> bool:
+        """Inbox preview prefix when the last bubble in that chat is ours."""
+        text = (preview or "").strip()
+        lowered = text.lower()
+        if text.startswith(("←", "<-", "↩")):
+            return True
+        for prefix in ("ty:", "vy:", "you:", "ja:"):
+            if lowered.startswith(prefix):
+                return True
+        return False
+
     def commit_preview(self, conversation_id: str, preview: str) -> None:
         """Persist inbox preview only after Discord notify succeeded (retry-safe)."""
         cid = (conversation_id or "").strip()
@@ -636,6 +657,8 @@ class EliteDateClient:
             return
         cache = self._load_preview_cache()
         cache[cid] = text
+        if _CACHE_META_KEY not in cache:
+            cache[_CACHE_META_KEY] = {"bootstrapped": True}
         self._save_preview_cache(cache)
 
     @staticmethod
@@ -690,8 +713,8 @@ class EliteDateClient:
             lines.pop(0)
         return " ".join(lines).strip() or full
 
-    def _collect_conversation_cards(self, *, scroll_all: bool = False) -> list:
-        """Return inbox cards; optionally scroll virtualized list to seed every thread."""
+    def _collect_conversation_cards(self, *, max_steps: int = 1) -> list:
+        """Return inbox cards; scroll virtualized list up to ``max_steps`` times."""
         self.driver.get(self._messages_url())
         try:
             self._wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".conversation-section-list")))
@@ -708,7 +731,7 @@ class EliteDateClient:
         seen_ids: set[str] = set()
         collected: list = []
         list_container = self._conversation_scroll_container()
-        max_steps = 40 if scroll_all else 1
+        steps = max(1, int(max_steps))
 
         if list_container is not None:
             try:
@@ -717,7 +740,7 @@ class EliteDateClient:
             except Exception:  # noqa: BLE001
                 pass
 
-        for _ in range(max_steps):
+        for _ in range(steps):
             items = self.driver.find_elements(By.CSS_SELECTOR, ".conversation-section-list .col-message")
             for item in items:
                 profile_id = self._conversation_profile_id(item)
@@ -727,7 +750,7 @@ class EliteDateClient:
                 seen_ids.add(key)
                 collected.append(item)
 
-            if not scroll_all or list_container is None:
+            if steps <= 1 or list_container is None:
                 break
 
             try:
@@ -796,9 +819,9 @@ class EliteDateClient:
             self.driver.get(self._messages_url())
             self._wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".conversation-section-list")))
 
-    def _list_inbox_rows(self, *, scroll_all: bool = False) -> list[dict[str, str]]:
+    def _list_inbox_rows(self, *, max_steps: int = 1) -> list[dict[str, str]]:
         """Snapshot inbox as plain dicts (no live WebElements — avoids stale refs like Tinder)."""
-        cards = self._collect_conversation_cards(scroll_all=scroll_all)
+        cards = self._collect_conversation_cards(max_steps=max_steps)
         rows: list[dict[str, str]] = []
         seen: set[str] = set()
         for card in cards:
@@ -840,21 +863,43 @@ class EliteDateClient:
         except TimeoutException:
             pass
 
+    def _build_message_result(
+        self,
+        conversation_id: str,
+        sender: str,
+        message_text: str,
+        preview: str,
+    ) -> dict[str, Any]:
+        my_last_message = self._latest_sent_message()
+        history = self._extract_chat_history(max_messages=24)
+        photo = self._profile_photo_fields()
+        return {
+            "conversation_id": conversation_id,
+            "sender": sender,
+            "message": message_text,
+            "my_last_message": my_last_message,
+            "preview": preview,
+            "history": history,
+            **photo,
+        }
+
     def check_new_messages(self) -> list[dict[str, Any]]:
         """Return conversations whose preview changed and last bubble is from them.
 
         Aligned with Tinder:
-        - seed / unchanged preview → update cache only, never open chat
-        - preview changed → open chat by id (fresh DOM), notify if last msg is from them
-        - message text falls back to inbox preview if bubble text is empty
+        - bootstrap seeds cache; verifies unread threads that look incoming
+        - normal poll scrolls virtual list (off-screen chats)
+        - preview changed / new thread → open chat, notify if last msg is from them
 
         Pending candidates keep the *old* preview in cache until
-        ``commit_preview`` runs after a successful Discord notify — otherwise a
-        timeout/Discord failure would permanently silence the conversation.
+        ``commit_preview`` runs after a successful Discord notify.
         """
-        cache = self._load_preview_cache()
-        seeding = not cache
-        rows = self._list_inbox_rows(scroll_all=seeding)
+        raw_cache = self._load_preview_cache()
+        bootstrapped = self._preview_cache_bootstrapped(raw_cache)
+        cache = self._thread_preview_cache(raw_cache)
+        seeding = not bootstrapped
+        scroll_steps = 25 if seeding else 5
+        rows = self._list_inbox_rows(max_steps=scroll_steps)
         updated_cache: dict[str, Any] = dict(cache)
         results: list[dict[str, Any]] = []
         changed = 0
@@ -865,51 +910,65 @@ class EliteDateClient:
             preview = row["preview"]
             previous_preview = self._cached_preview_text(cache.get(conversation_id))
 
-            # First sighting or unchanged — seed only (Tinder never opens on seed).
-            if previous_preview is None or previous_preview == preview:
+            if seeding:
+                if not self._preview_looks_sent_by_me(preview):
+                    try:
+                        self._open_conversation_by_id(conversation_id)
+                        if self._last_message_is_received():
+                            message_text = self._latest_received_message() or preview
+                            if message_text:
+                                results.append(
+                                    self._build_message_result(
+                                        conversation_id, sender, message_text, preview
+                                    )
+                                )
+                                print(
+                                    f"[elitedate_bot] Bootstrap unread from {sender} "
+                                    f"(preview seed + verify)"
+                                )
+                                continue
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"[elitedate_bot] bootstrap verify skip {conversation_id}: {exc}")
                 updated_cache[conversation_id] = preview
                 continue
 
+            if previous_preview == preview:
+                continue
+
             changed += 1
+
+            if previous_preview is None:
+                if self._preview_looks_sent_by_me(preview):
+                    updated_cache[conversation_id] = preview
+                    continue
+
             try:
                 self._open_conversation_by_id(conversation_id)
                 if not self._last_message_is_received():
-                    # Our own last bubble — advance cache so we do not reopen forever.
                     updated_cache[conversation_id] = preview
                     print(f"[elitedate_bot] Preview changed but last bubble is ours: {sender}")
                     continue
 
                 message_text = self._latest_received_message() or preview
-                my_last_message = self._latest_sent_message()
                 if not message_text:
-                    # Keep old preview so the next poll retries this conversation.
                     continue
-                history = self._extract_chat_history(max_messages=24)
-                photo = self._profile_photo_fields()
 
-                results.append(
-                    {
-                        "conversation_id": conversation_id,
-                        "sender": sender,
-                        "message": message_text,
-                        "my_last_message": my_last_message,
-                        "preview": preview,
-                        "history": history,
-                        **photo,
-                    }
+                result = self._build_message_result(
+                    conversation_id, sender, message_text, preview
                 )
+                results.append(result)
                 print(
                     f"[elitedate_bot] New message from {sender} "
-                    f"(history_turns={len(history)}, photo={'yes' if photo.get('photo_base64') else 'no'})"
+                    f"(history_turns={len(result.get('history') or [])}, "
+                    f"photo={'yes' if result.get('photo_base64') else 'no'})"
                 )
-                # Do NOT write the new preview yet — poller commits after Discord OK.
             except Exception as exc:  # noqa: BLE001
-                # One broken thread must not abort the whole poll (stale refs used to).
-                # Keep old preview so we retry on the next cycle.
                 print(f"[elitedate_bot] check_new_messages skip {conversation_id}: {exc}")
                 continue
 
-        self._save_preview_cache(updated_cache)
+        save_cache: dict[str, Any] = dict(updated_cache)
+        save_cache[_CACHE_META_KEY] = {"bootstrapped": True}
+        self._save_preview_cache(save_cache)
         print(
             f"[elitedate_bot] Poll done: rows={len(rows)} preview_changes={changed} "
             f"new={len(results)} seeding={seeding}"
