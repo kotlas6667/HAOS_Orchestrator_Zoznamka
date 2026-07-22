@@ -1,5 +1,22 @@
 # Changelog
 
+## Elite Date [1.3.16] - 2026-07-22
+
+### Fixed
+- Chrome štart: reset profilu + fallback `/tmp`, Dockerfile knižnice (libgbm, nss3…)
+- **Rebuild Docker image** add-onu po update
+
+## Elite Date [1.3.15] / [1.3.14] / [1.3.13] - 2026-07-20
+
+### Fixed
+- Morning greet + poll: obnova Chromium session po páde, viac pokusov
+- Poll: scroll inboxu, detekcia správ ako Tinder
+
+## Tinder [1.2.19] / [1.2.18] - 2026-07-20
+
+### Fixed
+- Tinder poll: scroll inboxu, rebuild session, Discord retry po timeoute
+
 ## [1.2.26] - 2026-07-19
 
 ### Fixed

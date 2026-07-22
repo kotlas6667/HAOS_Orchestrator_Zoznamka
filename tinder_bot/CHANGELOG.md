@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.19
+
+- **Poll:** scroll inboxu (virtual list) + bootstrap nových vlákien
+- Rebuild session keď `client=None` (poll loop)
+- Log `Poll done: rows=… preview_changes=… new=…`
+
+## 1.2.18
+
+- Preview cache commit až po `discord: true` (retry pri timeoute Discord/GPT)
+- Timeout pollera → orchestrátor 120 s
+
 ## 1.2.17
 
 - Poll: stiahne fotku matchu (`photo_base64`) a pošle ju orchestrátoru do Discordu
