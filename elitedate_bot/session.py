@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TypeVar
@@ -37,6 +38,10 @@ def _retryable_startup_error(exc: BaseException) -> bool:
     if is_dead_session_error(exc):
         return True
     msg = str(exc).lower()
+    if not msg.strip() or msg.strip() in {"message:", "message: "}:
+        return True
+    if "stacktrace" in msg and len(msg) < 400:
+        return True
     return any(
         marker in msg
         for marker in (
@@ -47,6 +52,25 @@ def _retryable_startup_error(exc: BaseException) -> bool:
             "unknown error",
         )
     )
+
+
+def _kill_stale_chromium() -> None:
+    """Terminate orphaned Chromium/chromedriver from prior crashes (profile lock)."""
+    patterns = (
+        "chromium.*elitedate_chrome_profile",
+        "chrome.*elitedate_chrome_profile",
+        "chromedriver",
+    )
+    for pattern in patterns:
+        try:
+            subprocess.run(
+                ["pkill", "-f", pattern],
+                capture_output=True,
+                timeout=5,
+                check=False,
+            )
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def is_dead_session_error(exc: BaseException) -> bool:
@@ -76,6 +100,7 @@ async def rebuild_session() -> EliteDateClient:
             pass
     shared_state.client = None
 
+    _kill_stale_chromium()
     await asyncio.sleep(3)
 
     profile = Path("/data/elitedate_chrome_profile")
@@ -90,7 +115,8 @@ async def rebuild_session() -> EliteDateClient:
                 print(f"[elitedate_bot] Profile lock cleanup failed ({name}): {exc}")
 
     last_exc: Exception | None = None
-    for attempt in range(3):
+    driver = None
+    for attempt in range(5):
         try:
             driver = await asyncio.to_thread(build_driver)
             client = EliteDateClient(driver)
@@ -100,12 +126,19 @@ async def rebuild_session() -> EliteDateClient:
             return client
         except Exception as exc:  # noqa: BLE001
             last_exc = exc
-            if attempt < 2 and _retryable_startup_error(exc):
+            if attempt < 4:
                 print(
                     f"[elitedate_bot] Chrome startup failed on rebuild attempt {attempt + 1} "
-                    f"({exc}); retrying..."
+                    f"({type(exc).__name__}: {exc!r}); retrying..."
                 )
-                await asyncio.sleep(5)
+                if driver is not None:
+                    try:
+                        await asyncio.to_thread(driver.quit)
+                    except Exception:  # noqa: BLE001
+                        pass
+                    driver = None
+                _kill_stale_chromium()
+                await asyncio.sleep(6 + attempt * 6)
                 continue
             raise
     if last_exc is not None:

@@ -22,9 +22,11 @@ import httpx
 
 from elitedate_bot import shared_state
 from elitedate_bot.config import settings
-from elitedate_bot.session import rebuild_session, run_client_method
+from elitedate_bot.session import rebuild_session, run_client_method, session_alive
 
 _GREETED_FILE = Path(settings.seen_messages_file).parent / ".morning_greeted.json"
+_GREET_REBUILD_ATTEMPTS = 4
+_GREET_RETRY_WAIT_MIN = 15
 
 
 def _load_state() -> dict:
@@ -92,6 +94,31 @@ async def _notify_orchestrator_summary(result: dict) -> None:
         print(f"[elitedate_bot] Morning greet Discord summary failed: {exc}")
 
 
+async def _ensure_client_for_greet(
+    *,
+    max_attempts: int = _GREET_REBUILD_ATTEMPTS,
+    retry_wait_min: int = _GREET_RETRY_WAIT_MIN,
+) -> bool:
+    """Try rebuild with backoff before morning greet gives up for the day."""
+    for attempt in range(max_attempts):
+        if shared_state.client is not None and session_alive(shared_state.client):
+            return True
+        if attempt:
+            wait_s = retry_wait_min * 60
+            print(
+                f"[elitedate_bot] Morning greet: rebuild retry {attempt + 1}/{max_attempts} "
+                f"in {retry_wait_min}m…"
+            )
+            await asyncio.sleep(wait_s)
+        print("[elitedate_bot] Morning greet: ensuring Chrome session…")
+        try:
+            async with shared_state.driver_lock:
+                await rebuild_session()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[elitedate_bot] Morning greet rebuild failed: {exc}")
+    return shared_state.client is not None and session_alive(shared_state.client)
+
+
 async def morning_greet_loop() -> None:
     """Wait until the configured morning hour, then run one greet cycle per day."""
     if not settings.morning_greet_enabled:
@@ -127,27 +154,24 @@ async def morning_greet_loop() -> None:
             print(f"[elitedate_bot] Morning greet already ran on {today}, skipping.")
             continue
 
-        if shared_state.client is None:
-            print("[elitedate_bot] Morning greet: client missing — trying session rebuild…")
-            try:
-                async with shared_state.driver_lock:
-                    await rebuild_session()
-            except Exception as exc:  # noqa: BLE001
-                print(f"[elitedate_bot] Morning greet skipped — rebuild failed: {exc}")
-                await _notify_orchestrator_summary(
-                    {
-                        "sent": 0,
-                        "checked": 0,
-                        "skipped_history": 0,
-                        "skipped_known": 0,
-                        "errors": 0,
-                        "sent_names": [],
-                        "failed": True,
-                        "error": f"client not ready — rebuild zlyhal: {exc}",
-                    }
-                )
-                # Neoznačuj last_run_date — pri ďalšom reštarte / zajtra to skúsi znova.
-                continue
+        if not await _ensure_client_for_greet():
+            print("[elitedate_bot] Morning greet skipped — Chrome session unavailable after retries.")
+            await _notify_orchestrator_summary(
+                {
+                    "sent": 0,
+                    "checked": 0,
+                    "skipped_history": 0,
+                    "skipped_known": 0,
+                    "errors": 0,
+                    "sent_names": [],
+                    "failed": True,
+                    "error": (
+                        "client not ready — Chromium sa nepodarilo obnoviť "
+                        f"(skúšané {_GREET_REBUILD_ATTEMPTS}×, reštartuj ED add-on)"
+                    ),
+                }
+            )
+            continue
 
         if shared_state.client is None:
             print("[elitedate_bot] Morning greet skipped — client still not ready after rebuild.")

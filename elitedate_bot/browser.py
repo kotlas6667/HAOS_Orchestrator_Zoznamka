@@ -40,6 +40,7 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
     options.add_argument("--renderer-process-limit=2")
     options.add_argument("--js-flags=--max-old-space-size=256")
     options.add_argument("--password-store=basic")
+    options.add_argument("--remote-debugging-port=0")
     options.add_argument(f"--window-size={settings.window_size}")
     # Izolovaný profil — menej konfliktov s orchestrátor/Tinder Chromium na tom istom hoste.
     options.add_argument("--user-data-dir=/data/elitedate_chrome_profile")
