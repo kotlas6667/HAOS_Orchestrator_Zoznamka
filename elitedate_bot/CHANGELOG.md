@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.3.16
+
+- **Chrome štart:** reset poškodeného profilu `/data/elitedate_chrome_profile` + fallback `/tmp`
+- Dockerfile: knižnice pre headless Chromium (libgbm, nss3, gtk, fonts)
+- `main.py` používa `rebuild_session()` (kill zombie + viac pokusov)
+- **Vyžaduje rebuild Docker image** add-onu (nie len reštart)
+
+## 1.3.15
+
+- **Rebuild session:** `pkill` zombie chromium/chromedriver pred obnovou
+- 5 pokusov s backoff; retry aj pri prázdnej Selenium stacktrace
+- **Morning greet:** 4× rebuild s 15 min pauzou pred failom
+
+## 1.3.14
+
+- **Poll:** scroll virtualizovaného inboxu (5 krokov) — nezmešká chaty mimo obrazovky
+- Bootstrap + nové vlákno: overí incoming správu v chate (parita s Tinderom)
+- Poll log: `client missing` / `no new messages this cycle`
+
+## 1.3.13
+
+- **Morning greet:** pri páde Chromia skúsi `rebuild_session()` namiesto okamžitého failu
+- Poll loop tiež obnoví session keď `client=None`
+- Izolovaný Chrome profil `/data/elitedate_chrome_profile`
+
+## 1.3.12
+
+- Preview cache sa commitne až po `discord: true` z orchestrátora (retry pri timeoute)
+- Timeout pollera → orchestrátor 120 s (GPT + fotka)
+
 ## 1.3.11
 
 - Poll: stiahne fotku profilu (`photo_base64`) a pošle ju orchestrátoru do Discordu
