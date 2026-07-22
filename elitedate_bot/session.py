@@ -9,7 +9,7 @@ from typing import Any, TypeVar
 from selenium.common.exceptions import InvalidSessionIdException
 
 from elitedate_bot import shared_state
-from elitedate_bot.browser import build_driver
+from elitedate_bot.browser import build_driver, reset_chrome_profile
 from elitedate_bot.elitedate_client import EliteDateClient
 
 T = TypeVar("T")
@@ -138,6 +138,8 @@ async def rebuild_session() -> EliteDateClient:
                         pass
                     driver = None
                 _kill_stale_chromium()
+                if attempt >= 1:
+                    await asyncio.to_thread(reset_chrome_profile)
                 await asyncio.sleep(6 + attempt * 6)
                 continue
             raise
