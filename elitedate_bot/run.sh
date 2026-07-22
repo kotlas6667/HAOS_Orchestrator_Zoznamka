@@ -166,6 +166,12 @@ echo "[elitedate_bot] ORCHESTRATOR_URL=${ORCHESTRATOR_URL:-<unset>}"
 echo "[elitedate_bot] HEADLESS=${HEADLESS:-true}"
 echo "[elitedate_bot] POLL_ENABLED=${POLL_ENABLED:-true}"
 
+# Pred štartom: ukonči zombie Chromium z predchádzajúceho pádu.
+pkill -f 'chromium.*elitedate_chrome_profile' 2>/dev/null || true
+pkill -f chromedriver 2>/dev/null || true
+chromium --version 2>/dev/null || true
+chromedriver --version 2>/dev/null || true
+
 _shutdown() {
     echo "Shutting down Elite Date bot..."
     pkill -f 'chromium.*elitedate_chrome_profile' 2>/dev/null || true
