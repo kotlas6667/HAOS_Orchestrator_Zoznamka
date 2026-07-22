@@ -168,6 +168,8 @@ echo "[elitedate_bot] POLL_ENABLED=${POLL_ENABLED:-true}"
 
 _shutdown() {
     echo "Shutting down Elite Date bot..."
+    pkill -f 'chromium.*elitedate_chrome_profile' 2>/dev/null || true
+    pkill -f chromedriver 2>/dev/null || true
     if [ -n "${BOT_PID:-}" ]; then
         kill -TERM "$BOT_PID" 2>/dev/null || true
         wait "$BOT_PID" 2>/dev/null || true
