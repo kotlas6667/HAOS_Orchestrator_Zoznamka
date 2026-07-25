@@ -307,6 +307,7 @@ HAOS_Orchestrator_Zoznamka/
 ├── config.json / repository.yaml
 ├── Dockerfile / run.sh
 ├── deploy/UPDATE_VIA_GITHUB.md
+├── docs/assets/                # README images (e.g. Lightning tip QR)
 ├── app/                        # orchestrator FastAPI
 ├── elitedate_bot/              # separate add-on
 ├── tinder_bot/                 # separate add-on
@@ -406,6 +407,24 @@ curl http://<HA_IP>:8601/health
 ```
 
 Expect JSON with `status` / login / `poll_enabled` fields depending on the bot.
+
+---
+
+## Buy me a coffee
+
+If this project saved you time and you’d like to say thanks, you can send a small Lightning tip for a coffee — much appreciated!
+
+<p align="center">
+  <img src="docs/assets/buy-me-a-coffee-ln.png" alt="Lightning invoice QR — buy me a coffee" width="280" />
+</p>
+
+**Bitcoin Lightning invoice** (scan the QR or paste into a Lightning wallet):
+
+```
+lnbc1p4xgh36pp5tqnyhxgtfhpkzzsz7wshmqvyj346uxc2usdkzlyqxhztyguxxarscqzyssp548l30ygf4w8sztud8y0aqd2f3wsvmaav4n2qvskr0dg644z8e9rs9q7sqqqqqqqqqqqqqqqqqqqsqqqqqysgqdqqmqz9gxqyjw5qrzjqwryaup9lh50kkranzgcdnn2fgvx390wgj5jd07rwr3vxeje0glcllayv8wtdkpfkgqqqqlgqqqqqeqqjq4dq3n49c6wguuskqdg4teq8yxrrjzpqpzzt2se32cqje3csajsrzrh95tfx6d3zp0n5e3yv6tfqk7y64ksax4yfq9dhjjrq5vp2gtaqq6vejm2
+```
+
+Lightning invoices can expire. If payment fails, open a GitHub issue and I’ll post a fresh one.
 
 ---
 
