@@ -1,6 +1,6 @@
 # HAOS Orchestrator
 
-AI orchestrátor pre Home Assistant OS — prirodzený jazyk (väčšinou slovenčina) ovláda smart home a súvisiace služby cez GPT routing.
+AI orchestrator for Home Assistant OS — natural language (mostly Slovak) controls your smart home and related services via GPT routing.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -10,161 +10,161 @@ Repo: [kotlas6667/HAOS_Orchestrator_Zoznamka](https://github.com/kotlas6667/HAOS
 
 ---
 
-## Čo to je
+## What this is
 
-Jeden FastAPI orchestrátor (HA add-on) prijme prompt z **web dashboardu**, **Discord bota** alebo HTTP API, GPT rozhodne ktorý interný tool použiť, tool sa spustí a vráti štruktúrovanú odpoveď.
+A FastAPI orchestrator (HA add-on) accepts a prompt from the **web dashboard**, **Discord bot**, or HTTP API. GPT decides which internal tool to use, the tool runs, and a structured response is returned.
 
-**Toto nie je samostatný hlasový asistent.** Orchestrátor neobsahuje STT/TTS ani Wyoming server. Nehovoríš priamo „do“ tohto add-onu cez mikrofón Home Assistant Voice PE — hlas rieši HA Assist mimo tohto projektu. Voliteľná custom conversation integrácia vie poslať *text* z Assist pipeline na `POST /api/voice` a vrátiť textovú odpoveď; samotný orchestrátor audio nespracúva.
+**This is not a standalone voice assistant.** The orchestrator has no STT/TTS and no Wyoming server. You do not speak directly “into” this add-on via a Home Assistant Voice PE microphone — voice is handled by HA Assist outside this project. An optional custom conversation integration can forward *text* from the Assist pipeline to `POST /api/voice` and return a text reply; the orchestrator itself does not process audio.
 
-### Tri HA add-ony v tomto repozitári
+### Three HA add-ons in this repository
 
-| Add-on | Slug | Port | Popis |
-|--------|------|------|--------|
-| **HAOS Orchestrator** | `haos_orchestrator` | `8000` (+ noVNC `6082`) | API, dashboard, Discord, Gmail/Calendar, HA, počasie, TODO |
-| **Elite Date bot** | `haos_elitedate` | `8600` | Selenium + Discord handoff odpovedí |
-| **Tinder bot** | `haos_tinder` | `8601` (+ noVNC `6080`) | Selenium + Discord handoff odpovedí |
+| Add-on | Slug | Port | Description |
+|--------|------|------|-------------|
+| **HAOS Orchestrator** | `haos_orchestrator` | `8000` (+ noVNC `6082`) | API, dashboard, Discord, Gmail/Calendar, HA, weather, TODO |
+| **Elite Date bot** | `haos_elitedate` | `8600` | Selenium + Discord reply handoff |
+| **Tinder bot** | `haos_tinder` | `8601` (+ noVNC `6080`) | Selenium + Discord reply handoff |
 
-Elite Date a Tinder **nespúšťa** hlavný orchestrátor — sú samostatné add-ony s vlastným Chromium.
+Elite Date and Tinder are **not** started by the main orchestrator — they are separate add-ons with their own Chromium.
 
 ---
 
-## Funkcie
+## Features
 
 ### Home Assistant
-- Stav entít, zapnúť / vypnúť / toggle, volanie služieb
-- Zoznam a spúšťanie automatizácií
-- Fuzzy vyhľadávanie podľa názvu (nie vymýšľanie `entity_id`)
-- REST API voči Core (`HA_URL` + long-lived token)
+- Entity state, turn on / off / toggle, service calls
+- List and trigger automations
+- Fuzzy search by name (does not invent `entity_id` values)
+- REST API against Core (`HA_URL` + long-lived token)
 
-### Počasie
-- Aktuálne počasie, predpoveď, hodinová predpoveď
-- OpenWeather (v Nastaveniach treba API kľúč; provider musí byť `openweather`, nie len mock)
+### Weather
+- Current conditions, forecast, hourly forecast
+- OpenWeather (set the API key in Settings; provider must be `openweather`, not only mock)
 
 ### Gmail + Google Calendar (multi-account)
-- Čítanie / počítanie / odosielanie mailov
-- Dnes / upcoming / vytváranie a úprava udalostí
-- Prihlásenie cez **noVNC** (port **6082**) — Desktop OAuth client (`gmailSecret.json`)
-- Jeden OAuth súhlas = Gmail + Calendar tokeny; viac účtov = viac loginov
-- Účty: `google_accounts.json`, tokeny: `google_tokens/*.pickle`
+- Read / count / send email
+- Today / upcoming / create and update events
+- Sign-in via **noVNC** (port **6082**) — Desktop OAuth client (`gmailSecret.json`)
+- One OAuth consent = Gmail + Calendar tokens; more accounts = more logins
+- Accounts: `google_accounts.json`, tokens: `google_tokens/*.pickle`
 
 ### Discord
-- Plný bot (história konverzácie, prefix / mention, whitelist)
-- Webhook notifikácie (neprečítané maily, ranný súhrn, dating návrhy)
-- Intercept odpovedí `1` / `2` / `4` pre Elite Date a Tinder (pred LLM routingom)
+- Full bot (conversation history, prefix / mention, whitelist)
+- Webhook notifications (unread email, morning summary, dating reply drafts)
+- Intercepts replies `1` / `2` / `4` for Elite Date and Tinder (before LLM routing)
 
 ### TODO
-- Úlohy v `todo.json` (pridať, zoznam, hotovo, zmazať, vyčistiť hotové)
+- Tasks in `todo.json` (add, list, complete, delete, clear completed)
 
 ### AI Chat
-- GPT fallback pre všeobecné otázky
-- Routing cez `gpt-4o-mini` (alebo `OPENAI_MODEL`); dating návrhy môžu ísť cez silnejší `DATING_REPLY_MODEL` (default `gpt-4o`)
+- GPT fallback for general questions
+- Routing via `gpt-4o-mini` (or `OPENAI_MODEL`); dating drafts may use a stronger `DATING_REPLY_MODEL` (default `gpt-4o`)
 
 ### Dating status
-- Tool `dating_status` — „ide Tinder?“, „správy na ED?“ (reachability botov, poll, fronta odpovedí)
+- Tool `dating_status` — e.g. “is Tinder up?”, “ED messages?” (bot reachability, poll status, reply queue)
 
-### Elite Date (samostatný add-on)
-- Poll inboxu (90–180 s), nové správy → Discord s 2 AI návrhmi
-- Výber `1`/`2`/voľný text / `4` (znova navrhnúť) → Selenium `/send`
-- Voliteľné ranné pozdravy (`morning_greet_enabled`)
-- Detail: [`elitedate_bot/README.md`](elitedate_bot/README.md)
+### Elite Date (separate add-on)
+- Inbox poll (90–180 s), new messages → Discord with 2 AI draft replies
+- Choose `1` / `2` / free text / `4` (regenerate) → Selenium `/send`
+- Optional morning greets (`morning_greet_enabled`)
+- Details: [`elitedate_bot/README.md`](elitedate_bot/README.md)
 
-### Tinder (samostatný add-on)
-- Rovnaký Discord handoff model ako Elite Date
-- Prvé prihlásenie cez noVNC (`6080`), session v Chrome profile
-- Detail: [`tinder_bot/README.md`](tinder_bot/README.md), [`tinder_bot/HAOS_LOGIN.md`](tinder_bot/HAOS_LOGIN.md)
+### Tinder (separate add-on)
+- Same Discord handoff model as Elite Date
+- First login via noVNC (`6080`), session stored in Chrome profile
+- Details: [`tinder_bot/README.md`](tinder_bot/README.md), [`tinder_bot/HAOS_LOGIN.md`](tinder_bot/HAOS_LOGIN.md)
 
-### Background joby (orchestrátor)
-- Periodické neprečítané maily → Discord (dedup `.seen_email_ids`)
-- Denný ranný súhrn (~07:00): počasie + počet mailov → Discord
+### Background jobs (orchestrator)
+- Periodic unread email → Discord (dedup via `.seen_email_ids`)
+- Daily morning summary (~07:00): weather + unread count → Discord
 
 ---
 
-## Inštalácia (GitHub Obchod)
+## Installation (GitHub Add-on Store)
 
-**Lokálny sync do `/addons` už nie je podporovaný.** Inštalácia a update idú cez GitHub Add-on Store.
+**Local sync into `/addons` is no longer supported.** Install and update via the GitHub Add-on Store.
 
-1. V HA: **Nastavenia → Doplnky → Obchody s doplnkami → ⋮ → Repozitáre**
-2. Pridaj: `https://github.com/kotlas6667/HAOS_Orchestrator_Zoznamka`
-3. Nainštaluj **HAOS Orchestrator** (a podľa potreby Elite Date / Tinder)
-4. Vyplň Nastavenia (aspoň `openai_api_key`, `ha_token`) → Štart
-5. Dashboard: HA panel **Orchestrator** (ingress) alebo `http://<IP_HA>:8000/`
+1. In HA: **Settings → Add-ons → Add-on store → ⋮ → Repositories**
+2. Add: `https://github.com/kotlas6667/HAOS_Orchestrator_Zoznamka`
+3. Install **HAOS Orchestrator** (and Elite Date / Tinder if needed)
+4. Fill in Settings (at least `openai_api_key`, `ha_token`) → Start
+5. Dashboard: HA panel **Orchestrator** (ingress) or `http://<HA_IP>:8000/`
 
-DNS medzi add-onmi a update: [`deploy/UPDATE_VIA_GITHUB.md`](deploy/UPDATE_VIA_GITHUB.md).
+DNS between add-ons and updates: [`deploy/UPDATE_VIA_GITHUB.md`](deploy/UPDATE_VIA_GITHUB.md).
 
-Hostname z GitHub Obchodu je `{repo_hash}-haos-…` — ber hodnotu z **Add-on → Info → Hostname**, nie tip z dokumentácie.
+GitHub Store hostnames look like `{repo_hash}-haos-…` — use the value from **Add-on → Info → Hostname**, not a guess from the docs.
 
-| Add-on | Typická URL |
+| Add-on | Typical URL |
 |--------|-------------|
-| Orchestrátor | `http://{hash}-haos-orchestrator:8000` |
+| Orchestrator | `http://{hash}-haos-orchestrator:8000` |
 | Elite Date | `http://{hash}-haos-elitedate:8600` |
 | Tinder | `http://{hash}-haos-tinder:8601` |
 
 ---
 
-## Rýchly štart — príklady promptov
+## Quick start — example prompts
 
 **Home Assistant:**
-- „Zapni svetlo v obývačke“
-- „Aká je teplota v spálni?“
-- „Ukáž všetky zariadenia“
+- “Zapni svetlo v obývačke” (Turn on the living room light)
+- “Aká je teplota v spálni?” (What’s the bedroom temperature?)
+- “Ukáž všetky zariadenia” (Show all devices)
 
-**Počasie:**
-- „Aké je počasie v Bratislave?“
-- „Predpoveď na 3 dni“
+**Weather:**
+- “Aké je počasie v Bratislave?” (What’s the weather in Bratislava?)
+- “Predpoveď na 3 dni” (3-day forecast)
 
 **Gmail / Calendar:**
-- „Ukáž neprečítané emaily“
-- „Čo mám dnes?“ / „Udalosti tento týždeň“
+- “Ukáž neprečítané emaily” (Show unread emails)
+- “Čo mám dnes?” / “Udalosti tento týždeň” (What’s on today? / Events this week)
 
 **TODO / chat:**
-- „Pridaj úlohu: kúpiť mlieko“
-- „Akú má dnes meniny?“
+- “Pridaj úlohu: kúpiť mlieko” (Add task: buy milk)
+- “Akú má dnes meniny?” (Whose name day is it today?)
 
 **Dating status:**
-- „Ide Tinder?“ / „Správy na ED?“
+- “Ide Tinder?” / “Správy na ED?” (Is Tinder up? / ED messages?)
 
 ---
 
-## Konfigurácia
+## Configuration
 
-V HA Nastaveniach add-onu (alebo `.env` pri lokálnom behu). Kľúčové možnosti orchestrátora:
+In the HA add-on Settings (or `.env` for local runs). Key orchestrator options:
 
-| Možnosť | Význam |
-|---------|--------|
-| `openai_api_key` | Routing + chat (+ súhrny mailov) |
+| Option | Meaning |
+|--------|---------|
+| `openai_api_key` | Routing + chat (+ email summaries) |
 | `openai_model` | Default `gpt-4o-mini` |
-| `dating_reply_model` | Model pre ED/Tinder návrhy (default `gpt-4o`) |
+| `dating_reply_model` | Model for ED/Tinder drafts (default `gpt-4o`) |
 | `ha_url` / `ha_token` | Core API |
-| `weather_default_city` / `openweather_api_key` | Počasie |
+| `weather_default_city` / `openweather_api_key` | Weather |
 | `discord_bot_enabled` / `discord_bot_token` / `discord_bot_channel_id` | Discord bot |
-| `discord_webhook_url` | Notifikácie |
-| `elitedate_bot_url` / `tinder_bot_url` | URL peer add-onov |
-| `elitedate_auto_send` / `tinder_auto_send` | Auto-odoslanie návrhov |
-| `dating_reply_skill` | Spoločný skill pre AI návrhy (alebo textarea na dashboarde) |
-| `google_accounts_enabled` | Zapne noVNC na porte 6082 pre Google login |
+| `discord_webhook_url` | Notifications |
+| `elitedate_bot_url` / `tinder_bot_url` | Peer add-on URLs |
+| `elitedate_auto_send` / `tinder_auto_send` | Auto-send draft replies |
+| `dating_reply_skill` | Shared skill for AI drafts (or dashboard textarea) |
+| `google_accounts_enabled` | Enables noVNC on port 6082 for Google login |
 
-Príklad `.env`: pozri [`.env.example`](.env.example).
+Example `.env`: see [`.env.example`](.env.example).
 
-### Gmail / Calendar cez noVNC
+### Gmail / Calendar via noVNC
 
-1. [Google Cloud Console](https://console.cloud.google.com/) → Gmail API + Calendar API
-2. OAuth client **Desktop app** → JSON do `/data/orchestrator/config/gmailSecret.json`
-3. Nastavenia → **Google VNC prihlásenie** = zapnuté → Uložiť → Reštart
-4. Otvor `http://<IP_HA>:6082/vnc.html`
-5. Dashboard → **Prihlásiť cez VNC** → v Chromiu dokonči Google účet
-6. Ďalší účet = zopakuj krok 5. Vypnutie switchu + reštart vypne noVNC; tokeny ostanú.
+1. [Google Cloud Console](https://console.cloud.google.com/) → enable Gmail API + Calendar API
+2. OAuth client **Desktop app** → put JSON at `/data/orchestrator/config/gmailSecret.json`
+3. Settings → **Google VNC login** = on → Save → Restart
+4. Open `http://<HA_IP>:6082/vnc.html`
+5. Dashboard → **Sign in via VNC** → finish the Google account in Chromium
+6. Another account = repeat step 5. Turning the switch off + restart stops noVNC; tokens remain.
 
 ---
 
-## API (orchestrátor)
+## API (orchestrator)
 
 ### Core
 - `GET /` — web dashboard
 - `GET /health` — health check
-- `POST /api/prompt` — spracovanie promptu (štruktúrovaná odpoveď)
-- `POST /api/voice` — textová odpoveď pripravená na TTS (používa voliteľná HA conversation integrácia)
+- `POST /api/prompt` — process a prompt (structured response)
+- `POST /api/voice` — text reply ready for TTS (used by the optional HA conversation integration)
 
-### Služby dashboardu
+### Dashboard services
 - `POST /api/weather`, `GET /api/weather/hourly`
 - `POST /api/messages`
 - `GET|POST /api/todos`, `PATCH|DELETE /api/todos/{id}`
@@ -184,70 +184,70 @@ Príklad `.env`: pozri [`.env.example`](.env.example).
 
 ## Dashboard
 
-- Hodiny / meniny, mini počasie, uptime
-- Chat na testovanie promptov
-- TODO widget, kalendár (upcoming)
-- Stav toolov, Google účty + VNC login
-- Textarea spoločného dating reply skillu
+- Clock / name days, mini weather, uptime
+- Chat for testing prompts
+- TODO widget, calendar (upcoming)
+- Tool status, Google accounts + VNC login
+- Textarea for the shared dating reply skill
 
 ---
 
 ## Discord bot
 
-1. Zapni `discord_bot_enabled` + token (Message Content Intent v Discord Developer Portal)
-2. Bot v kanáli: mention, prefix, alebo voľný text podľa nastavenia
-3. Pri čakajúcej dating konverzácii odpovedz `1` / `2` / voľný text / `4` (nové návrhy)
+1. Enable `discord_bot_enabled` + token (Message Content Intent in the Discord Developer Portal)
+2. In the channel: mention, prefix, or free text depending on settings
+3. When a dating conversation is awaiting selection, reply `1` / `2` / free text / `4` (regenerate drafts)
 
 ---
 
-## Voliteľná HA Assist integrácia
+## Optional HA Assist integration
 
-V `homeassistant_integration/custom_components/haos_orchestrator_conversation/` je custom conversation agent:
+`homeassistant_integration/custom_components/haos_orchestrator_conversation/` is a custom conversation agent:
 
-1. Skopíruj komponentu do `custom_components/` na HA
-2. Pridaj integráciu a nastav URL orchestrátora
-3. Assist pošle text na `POST /api/voice` a prečíta vrátený `reply`
+1. Copy the component into `custom_components/` on HA
+2. Add the integration and set the orchestrator URL
+3. Assist sends text to `POST /api/voice` and speaks the returned `reply`
 
-Toto **nie je** zabudovaný hlasový mód add-onu a nie je súčasťou inštalácie z Obchodu.
+This is **not** a built-in voice mode of the add-on and is **not** part of the Store install.
 
 ---
 
-## Štruktúra projektu
+## Project structure
 
 ```
 HAOS_Orchestrator_Zoznamka/
-├── config.json                 # HA add-on: orchestrátor
+├── config.json                 # HA add-on: orchestrator
 ├── repository.yaml             # GitHub Add-on Store
 ├── Dockerfile / run.sh
 ├── deploy/UPDATE_VIA_GITHUB.md
 ├── app/
-│   ├── main.py                 # FastAPI + background joby
+│   ├── main.py                 # FastAPI + background jobs
 │   ├── orchestrator.py / router.py
 │   ├── discord_bot.py / discord_chat.py
 │   ├── config.py
-│   ├── tools/                  # registry + tools + providery
+│   ├── tools/                  # registry + tools + providers
 │   ├── templates/index.html    # dashboard
 │   └── static/
-├── elitedate_bot/              # samostatný add-on
-├── tinder_bot/                 # samostatný add-on
-└── homeassistant_integration/  # voliteľný Assist conversation agent
+├── elitedate_bot/              # separate add-on
+├── tinder_bot/                 # separate add-on
+└── homeassistant_integration/  # optional Assist conversation agent
 ```
 
-Nový tool: zaregistruj v `app/tools/registry.py` a doplň popis do router promptu v `app/router.py`.
+New tool: register in `app/tools/registry.py` and describe it in the router prompt in `app/router.py`.
 
 ---
 
-## Vývoj (lokálne)
+## Development (local)
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate   # Windows: .\.venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env
-# vyplň OPENAI_API_KEY, HA_TOKEN, …
+# fill in OPENAI_API_KEY, HA_TOKEN, …
 
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-# alebo: ./start.sh
+# or: ./start.sh
 ```
 
 Docker:
@@ -259,26 +259,26 @@ docker run -p 8000:8000 haos-orchestrator
 
 ---
 
-## Riešenie problémov
+## Troubleshooting
 
-**Add-on nenaštartuje** — logy v Supervisor; skontroluj `ha_token` / `openai_api_key`.
+**Add-on won’t start** — check Supervisor logs; verify `ha_token` / `openai_api_key`.
 
-**HA neodpovedá** — long-lived token, URL `http://supervisor/core:8123`, sieť add-onu.
+**HA not responding** — long-lived token, URL `http://supervisor/core:8123`, add-on network access.
 
-**Počasie mock** — nastav OpenWeather API kľúč; provider musí byť live (`openweather`), nie `mock`.
+**Weather stuck on mock** — set OpenWeather API key; provider must be live (`openweather`), not `mock`.
 
-**Discord bot mlčí** — token, Message Content Intent, kanál / whitelist.
+**Discord bot silent** — token, Message Content Intent, channel / whitelist.
 
-**Gmail / Calendar** — VNC postup vyššie; Desktop OAuth JSON na `gmailSecret.json`.
+**Gmail / Calendar** — follow the VNC steps above; Desktop OAuth JSON at `gmailSecret.json`.
 
-**Dating boty sa nevidia** — Hostname z Info každého add-onu do peer URL; pozri [`deploy/UPDATE_VIA_GITHUB.md`](deploy/UPDATE_VIA_GITHUB.md). Pri manuálnom webe ED/Tinder najprv **zastav** bot add-on (druhá session zabíja Selenium login).
-
----
-
-## Licencia
-
-MIT — pozri [LICENSE](LICENSE), ak je v repozitári.
+**Dating bots unreachable** — put each add-on’s Info → Hostname into the peer URL; see [`deploy/UPDATE_VIA_GITHUB.md`](deploy/UPDATE_VIA_GITHUB.md). Before using ED/Tinder in a normal browser, **stop** the bot add-on first (a second session kills the Selenium login).
 
 ---
 
-**HAOS Orchestrator** — AI routing pre smart home, Gmail/Calendar, Discord a samostatné dating boty.
+## License
+
+MIT — see [LICENSE](LICENSE) if present in the repository.
+
+---
+
+**HAOS Orchestrator** — AI routing for smart home, Gmail/Calendar, Discord, and separate dating bots.
