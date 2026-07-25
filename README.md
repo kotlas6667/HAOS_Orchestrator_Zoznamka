@@ -304,12 +304,12 @@ Not part of the Add-on Store install; not a built-in voice stack inside the orch
 
 ```
 HAOS_Orchestrator_Zoznamka/
-├── config.json / repository.yaml
+├── config.json / repository.yaml / DOCS.md
 ├── Dockerfile / run.sh
 ├── deploy/UPDATE_VIA_GITHUB.md
 ├── app/                        # orchestrator FastAPI
-├── elitedate_bot/              # separate add-on
-├── tinder_bot/                 # separate add-on
+├── elitedate_bot/              # separate add-on (+ DOCS.md)
+├── tinder_bot/                 # separate add-on (+ DOCS.md)
 └── homeassistant_integration/  # optional Assist agent
 ```
 

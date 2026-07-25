@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.20
+
+- **DOCS.md** in HA Documentation tab (first login, DNS, GitHub + optional PayPal tip)
+
 ## 1.2.19
 
 - **Poll:** scroll inboxu (virtual list) + bootstrap nových vlákien

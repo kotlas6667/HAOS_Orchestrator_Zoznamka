@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.2.28] / Elite Date [1.3.17] / Tinder [1.2.20] - 2026-07-25
+
+### Added
+- **DOCS.md** for all three add-ons (HA Documentation tab): setup, peer DNS, links to public GitHub README, optional PayPal tip
+
 ## Elite Date [1.3.16] - 2026-07-22
 
 ### Fixed

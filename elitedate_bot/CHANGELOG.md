@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.17
+
+- **DOCS.md** in HA Documentation tab (setup, DNS, GitHub + optional PayPal tip)
+
 ## 1.3.16
 
 - **Chrome štart:** reset poškodeného profilu `/data/elitedate_chrome_profile` + fallback `/tmp`
