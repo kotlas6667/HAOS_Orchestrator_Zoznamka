@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.31] - 2026-08-03
+
+### Fixed
+- Orchestrátor → Badoo `/send`: DNS hash mismatch (`8c003d88-haos-badoo` vs live store hash
+  `03146090-…`) — `addon_dns.resolve_url` prepíše `badoo_bot_url` / Tinder / ED pri štarte.
+  Bez update orchestrátora ostávala stará URL v Nastaveniach a Discord odpovede padali na Errno -5.
+
 ## [1.2.30] / Badoo [1.1.0] - 2026-08-03
 
 ### Added
