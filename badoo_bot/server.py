@@ -99,6 +99,8 @@ async def debug_inbox() -> dict:
                     "connections_item_users": raw.get("connections_item_users"),
                     "sample_types": raw.get("sample_types"),
                     "sample_titles": raw.get("sample_titles"),
+                    "list_present": raw.get("list_present"),
+                    "chats_tab_present": raw.get("chats_tab_present"),
                     "senders": [r.get("name") or "<no name>" for r in rows[:20]],
                     "match_ids": [r.get("match_id") or "" for r in rows[:10]],
                     "sample_previews": [(r.get("preview") or "")[:60] for r in rows[:5]],
