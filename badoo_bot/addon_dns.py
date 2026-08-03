@@ -56,11 +56,27 @@ def extract_host(url: str) -> str:
     s = (url or "").strip()
     if "://" in s:
         s = s.split("://", 1)[1]
+    elif s.lower().startswith("http:/"):
+        s = s.split("http:/", 1)[1]
+    elif s.lower().startswith("https:/"):
+        s = s.split("https:/", 1)[1]
     return s.split("/", 1)[0].split(":", 1)[0].strip().lower()
 
 
+def normalize_url(url: str) -> str:
+    """Fix common HA-option typos like http:/host (one slash after http:)."""
+    s = (url or "").strip()
+    if not s:
+        return s
+    # http:/host → http://host (and https)
+    s = re.sub(r"(?i)^(https?):/(?!/)", r"\1://", s)
+    # accidental http:///host
+    s = re.sub(r"(?i)^(https?):///+", r"\1://", s)
+    return s
+
+
 def is_broken_url(url: str) -> bool:
-    host = extract_host(url)
+    host = extract_host(normalize_url(url))
     if not host:
         return True
     if host in _BROKEN_HOSTS:
@@ -161,9 +177,12 @@ def resolve_url(
     label: str = "",
 ) -> str:
     """Prefer Supervisor discovery; never keep a wrong hash like 8c003d88 vs 03146090."""
-    cur = (current or "").strip()
+    raw = (current or "").strip()
+    cur = normalize_url(raw)
     prefix = f"[{label}] " if label else ""
     slug = slug_suffix if slug_suffix.startswith("haos_") else f"haos_{slug_suffix}"
+    if raw and cur != raw:
+        print(f"{prefix}normalized URL: {raw} → {cur}")
 
     discovered = discover_url(slug_suffix, port)
     if discovered:
