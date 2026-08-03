@@ -61,15 +61,39 @@ async def debug_inbox() -> dict:
         async with shared_state.driver_lock:
 
             def _inspect():
+                from badoo_bot.badoo_client import _INBOX_ROW_JS
+
                 c = shared_state.client
                 c._navigate_to_inbox()
                 rows = c._list_conversations()
+                raw = c.driver.execute_script(
+                    _INBOX_ROW_JS
+                    + """
+                    const all = Array.from(document.querySelectorAll(
+                      'button[data-qa="connections-item"], [data-qa="connections-item"]'
+                    ));
+                    const items = listConnectionItems();
+                    return {
+                      connections_item_total: all.length,
+                      connections_item_filtered: items.length,
+                      sample_types: all.slice(0, 8).map(el =>
+                        el.getAttribute('data-qa-connections-item-type') || ''
+                      ),
+                      body_snippet: (document.body && document.body.innerText || '').slice(0, 280),
+                    };
+                    """
+                ) or {}
                 return {
                     "url": c.driver.current_url,
                     "title": c.driver.title,
                     "items_visible": len(rows),
+                    "connections_item_total": raw.get("connections_item_total"),
+                    "connections_item_filtered": raw.get("connections_item_filtered"),
+                    "sample_types": raw.get("sample_types"),
                     "senders": [r.get("name") or "<no name>" for r in rows[:20]],
-                    "sample_previews": [(r.get("preview") or "")[:40] for r in rows[:5]],
+                    "match_ids": [r.get("match_id") or "" for r in rows[:10]],
+                    "sample_previews": [(r.get("preview") or "")[:60] for r in rows[:5]],
+                    "body_snippet": raw.get("body_snippet") or "",
                 }
 
             result = await run_with_recovery(_inspect)

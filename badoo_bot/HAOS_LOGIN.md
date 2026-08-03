@@ -11,7 +11,7 @@ Windows/WSL profil **nefunguje** na HAOS (iné šifrovanie cookies). Prihlás sa
 - `badoo_headless` = **false**
 - `orchestrator_url` = hostname orchestrátora (Info → Hostname)
 - `login_wait_sec` = `600`
-- `poll_enabled` = **false** (zatiaľ — inbox príde neskôr)
+- `poll_enabled` = **true** (po login milestone; pri prvom logine môžeš dočasne false)
 
 **Sieť:** nechaj `8602` a `6081` → **Uložiť**.
 
