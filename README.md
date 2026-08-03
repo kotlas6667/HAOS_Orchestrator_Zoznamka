@@ -16,17 +16,18 @@ A FastAPI orchestrator (HA add-on) accepts a prompt from the **web dashboard**, 
 
 **This is not a standalone voice assistant.** The orchestrator has no STT/TTS and no Wyoming server. You do not speak directly “into” this add-on via a Home Assistant Voice PE microphone — voice is handled by HA Assist outside this project. An optional custom conversation integration can forward *text* from the Assist pipeline to `POST /api/voice` and return a text reply; the orchestrator itself does not process audio.
 
-### Three HA add-ons in this repository
+### Four HA add-ons in this repository
 
 | Add-on | Slug | Port(s) | Description |
 |--------|------|---------|-------------|
 | **HAOS Orchestrator** | `haos_orchestrator` | `8000`, noVNC `6082` | API, dashboard, Discord, Gmail/Calendar, HA, weather, TODO |
 | **Elite Date bot** | `haos_elitedate` | `8600` | Selenium + Discord reply handoff |
 | **Tinder bot** | `haos_tinder` | `8601`, noVNC `6080` | Selenium + Discord reply handoff |
+| **Badoo bot** | `haos_badoo` | `8602`, noVNC `6081` | Selenium login (Google via noVNC); inbox/send next |
 
-Elite Date and Tinder are **not** started by the main orchestrator — they are separate add-ons with their own Chromium.
+Elite Date, Tinder and Badoo are **not** started by the main orchestrator — they are separate add-ons with their own Chromium.
 
-**Port note:** Google login noVNC is **6082**; Tinder login noVNC is **6080**. Both can run at the same time (older builds wrongly shared 6080).
+**Port note:** Google login noVNC is **6082**; Tinder **6080**; Badoo **6081**. All can run at the same time.
 
 ---
 
@@ -75,6 +76,12 @@ Elite Date and Tinder are **not** started by the main orchestrator — they are 
 - First login via noVNC (`6080`); session in Chrome profile under `/data`
 - Details: [`tinder_bot/README.md`](tinder_bot/README.md), [`tinder_bot/HAOS_LOGIN.md`](tinder_bot/HAOS_LOGIN.md)
 
+### Badoo (separate add-on)
+- Same Chrome-profile + noVNC pattern as Tinder
+- First login via noVNC (`6081`) — **Google** (or phone/email)
+- Inbox polling / Discord handoff not wired yet (login milestone first)
+- Details: [`badoo_bot/README.md`](badoo_bot/README.md), [`badoo_bot/HAOS_LOGIN.md`](badoo_bot/HAOS_LOGIN.md)
+
 ### Background jobs (orchestrator)
 - Periodic unread email → Discord (dedup `.seen_email_ids`; needs OpenAI + Discord webhook)
 - Daily morning summary (~07:00): weather + unread count → Discord
@@ -111,8 +118,9 @@ http://{repo_hash}-{slug-with-dashes}:{port}
 | Orchestrator | `http://{hash}-haos-orchestrator:8000` |
 | Elite Date | `http://{hash}-haos-elitedate:8600` |
 | Tinder | `http://{hash}-haos-tinder:8601` |
+| Badoo | `http://{hash}-haos-badoo:8602` |
 
-Recent versions resolve peer URLs via **Supervisor** at startup and rewrite broken defaults. If bots still cannot reach each other, paste Info → Hostname into Settings manually, Save, and restart all three.
+Recent versions resolve peer URLs via **Supervisor** at startup and rewrite broken defaults. If bots still cannot reach each other, paste Info → Hostname into Settings manually, Save, and restart the affected add-ons (orchestrator + Elite Date + Tinder + Badoo).
 
 **Broken hostnames (will not work on GitHub-store installs):**  
 `haos_orchestrator`, `haos-elitedate`, `local-haos-tinder`, etc.
@@ -155,8 +163,10 @@ Secrets (API keys, tokens, passwords, webhook URLs, emails, phone numbers) belon
 | `discord_webhook_url` | *(empty)* | Notifications: morning summary, unread mail, dating prompts |
 | `elitedate_bot_url` | store default | `http://{hash}-haos-elitedate:8600` from Elite Date → Info |
 | `tinder_bot_url` | store default | `http://{hash}-haos-tinder:8601` from Tinder → Info |
+| `badoo_bot_url` | store default | `http://{hash}-haos-badoo:8602` from Badoo → Info |
 | `elitedate_auto_send` | `false` | `true` = Discord choice also sends; `false` = fill field only |
 | `tinder_auto_send` | `false` | Same for Tinder (Tinder add-on also has its own `auto_send`) |
+| `badoo_auto_send` | `false` | Reserved until Badoo send is implemented |
 | `dating_reply_skill` | *(empty)* | Optional **one-line** HA field. Long skill → dashboard editor (source of truth). Empty HA field does **not** wipe a skill saved on the dashboard |
 | `google_accounts_enabled` | `false` | `true` + Save + Restart → noVNC on **6082** for Google Desktop OAuth |
 
@@ -200,6 +210,31 @@ Chrome profile persists under `/data`. After Chrome/startup fixes, a **Docker im
 3. Log in with **phone + OTP** (Google/Facebook login is unreliable for automation)
 4. Wait in logs for login/session saved
 5. Set `tinder_headless=true` → Save → Restart (noVNC stops; session stays in `/data/chrome-profile`)
+
+### 4) Badoo bot — Add-on Settings
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `log_level` | `info` | Logging verbosity |
+| `badoo_headless` | `false` on first install | **`false`** = noVNC login on **6081**; **`true`** = headless production |
+| `orchestrator_url` | store default | `http://{hash}-haos-orchestrator:8000` |
+| `poll_enabled` | `false` | Keep off until inbox is implemented |
+| `login_wait_sec` | `600` | How long to wait for Google login when headless is false |
+| `geolocation_enabled` | `true` | Spoof geolocation for the browser |
+| `geolocation_lat` / `geolocation_lon` | optional | Coordinates if geolocation is enabled |
+| `auto_send` | `false` | Reserved for later |
+
+**First Badoo login (Google via noVNC):**
+
+1. Set `badoo_headless=false`, save, start/rebuild
+2. Open `http://<HA_IP>:6081/vnc.html`
+3. Log in with **Google** (or phone/email)
+4. Wait in logs for `Login detected, session saved...`
+5. Set `badoo_headless=true` → Save → Restart
+
+Details: [`badoo_bot/HAOS_LOGIN.md`](badoo_bot/HAOS_LOGIN.md)
+
+### 5) Gmail / Calendar via noVNC (orchestrator)
 
 Windows/WSL Chrome profiles **do not** work on HAOS (different cookie encryption).
 
@@ -344,7 +379,7 @@ Issues below are ones this project has already hit in production. Use placeholde
 ### Networking / DNS between add-ons
 - **Symptom:** dating status unreachable, `/send` fails, empty Discord errors after choosing `1`/`2`
 - **Cause:** wrong peer URL (`local-haos-*`, bare `haos_*`, or hash from a different store URL)
-- **Fix:** Add-on → **Info → Hostname** into `elitedate_bot_url` / `tinder_bot_url` / `orchestrator_url` → Save → restart all three
+- **Fix:** Add-on → **Info → Hostname** into `elitedate_bot_url` / `tinder_bot_url` / `badoo_bot_url` / `orchestrator_url` → Save → restart affected add-ons (ED + Tinder + Badoo + orch)
 - Newer builds auto-fix via Supervisor; still verify if something looks stuck
 
 ### Store update does not appear
@@ -352,7 +387,7 @@ Issues below are ones this project has already hit in production. Use placeholde
 - Some Chrome fixes need **Rebuild**, not only Restart
 
 ### Second browser session kills Selenium
-- **Do not** open Elite Date / Tinder in a normal browser while the bot add-on is running
+- **Do not** open Elite Date / Tinder / Badoo in a normal browser while that bot add-on is running
 - Site often drops the other session → poller stops seeing new messages
 - Manual web use: **Stop** the bot add-on first, then start it again afterward
 
@@ -365,7 +400,7 @@ Issues below are ones this project has already hit in production. Use placeholde
 
 ### Google noVNC (`6082`)
 - **Black screen:** welcome Chromium should open on start; use dashboard **Refresh VNC**; only click **Sign in via VNC** after VNC shows a desktop
-- **Port conflict with Tinder:** Google = **6082**, Tinder = **6080** (do not point Google login at 6080)
+- **Port conflict with Tinder / Badoo:** Google = **6082**, Tinder = **6080**, Badoo = **6081**
 - OAuth must be **Desktop** client JSON at `gmailSecret.json` — Web redirect flow is not the HAOS path
 - Turning the VNC switch off does not delete accounts
 
@@ -387,7 +422,7 @@ Issues below are ones this project has already hit in production. Use placeholde
 - Everything falls through to weak chat → missing `openai_api_key` (router cannot pick tools)
 
 ### Auto-send confusion
-- Orchestrator flags: `elitedate_auto_send` / `tinder_auto_send`
+- Orchestrator flags: `elitedate_auto_send` / `tinder_auto_send` / `badoo_auto_send` (Badoo send ešte nie)
 - Tinder also has bot-local `auto_send`
 - `false` = insert text only; `true` = actually send
 - Older bugs ignored orchestrator auto-send when queue had `submit=false` — use current versions

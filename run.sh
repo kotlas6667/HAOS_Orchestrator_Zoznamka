@@ -46,6 +46,8 @@ ELITEDATE_BOT_URL=http://8c003d88-haos-elitedate:8600
 ELITEDATE_AUTO_SEND=false
 TINDER_BOT_URL=http://8c003d88-haos-tinder:8601
 TINDER_AUTO_SEND=false
+BADOO_BOT_URL=http://8c003d88-haos-badoo:8602
+BADOO_AUTO_SEND=false
 
 # Google (Gmail + Calendar) — multi-account; zapni v HA Nastaveniach alebo na dashboarde
 GOOGLE_ACCOUNTS_ENABLED=false
@@ -90,8 +92,10 @@ if options_path.is_file():
         "discord_bot_channel_id": "DISCORD_BOT_CHANNEL_ID",
         "elitedate_bot_url": "ELITEDATE_BOT_URL",
         "tinder_bot_url": "TINDER_BOT_URL",
+        "badoo_bot_url": "BADOO_BOT_URL",
         "elitedate_auto_send": "ELITEDATE_AUTO_SEND",
         "tinder_auto_send": "TINDER_AUTO_SEND",
+        "badoo_auto_send": "BADOO_AUTO_SEND",
         "google_accounts_enabled": "GOOGLE_ACCOUNTS_ENABLED",
     }
     for opt_key, env_key in mapping.items():
@@ -154,8 +158,15 @@ td = resolve_url(
     port=8601,
     label="orchestrator/tinder",
 )
+bd = resolve_url(
+    _current("BADOO_BOT_URL"),
+    slug_suffix="haos_badoo",
+    port=8602,
+    label="orchestrator/badoo",
+)
 updates["ELITEDATE_BOT_URL"] = ed
 updates["TINDER_BOT_URL"] = td
+updates["BADOO_BOT_URL"] = bd
 
 # Persist corrected URLs into options.json + Supervisor (HA UI often stuck on haos_*)
 ui_patch = {}
@@ -164,6 +175,7 @@ if opts and options_path.is_file():
     for opt_key, env_key in (
         ("elitedate_bot_url", "ELITEDATE_BOT_URL"),
         ("tinder_bot_url", "TINDER_BOT_URL"),
+        ("badoo_bot_url", "BADOO_BOT_URL"),
     ):
         if env_key in updates and str(opts.get(opt_key) or "") != updates[env_key]:
             print(f"[orchestrator] Patch options.json {opt_key} → {updates[env_key]}")
@@ -205,8 +217,8 @@ for line in export_lines:
     else:
         print(f"  {line}")
 
-print(f"[orchestrator] dating URLs: ELITEDATE_BOT_URL={ed} TINDER_BOT_URL={td}")
-for key, val in (("ELITEDATE_BOT_URL", ed), ("TINDER_BOT_URL", td)):
+print(f"[orchestrator] dating URLs: ELITEDATE_BOT_URL={ed} TINDER_BOT_URL={td} BADOO_BOT_URL={bd}")
+for key, val in (("ELITEDATE_BOT_URL", ed), ("TINDER_BOT_URL", td), ("BADOO_BOT_URL", bd)):
     if is_broken_url(val):
         print(f"[orchestrator] WARNING: {key} looks broken: {val}")
 
@@ -282,7 +294,7 @@ ln -sf "$CFG/dating_reply_skill.md" /app/dating_reply_skill.user.md
 
 LOG_LEVEL="${LOG_LEVEL:-info}"
 echo "Log level: ${LOG_LEVEL}"
-echo "Dating bots: ELITEDATE_BOT_URL=${ELITEDATE_BOT_URL:-<unset>} TINDER_BOT_URL=${TINDER_BOT_URL:-<unset>}"
+echo "Dating bots: ELITEDATE_BOT_URL=${ELITEDATE_BOT_URL:-<unset>} TINDER_BOT_URL=${TINDER_BOT_URL:-<unset>} BADOO_BOT_URL=${BADOO_BOT_URL:-<unset>}"
 echo "Google VNC: GOOGLE_ACCOUNTS_ENABLED=${GOOGLE_ACCOUNTS_ENABLED:-false}"
 
 # ---------------------------------------------------------------------------

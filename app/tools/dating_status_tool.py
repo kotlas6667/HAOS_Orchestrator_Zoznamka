@@ -39,75 +39,80 @@ async def _probe(url: str) -> dict[str, Any]:
         return {"reachable": False, "error": str(exc)}
 
 
+def _normalize_service(raw: str) -> str:
+    wanted = (raw or "all").strip().lower()
+    if wanted in {"ed", "elite", "elitedate", "elite date", "elite dáte"}:
+        return "elitedate"
+    if wanted in {"tinder"}:
+        return "tinder"
+    if wanted in {"badoo"}:
+        return "badoo"
+    if wanted in {"both", "all", ""}:
+        return "all"
+    return wanted
+
+
 class DatingStatusTool(Tool):
     name = "dating_status"
     description = (
-        "Check Elite Date / Tinder bot connectivity and pending reply queues. "
-        "Use when the user asks about ED/Elite Date/Tinder messages or whether bots are online."
+        "Check Elite Date / Tinder / Badoo bot connectivity and pending reply queues. "
+        "Use when the user asks about ED/Elite Date/Tinder/Badoo messages or whether bots are online."
     )
 
     async def run(self, prompt: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
         ctx = context or {}
-        wanted = str(ctx.get("service") or "both").strip().lower()
-        if wanted in {"ed", "elite", "elitedate", "elite date", "elite dáte"}:
-            wanted = "elitedate"
-        elif wanted in {"tinder"}:
-            wanted = "tinder"
-        else:
-            wanted = "both"
+        wanted = _normalize_service(str(ctx.get("service") or "all"))
 
         elitedate_url = settings.elitedate_bot_url
         tinder_url = settings.tinder_bot_url
+        badoo_url = settings.badoo_bot_url
         ed_queue = _queue_len(_ROOT / "elitedate_state.json")
         tinder_queue = _queue_len(_ROOT / "tinder_state.json")
+        badoo_queue = _queue_len(_ROOT / "badoo_state.json")
 
         result: dict[str, Any] = {
             "status": "ok",
             "service": wanted,
             "elitedate_url": elitedate_url,
             "tinder_url": tinder_url,
+            "badoo_url": badoo_url,
         }
 
         lines: list[str] = []
 
-        if wanted in {"elitedate", "both"}:
+        def _append_status(label: str, probe: dict[str, Any], url: str, queue: int) -> None:
+            if not probe.get("reachable"):
+                lines.append(f"❌ **{label}:** nedostupný ({url}) — {probe.get('error', '?')}")
+            elif not probe.get("logged_in"):
+                lines.append(f"❌ **{label}:** beží, ale nie je prihlásený")
+            elif not probe.get("session_alive"):
+                lines.append(f"⚠️ **{label}:** prihlásený, ale Selenium session je mŕtva")
+            else:
+                poll_on = probe.get("raw", {}).get("poll_enabled", True)
+                poll_note = "" if poll_on else " · poll vypnutý"
+                lines.append(f"✅ **{label}:** online (fronta odpovedí: {queue}{poll_note})")
+
+        if wanted in {"elitedate", "all"}:
             ed = await _probe(elitedate_url)
             result["elitedate"] = {**ed, "pending_replies": ed_queue}
-            if not ed.get("reachable"):
-                lines.append(
-                    f"❌ **Elite Date:** nedostupný ({elitedate_url}) — {ed.get('error', '?')}"
-                )
-            elif not ed.get("logged_in"):
-                lines.append("❌ **Elite Date:** beží, ale nie je prihlásený")
-            elif not ed.get("session_alive"):
-                lines.append("⚠️ **Elite Date:** prihlásený, ale Selenium session je mŕtva")
-            else:
-                poll_on = ed.get("raw", {}).get("poll_enabled", True)
-                poll_note = "" if poll_on else " · poll vypnutý"
-                lines.append(
-                    f"✅ **Elite Date:** online (fronta odpovedí: {ed_queue}{poll_note})"
-                )
+            _append_status("Elite Date", ed, elitedate_url, ed_queue)
 
-        if wanted in {"tinder", "both"}:
+        if wanted in {"tinder", "all"}:
             td = await _probe(tinder_url)
             result["tinder"] = {**td, "pending_replies": tinder_queue}
-            if not td.get("reachable"):
-                lines.append(
-                    f"❌ **Tinder:** nedostupný ({tinder_url}) — {td.get('error', '?')}"
-                )
-            elif not td.get("logged_in"):
-                lines.append("❌ **Tinder:** beží, ale nie je prihlásený")
-            elif not td.get("session_alive"):
-                lines.append("⚠️ **Tinder:** prihlásený, ale Selenium session je mŕtva")
-            else:
-                poll_on = td.get("raw", {}).get("poll_enabled", True)
-                poll_note = "" if poll_on else " · poll vypnutý"
-                lines.append(f"✅ **Tinder:** online (fronta odpovedí: {tinder_queue}{poll_note})")
+            _append_status("Tinder", td, tinder_url, tinder_queue)
+
+        if wanted in {"badoo", "all"}:
+            bd = await _probe(badoo_url)
+            result["badoo"] = {**bd, "pending_replies": badoo_queue}
+            _append_status("Badoo", bd, badoo_url, badoo_queue)
 
         if wanted == "elitedate" and ed_queue == 0 and result.get("elitedate", {}).get("reachable"):
             lines.append("Žiadne nové správy na Elite Date nečakajú na výber odpovede.")
         if wanted == "tinder" and tinder_queue == 0 and result.get("tinder", {}).get("reachable"):
             lines.append("Žiadne nové správy na Tinderi nečakajú na výber odpovede.")
+        if wanted == "badoo" and badoo_queue == 0 and result.get("badoo", {}).get("reachable"):
+            lines.append("Žiadne nové správy na Badoo nečakajú na výber odpovede.")
 
         result["reply"] = "\n".join(lines) if lines else "Žiadny stav na zobrazenie."
         return result

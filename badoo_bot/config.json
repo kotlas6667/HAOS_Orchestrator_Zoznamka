@@ -1,0 +1,45 @@
+{
+  "name": "HAOS Badoo Bot",
+  "description": "Samostatný Selenium bot pre Badoo. Prvé prihlásenie cez noVNC (port 6081) — Google login, nastav badoo_headless v Nastaveniach.",
+  "version": "1.0.0",
+  "slug": "haos_badoo",
+  "init": false,
+  "arch": ["amd64", "aarch64"],
+  "startup": "application",
+  "boot": "auto",
+  "ports": {
+    "8602/tcp": 8602,
+    "6081/tcp": 6081
+  },
+  "ports_description": {
+    "8602/tcp": "Badoo bot HTTP API (/send, /health)",
+    "6081/tcp": "noVNC — jednorazové prihlásenie (badoo_headless=false)"
+  },
+  "hassio_api": true,
+  "host_network": false,
+  "shm_size": "1G",
+  "options": {
+    "log_level": "info",
+    "badoo_headless": false,
+    "orchestrator_url": "http://8c003d88-haos-orchestrator:8000",
+    "poll_enabled": false,
+    "login_wait_sec": 600,
+    "geolocation_enabled": true,
+    "geolocation_lat": "48.1486",
+    "geolocation_lon": "17.1077",
+    "auto_send": false
+  },
+  "schema": {
+    "log_level": "list(trace|debug|info|notice|warning|error|fatal)?",
+    "badoo_headless": "bool",
+    "orchestrator_url": "str",
+    "poll_enabled": "bool",
+    "login_wait_sec": "int(60,3600)",
+    "geolocation_enabled": "bool",
+    "geolocation_lat": "str?",
+    "geolocation_lon": "str?",
+    "auto_send": "bool"
+  },
+  "url": "https://github.com/kotlas6667/HAOS_Orchestrator_Zoznamka",
+  "maintainer": "kotlas <kotlas6667@gmail.com>"
+}

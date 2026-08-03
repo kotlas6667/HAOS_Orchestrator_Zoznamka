@@ -84,6 +84,16 @@ Mirrors `elitedate_bot/` — a separate Selenium process on Tinder web (`tinder.
 - **Packaging:** samostatný HA add-on (`tinder_bot/`, slug `haos_tinder`, DNS `local-haos-tinder:8601`). Orchestrátor → `TINDER_BOT_URL`. Rovnaká DNS migrácia `haos_*` → `local-haos-*` pri štarte. See `tinder_bot/README.md`.
 - Status v Discorde: tool `dating_status` (router) — otázky typu „správy na ed?“ / „ide Tinder?“ idú sem, nie do Gmailu.
 
+## Badoo integration (badoo_bot/)
+
+Third dating bot alongside `elitedate_bot/` and `tinder_bot/` — does **not** replace either. Mirrors `tinder_bot/` login path (Selenium + persistent Chrome profile + noVNC). **Current milestone: login only.**
+
+- **Login:** `badoo_headless=false` → noVNC on port **6081** → user completes **Google** (or phone/email) in Chromium → `Login detected` → `badoo_headless=true` → restart. Profile: `/data/chrome-profile`.
+- **API:** port **8602** — `GET /health`, `GET /debug/page`. Inbox/`/send` and Discord dispatch not implemented yet (ED + Tinder Discord handoff stays as-is).
+- **Orchestrator:** `badoo_bot_url` / `BADOO_BOT_URL` (DNS resolve like ED/Tinder). `dating_status` probes Elite Date + Tinder + Badoo.
+- **Packaging:** slug `haos_badoo`. See `badoo_bot/HAOS_LOGIN.md`.
+- **Port map:** Elite Date `8600` (no noVNC) · Tinder `8601`/`6080` · Badoo `8602`/`6081` · Google orch `6082`.
+
 ## Notes for future edits to this file
 
 Keep this file updated as the project evolves — new tools, changed routing rules, new entrypoints, or architectural shifts should be reflected here so future sessions don't need to re-explore the whole codebase.

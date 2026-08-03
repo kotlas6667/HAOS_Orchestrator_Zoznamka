@@ -1,7 +1,7 @@
 {
   "name": "HAOS Orchestrator",
-  "description": "AI orchestrátor pre Home Assistant — Gmail/Kalendár (noVNC login), Počasie, Discord a smart home. Elite Date a Tinder sú samostatné add-ony.",
-  "version": "1.2.28",
+  "description": "AI orchestrátor pre Home Assistant — Gmail/Kalendár (noVNC login), Počasie, Discord a smart home. Elite Date, Tinder a Badoo sú samostatné add-ony.",
+  "version": "1.2.29",
   "slug": "haos_orchestrator",
   "init": false,
   "arch": [
@@ -17,7 +17,7 @@
   },
   "ports_description": {
     "8000/tcp": "Orchestrátor API a web dashboard",
-    "6082/tcp": "noVNC — Google login (zapni google_accounts_enabled); port 6082 (Tinder má 6080)"
+    "6082/tcp": "noVNC — Google login (zapni google_accounts_enabled); port 6082 (Tinder 6080, Badoo 6081)"
   },
   "ingress": true,
   "ingress_port": 8000,
@@ -43,8 +43,10 @@
     "discord_bot_channel_id": "",
     "elitedate_bot_url": "http://8c003d88-haos-elitedate:8600",
     "tinder_bot_url": "http://8c003d88-haos-tinder:8601",
+    "badoo_bot_url": "http://8c003d88-haos-badoo:8602",
     "elitedate_auto_send": false,
     "tinder_auto_send": false,
+    "badoo_auto_send": false,
     "dating_reply_skill": "",
     "google_accounts_enabled": false
   },
@@ -63,8 +65,10 @@
     "discord_bot_channel_id": "str?",
     "elitedate_bot_url": "str",
     "tinder_bot_url": "str",
+    "badoo_bot_url": "str",
     "elitedate_auto_send": "bool",
     "tinder_auto_send": "bool",
+    "badoo_auto_send": "bool",
     "dating_reply_skill": "str?",
     "google_accounts_enabled": "bool"
   },

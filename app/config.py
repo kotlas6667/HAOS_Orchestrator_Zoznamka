@@ -85,7 +85,11 @@ class Settings(BaseSettings):
     tinder_bot_url: str = "http://127.0.0.1:8601"
     tinder_auto_send: bool = Field(default=False, validation_alias="TINDER_AUTO_SEND")
 
-    # Spoločný skill pre AI návrhy odpovedí v Discorde (ED + Tinder). Prázdne = súbor / default.
+    # Badoo bot (separate local process, see badoo_bot/)
+    badoo_bot_url: str = "http://127.0.0.1:8602"
+    badoo_auto_send: bool = Field(default=False, validation_alias="BADOO_AUTO_SEND")
+
+    # Spoločný skill pre AI návrhy odpovedí v Discorde (ED + Tinder + Badoo). Prázdne = súbor / default.
     dating_reply_skill: str = Field(default="", validation_alias="DATING_REPLY_SKILL")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")

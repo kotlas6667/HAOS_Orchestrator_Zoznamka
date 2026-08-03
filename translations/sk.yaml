@@ -63,6 +63,10 @@ configuration:
     name: URL Tinder bota
     description: >-
       Info add-onu → Hostname, napr. http://XXXXXXX-haos-tinder:8601. Nie haos_tinder ani local-haos-*.
+  badoo_bot_url:
+    name: URL Badoo bota
+    description: >-
+      Info add-onu → Hostname, napr. http://XXXXXXX-haos-badoo:8602. Nie haos_badoo ani local-haos-*.
   elitedate_auto_send:
     name: Elite Date — auto odoslať
     description: >-
@@ -72,17 +76,21 @@ configuration:
     description: >-
       ZAPNUTÉ — vybraná odpoveď sa aj odošle. VYPNUTÉ — len vloží do poľa.
       Rovnaký prepínač je aj v Nastaveniach Tinder bota (Auto odoslať odpoveď).
+  badoo_auto_send:
+    name: Badoo — auto odoslať
+    description: >-
+      Zatiaľ rezervované (odosielanie po overení loginu). Nechaj vypnuté.
   dating_reply_skill:
     name: Skill pre AI návrhy (voliteľné jednoriadkové)
     description: >-
       HA pole je jednoriadkové — na dlhý skill použi veľký editor na webe
-      Orchestrátora (panel / ingress) → „Skill pre AI návrhy (ED + Tinder)“.
+      Orchestrátora (panel / ingress) → „Skill pre AI návrhy (ED + Tinder + Badoo)“.
       Ak sem niečo vložíš, pri štarte sa skopíruje do súboru (prepíše dashboard).
       Prázdne = ponechá uložený skill z dashboardu / vstavaný default.
   google_accounts_enabled:
     name: Google VNC prihlásenie (Gmail + Kalendár)
     description: >-
-      ZAPNUTÉ — spustí noVNC na porte **6082** (Tinder má 6080). Uložiť → Reštart,
+      ZAPNUTÉ — spustí noVNC na porte **6082** (Tinder 6080, Badoo 6081). Uložiť → Reštart,
       otvor http://<IP_HA>:6082/vnc.html, na dashboarde klikni „Prihlásiť cez VNC“.
       V Chromiu sa prihlás na Google — stiahnu sa tokeny na maily aj kalendár.
       Viac Gmail účtov = zopakuj prihlásenie. Potrebný Desktop OAuth JSON
