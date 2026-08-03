@@ -23,7 +23,7 @@ A FastAPI orchestrator (HA add-on) accepts a prompt from the **web dashboard**, 
 | **HAOS Orchestrator** | `haos_orchestrator` | `8000`, noVNC `6082` | API, dashboard, Discord, Gmail/Calendar, HA, weather, TODO |
 | **Elite Date bot** | `haos_elitedate` | `8600` | Selenium + Discord reply handoff |
 | **Tinder bot** | `haos_tinder` | `8601`, noVNC `6080` | Selenium + Discord reply handoff |
-| **Badoo bot** | `haos_badoo` | `8602`, noVNC `6081` | Selenium login (Google via noVNC); inbox/send next |
+| **Badoo bot** | `haos_badoo` | `8602`, noVNC `6081` | Selenium + Discord reply handoff |
 
 Elite Date, Tinder and Badoo are **not** started by the main orchestrator — they are separate add-ons with their own Chromium.
 
@@ -77,9 +77,9 @@ Elite Date, Tinder and Badoo are **not** started by the main orchestrator — th
 - Details: [`tinder_bot/README.md`](tinder_bot/README.md), [`tinder_bot/HAOS_LOGIN.md`](tinder_bot/HAOS_LOGIN.md)
 
 ### Badoo (separate add-on)
-- Same Chrome-profile + noVNC pattern as Tinder
-- First login via noVNC (`6081`) — **Google** (or phone/email)
-- Inbox polling / Discord handoff not wired yet (login milestone first)
+- Same Discord handoff model as Tinder / Elite Date
+- First login via noVNC (`6081`) — **Google**; session in `/data/chrome-profile`
+- Inbox poll → Discord drafts → `/send`
 - Details: [`badoo_bot/README.md`](badoo_bot/README.md), [`badoo_bot/HAOS_LOGIN.md`](badoo_bot/HAOS_LOGIN.md)
 
 ### Background jobs (orchestrator)
@@ -218,11 +218,11 @@ Chrome profile persists under `/data`. After Chrome/startup fixes, a **Docker im
 | `log_level` | `info` | Logging verbosity |
 | `badoo_headless` | `false` on first install | **`false`** = noVNC login on **6081**; **`true`** = headless production |
 | `orchestrator_url` | store default | `http://{hash}-haos-orchestrator:8000` |
-| `poll_enabled` | `false` | Keep off until inbox is implemented |
+| `poll_enabled` | `true` | Inbox polling → Discord |
 | `login_wait_sec` | `600` | How long to wait for Google login when headless is false |
 | `geolocation_enabled` | `true` | Spoof geolocation for the browser |
 | `geolocation_lat` / `geolocation_lon` | optional | Coordinates if geolocation is enabled |
-| `auto_send` | `false` | Reserved for later |
+| `auto_send` | `false` | Bot-local auto-send (OR’d with orchestrator `badoo_auto_send`) |
 
 **First Badoo login (Google via noVNC):**
 

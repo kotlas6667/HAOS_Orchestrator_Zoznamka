@@ -285,8 +285,10 @@ fi
 mkdir -p "$CFG/elitedate" "$CFG/tinder"
 [ -e "$CFG/elitedate_state.json" ] || echo '{"queue":[]}' > "$CFG/elitedate_state.json"
 [ -e "$CFG/tinder_state.json" ] || echo '{"queue":[]}' > "$CFG/tinder_state.json"
+[ -e "$CFG/badoo_state.json" ] || echo '{"queue":[]}' > "$CFG/badoo_state.json"
 ln -sf "$CFG/elitedate_state.json" /app/elitedate_state.json
 ln -sf "$CFG/tinder_state.json" /app/tinder_state.json
+ln -sf "$CFG/badoo_state.json" /app/badoo_state.json
 
 # AI reply skill (HA Nastavenia → shared sidecar; ED + Tinder providers)
 [ -e "$CFG/dating_reply_skill.md" ] || : > "$CFG/dating_reply_skill.md"

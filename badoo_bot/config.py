@@ -16,8 +16,8 @@ class BotSettings(BaseSettings):
 
     orchestrator_url: str = "http://8c003d88-haos-orchestrator:8000"
 
-    # Polling (inbox not wired yet — keep false until next step)
-    poll_enabled: bool = Field(default=False, validation_alias="BADOO_POLL_ENABLED")
+    # Polling
+    poll_enabled: bool = Field(default=True, validation_alias="BADOO_POLL_ENABLED")
     poll_interval_min_sec: float = Field(default=90.0, validation_alias="BADOO_POLL_INTERVAL_MIN_SEC")
     poll_interval_max_sec: float = Field(default=180.0, validation_alias="BADOO_POLL_INTERVAL_MAX_SEC")
 

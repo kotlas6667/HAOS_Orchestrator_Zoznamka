@@ -757,3 +757,43 @@ async def tinder_incoming(request: Request):
         "entry": entry,
         "error": None if discord_ok else "discord_notify_failed",
     }
+
+
+@app.post("/api/badoo/incoming")
+async def badoo_incoming(request: Request):
+    """Called by the badoo_bot process when it finds a new message."""
+    from app.tools import badoo_dispatch
+
+    data = await request.json()
+    conversation_id = data.get("conversation_id", "").strip()
+    sender = data.get("sender", "Neznámy").strip()
+    message = data.get("message", "").strip()
+    my_last_message = data.get("my_last_message", "").strip()
+    submit = bool(data.get("submit", False))
+    history = data.get("history") if isinstance(data.get("history"), list) else []
+    photo_url = str(data.get("photo_url") or "").strip()
+    photo_base64 = str(data.get("photo_base64") or "").strip()
+    photo_content_type = str(data.get("photo_content_type") or "").strip()
+
+    if not conversation_id or not message:
+        return {"status": "error", "error": "conversation_id and message are required"}
+
+    entry = await badoo_dispatch.handle_incoming(
+        conversation_id,
+        sender,
+        message,
+        my_last_message=my_last_message,
+        submit=submit,
+        history=history,
+        photo_url=photo_url,
+        photo_base64=photo_base64,
+        photo_content_type=photo_content_type,
+    )
+    discord_ok = bool(entry.get("prompt_message_id"))
+    return {
+        "status": "success" if discord_ok else "error",
+        "discord": discord_ok,
+        "message_id": entry.get("prompt_message_id"),
+        "entry": entry,
+        "error": None if discord_ok else "discord_notify_failed",
+    }
