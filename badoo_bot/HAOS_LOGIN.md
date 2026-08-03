@@ -9,7 +9,7 @@ Windows/WSL profil **nefunguje** na HAOS (iné šifrovanie cookies). Prihlás sa
 **Doplnky → HAOS Badoo Bot → Nastavenia → Možnosti:**
 
 - `badoo_headless` = **false**
-- `orchestrator_url` = hostname orchestrátora (Info → Hostname)
+- `orchestrator_url` = hostname orchestrátora (Info → Hostname), napr. `http://03146090-haos-orchestrator:8000` — **nie** `8c003d88-…` ak máš iný hash obchodu
 - `login_wait_sec` = `600`
 - `poll_enabled` = **true** (po login milestone; pri prvom logine môžeš dočasne false)
 
