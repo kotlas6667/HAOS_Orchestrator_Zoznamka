@@ -118,8 +118,9 @@ http://{repo_hash}-{slug-with-dashes}:{port}
 | Orchestrator | `http://{hash}-haos-orchestrator:8000` |
 | Elite Date | `http://{hash}-haos-elitedate:8600` |
 | Tinder | `http://{hash}-haos-tinder:8601` |
+| Badoo | `http://{hash}-haos-badoo:8602` |
 
-Recent versions resolve peer URLs via **Supervisor** at startup and rewrite broken defaults. If bots still cannot reach each other, paste Info → Hostname into Settings manually, Save, and restart all three.
+Recent versions resolve peer URLs via **Supervisor** at startup and rewrite broken defaults. If bots still cannot reach each other, paste Info → Hostname into Settings manually, Save, and restart the affected add-ons (orchestrator + Elite Date + Tinder + Badoo).
 
 **Broken hostnames (will not work on GitHub-store installs):**  
 `haos_orchestrator`, `haos-elitedate`, `local-haos-tinder`, etc.
@@ -378,7 +379,7 @@ Issues below are ones this project has already hit in production. Use placeholde
 ### Networking / DNS between add-ons
 - **Symptom:** dating status unreachable, `/send` fails, empty Discord errors after choosing `1`/`2`
 - **Cause:** wrong peer URL (`local-haos-*`, bare `haos_*`, or hash from a different store URL)
-- **Fix:** Add-on → **Info → Hostname** into `elitedate_bot_url` / `tinder_bot_url` / `orchestrator_url` → Save → restart all three
+- **Fix:** Add-on → **Info → Hostname** into `elitedate_bot_url` / `tinder_bot_url` / `badoo_bot_url` / `orchestrator_url` → Save → restart affected add-ons (ED + Tinder + Badoo + orch)
 - Newer builds auto-fix via Supervisor; still verify if something looks stuck
 
 ### Store update does not appear
@@ -386,7 +387,7 @@ Issues below are ones this project has already hit in production. Use placeholde
 - Some Chrome fixes need **Rebuild**, not only Restart
 
 ### Second browser session kills Selenium
-- **Do not** open Elite Date / Tinder in a normal browser while the bot add-on is running
+- **Do not** open Elite Date / Tinder / Badoo in a normal browser while that bot add-on is running
 - Site often drops the other session → poller stops seeing new messages
 - Manual web use: **Stop** the bot add-on first, then start it again afterward
 
@@ -421,7 +422,7 @@ Issues below are ones this project has already hit in production. Use placeholde
 - Everything falls through to weak chat → missing `openai_api_key` (router cannot pick tools)
 
 ### Auto-send confusion
-- Orchestrator flags: `elitedate_auto_send` / `tinder_auto_send`
+- Orchestrator flags: `elitedate_auto_send` / `tinder_auto_send` / `badoo_auto_send` (Badoo send ešte nie)
 - Tinder also has bot-local `auto_send`
 - `false` = insert text only; `true` = actually send
 - Older bugs ignored orchestrator auto-send when queue had `submit=false` — use current versions

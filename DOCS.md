@@ -15,9 +15,11 @@ https://github.com/kotlas6667/HAOS_Orchestrator_Zoznamka
 | Add-on | Port |
 |--------|------|
 | **HAOS Orchestrator** (this one) | `8000`, Google noVNC `6082` |
-| **HAOS Elite Date Bot** | `8600` |
+| **HAOS Elite Date Bot** | `8600` (email/password login, no noVNC) |
 | **HAOS Tinder Bot** | `8601`, Tinder noVNC `6080` |
 | **HAOS Badoo Bot** | `8602`, Badoo noVNC `6081` |
+
+All three dating bots can run at once; Badoo does not replace Elite Date or Tinder.
 
 ## Quick setup
 

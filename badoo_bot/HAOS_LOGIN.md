@@ -48,6 +48,9 @@ curl http://127.0.0.1:8602/debug/page
 
 | Služba | noVNC | API |
 |--------|-------|-----|
+| Elite Date | — (bez noVNC) | 8600 |
 | Tinder | 6080 | 8601 |
 | **Badoo** | **6081** | **8602** |
 | Google (orch) | 6082 | 8000 |
+
+Elite Date, Tinder a Badoo bežia **paralelne** ako tri samostatné add-ony — Badoo nič z ED/Tinderu nenahrádza.

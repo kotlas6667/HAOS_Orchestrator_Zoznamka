@@ -36,7 +36,7 @@ Rules:
   - "Žiadne správy na ed?" / "máme správy na Elite Date?" → service: "elitedate"
   - " Ide Tinder?" / "správy na tinderi" → service: "tinder"
   - "Ide Badoo?" / "správy na badoo" → service: "badoo"
-  - "fungujú zoznamky?" / "ed a tinder" → service: "all"
+  - "fungujú zoznamky?" / "ed a tinder" / "elite date tinder badoo" → service: "all" (probes Elite Date + Tinder + Badoo)
   - Keywords: ed (only with správy/elite/date context), elite date, elite dáte, elitedate, tinder, badoo, zoznamka bots.
 - If the user asks about calendar, schedule, meetings, events, "čo mám dnes", "kedy mám meeting", or wants to create/add an event — use "calendar".
   - Without a named account, today/upcoming merge events from ALL connected Google calendars (each event tagged with account).

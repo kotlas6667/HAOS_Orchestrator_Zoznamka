@@ -1,6 +1,6 @@
 # HAOS Badoo Bot
 
-Samostatný Selenium add-on pre [badoo.com](https://badoo.com). Zrkadlí Tinder bot: prvé prihlásenie cez **noVNC + Google**, session v Chrome profile.
+Samostatný Selenium add-on pre [badoo.com](https://badoo.com). Tretia zoznamka popri **Elite Date** (`8600`) a **Tinder** (`8601`/`6080`) — rovnaký model: prvé prihlásenie cez **noVNC + Google**, session v Chrome profile.
 
 ## Stav
 
@@ -15,6 +15,8 @@ Samostatný Selenium add-on pre [badoo.com](https://badoo.com). Zrkadlí Tinder 
 | `badoo_headless` | **false** (noVNC) | **true** |
 | Port noVNC | **6081** | vypnutý |
 | API | **8602** | **8602** |
+
+Súbežne s Elite Date (`8600`) a Tinderom (`8601` / noVNC `6080`) — Badoo ich nenahrádza.
 
 1. `badoo_headless=false` → Uložiť → Štart  
 2. Otvor `http://<IP_HA>:6081/vnc.html`  
