@@ -69,16 +69,19 @@ async def debug_inbox() -> dict:
                 raw = c.driver.execute_script(
                     _INBOX_ROW_JS
                     + """
-                    const all = Array.from(document.querySelectorAll(
-                      'button[data-qa="connections-item"], [data-qa="connections-item"]'
-                    ));
-                    const items = listConnectionItems();
+                    const all = Array.from(document.querySelectorAll('[data-qa="connections-item"]'));
+                    const users = listConnectionItems();
+                    const rows = users.map(el => inboxRowFromItem(el));
                     return {
                       connections_item_total: all.length,
-                      connections_item_filtered: items.length,
-                      sample_types: all.slice(0, 8).map(el =>
+                      connections_item_users: users.length,
+                      sample_types: all.slice(0, 10).map(el =>
                         el.getAttribute('data-qa-connections-item-type') || ''
                       ),
+                      sample_titles: users.slice(0, 8).map(el => {
+                        const t = el.querySelector('.csms-connections-item__title');
+                        return t ? (t.innerText || '').trim() : '';
+                      }),
                       body_snippet: (document.body && document.body.innerText || '').slice(0, 280),
                     };
                     """
@@ -88,8 +91,9 @@ async def debug_inbox() -> dict:
                     "title": c.driver.title,
                     "items_visible": len(rows),
                     "connections_item_total": raw.get("connections_item_total"),
-                    "connections_item_filtered": raw.get("connections_item_filtered"),
+                    "connections_item_users": raw.get("connections_item_users"),
                     "sample_types": raw.get("sample_types"),
+                    "sample_titles": raw.get("sample_titles"),
                     "senders": [r.get("name") or "<no name>" for r in rows[:20]],
                     "match_ids": [r.get("match_id") or "" for r in rows[:10]],
                     "sample_previews": [(r.get("preview") or "")[:60] for r in rows[:5]],
