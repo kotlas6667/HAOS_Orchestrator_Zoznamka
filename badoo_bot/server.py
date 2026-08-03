@@ -79,9 +79,14 @@ async def debug_inbox() -> dict:
                         el.getAttribute('data-qa-connections-item-type') || ''
                       ),
                       sample_titles: users.slice(0, 8).map(el => {
-                        const t = el.querySelector('.csms-connections-item__title');
+                        const t = el.querySelector(
+                          '[data-qa="profile-info__name"] .csms-profile-info__name-inner, '
+                          + '[data-qa="profile-info__name"]'
+                        );
                         return t ? (t.innerText || '').trim() : '';
                       }),
+                      list_present: !!document.querySelector('ul.csms-connections-list'),
+                      chats_tab_present: !!document.querySelector('button[data-qa="connections"]'),
                       body_snippet: (document.body && document.body.innerText || '').slice(0, 280),
                     };
                     """
