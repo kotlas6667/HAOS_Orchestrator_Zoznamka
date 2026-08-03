@@ -79,9 +79,14 @@ async def debug_inbox() -> dict:
                         el.getAttribute('data-qa-connections-item-type') || ''
                       ),
                       sample_titles: users.slice(0, 8).map(el => {
-                        const t = el.querySelector('.csms-connections-item__title');
+                        const t = el.querySelector(
+                          '[data-qa="profile-info__name"] .csms-profile-info__name-inner, '
+                          + '[data-qa="profile-info__name"]'
+                        );
                         return t ? (t.innerText || '').trim() : '';
                       }),
+                      list_present: !!document.querySelector('ul.csms-connections-list'),
+                      chats_tab_present: !!document.querySelector('button[data-qa="connections"]'),
                       body_snippet: (document.body && document.body.innerText || '').slice(0, 280),
                     };
                     """
@@ -94,6 +99,8 @@ async def debug_inbox() -> dict:
                     "connections_item_users": raw.get("connections_item_users"),
                     "sample_types": raw.get("sample_types"),
                     "sample_titles": raw.get("sample_titles"),
+                    "list_present": raw.get("list_present"),
+                    "chats_tab_present": raw.get("chats_tab_present"),
                     "senders": [r.get("name") or "<no name>" for r in rows[:20]],
                     "match_ids": [r.get("match_id") or "" for r in rows[:10]],
                     "sample_previews": [(r.get("preview") or "")[:60] for r in rows[:5]],

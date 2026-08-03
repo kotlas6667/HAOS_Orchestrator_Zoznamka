@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from selenium.common.exceptions import (
     ElementClickInterceptedException,
@@ -50,9 +52,15 @@ _LOGGED_OUT_PATH_MARKERS = (
     "accounts.youtube.com",
 )
 
-# Inbox = Connections list. Real chats are div[data-qa-connections-item-type=user]
-# (promo/liked-you also use data-qa=connections-item). Title/message use csms-* classes;
-# swipe-menu text ("Unmatch & Block") must NOT be used as the sender name.
+# Real DOM (user-verified):
+# - logged-in: https://fr1.badoo.com/en/encounters
+# - Chats tab: button[data-qa=connections]
+# - list: ul.csms-connections-list > li[data-qa=connections-list-item]
+# - user row: [data-qa=connections-item][data-qa-connections-item-type=user]
+# - name: [data-qa=profile-info__name] .csms-profile-info__name-inner
+# - preview: [data-qa=csms-connections-item__message]
+# - open chat: button[data-qa=connections-item-content]
+# - skip promo + swipe-menu ("Unmatch & Block")
 _INBOX_ROW_JS = r"""
 function reactUserId(el) {
     const key = Object.keys(el || {}).find(k =>
@@ -62,7 +70,6 @@ function reactUserId(el) {
     );
     if (!key) return '';
     let fiber = el[key];
-    // __reactProps may already be props
     if (fiber && fiber.item && fiber.item.user_id) return String(fiber.item.user_id);
     if (fiber && fiber.user && (fiber.user.id || fiber.user.user_id)) {
         return String(fiber.user.id || fiber.user.user_id);
@@ -84,65 +91,49 @@ function reactUserId(el) {
 function isJunkName(name) {
     const n = (name || '').trim().toLowerCase();
     if (!n) return true;
+    if (n === 'badoo') return true; // system / tips account
     if (n.includes('unmatch') || n.includes('block') || n.includes('report')) return true;
     if (n.includes('odblok') || n.includes('odpojiť') || n.includes('odpojit')) return true;
     if (n.includes('liked you') || n.includes('páčiš sa') || n.includes('pacis sa')) return true;
+    if (n.includes('matter of time') || n.includes('someone new likes')) return true;
     return false;
 }
 function isUserConnection(el) {
     const type = (el.getAttribute('data-qa-connections-item-type') || '').toLowerCase();
-    if (type === 'user') return true;
-    if (type === 'liked-you' || type === 'promo-video' || type === 'promo' || type.includes('promo')) {
-        return false;
-    }
+    if (type && type !== 'user') return false;
     if (el.getAttribute('data-qa-feature-card') !== null) return false;
     const cls = String(el.className || '');
     if (cls.includes('csms-connections-item--promo') || cls.includes('--promo')) return false;
-    // Real chat rows always carry js-mw-connections-item (including type=user).
-    if (cls.includes('js-mw-connections-item') && !cls.includes('--promo')) return true;
-    return false;
+    return type === 'user' || cls.includes('csms-connections-item--user');
 }
 function inboxRowFromItem(el) {
-    const titleEl = el.querySelector(
-        '.csms-connections-item__title, [data-qa="connections-item__title"]'
+    const nameEl = el.querySelector(
+        '[data-qa="profile-info__name"] .csms-profile-info__name-inner, '
+        + '[data-qa="profile-info__name"], .csms-profile-info__name-inner'
     );
-    let name = titleEl ? (titleEl.innerText || titleEl.textContent || '').trim() : '';
-    // Name may be "Anna, 25" — keep display name only.
+    let name = nameEl ? (nameEl.innerText || nameEl.textContent || '').trim() : '';
     if (name.includes(',')) {
         const left = name.split(',')[0].trim();
         if (left) name = left;
     }
-    const msgEl = el.querySelector(
-        '[data-qa="csms-connections-item__message"], .csms-connections-item__message, '
-        + '[data-qa="connections-item__message"]'
-    );
-    let preview = '';
-    if (msgEl) {
-        preview = (msgEl.innerText || msgEl.textContent || '').trim();
-    }
-    const lines = (el.innerText || '').split('\n').map(s => s.trim()).filter(Boolean)
-        .filter(l => !isJunkName(l));
-    if (!name) {
-        for (const l of lines) {
-            if (!/^\d{1,2}$/.test(l) && !/^\d{1,2}:\d{2}$/.test(l)) { name = l; break; }
-        }
-    }
-    if (!preview && name && lines.length) {
-        const rest = lines.filter(l =>
-            l !== name &&
-            !l.startsWith(name + ',') &&
-            !/^\d{1,2}:\d{2}$/.test(l) &&
-            !/^\d{1,2}$/.test(l)
-        );
-        preview = rest.join(' ').trim();
-    }
+    const msgEl = el.querySelector('[data-qa="csms-connections-item__message"], .csms-connections-item__message');
+    let preview = msgEl ? (msgEl.innerText || msgEl.textContent || '').trim() : '';
     preview = preview.replace(/\b\d{1,2}:\d{2}\b\s*$/, '').trim();
     if (/^\d{1,2}$/.test(preview) || isJunkName(preview)) preview = '';
-    let matchId = reactUserId(el);
+
+    const openBtn = el.querySelector('button[data-qa="connections-item-content"], .csms-connections-item__user');
+    const domId = (
+        (openBtn && openBtn.getAttribute('aria-describedby')) ||
+        (msgEl && msgEl.id) ||
+        ''
+    ).trim();
+    const numericId = reactUserId(el);
+    // Prefer numeric user_id for /messages/{id}; else stable DOM id for preview cache + click.
+    let matchId = numericId || domId;
     if (!matchId && name && !isJunkName(name)) {
         matchId = 'name:' + name.toLowerCase().replace(/\s+/g, '_').slice(0, 64);
     }
-    return { name, preview, match_id: matchId };
+    return { name, preview, match_id: matchId, numeric_id: numericId || '', dom_id: domId };
 }
 function isRealInboxRow(name, preview) {
     if (!name || !preview) return false;
@@ -151,19 +142,28 @@ function isRealInboxRow(name, preview) {
     if (/^\d{1,2}$/.test(preview)) return false;
     if (pl.includes('start chatting') || pl.includes('začni chat') || pl.includes('zacni chat')) return false;
     if (pl.includes('liked you') || pl.includes('páčiš sa') || pl.includes('pacis sa')) return false;
+    if (pl.includes('welcome back') && name.toLowerCase() === 'badoo') return false;
     return true;
 }
 function listConnectionItems() {
+    const fromList = Array.from(document.querySelectorAll(
+        'ul.csms-connections-list [data-qa="connections-item"][data-qa-connections-item-type="user"], '
+        + 'li[data-qa="connections-list-item"] [data-qa="connections-item"][data-qa-connections-item-type="user"]'
+    ));
+    if (fromList.length) return fromList.filter(isUserConnection);
     return Array.from(document.querySelectorAll(
-        '[data-qa="connections-item"][data-qa-connections-item-type="user"], '
-        + '.js-mw-connections-item[data-qa="connections-item"], '
-        + '[data-qa="connections-item"]'
-    )).filter((el, idx, arr) => arr.indexOf(el) === idx && isUserConnection(el));
+        '[data-qa="connections-item"][data-qa-connections-item-type="user"]'
+    )).filter(isUserConnection);
 }
 function clickConnectionItem(el) {
     if (!el) return false;
-    const target = el.querySelector('.csms-connections-item__content, .csms-connections-item__user, button') || el;
-    target.click();
+    const target = el.querySelector(
+        'button[data-qa="connections-item-content"], .csms-connections-item__user'
+    );
+    if (target) { target.click(); return true; }
+    const content = el.querySelector('.csms-connections-item__content');
+    if (content) { content.click(); return true; }
+    el.click();
     return true;
 }
 """
@@ -258,11 +258,21 @@ class BadooClient:
             pass
 
     def _dismiss_popups(self) -> None:
+        # Rate-app drawer: Close (X) or Cancel — do not interact with stars.
+        for css in (
+            '[data-qa="rate-app"] button[data-qa="modal-close"]',
+            'button[data-qa="modal-close"]',
+            'button[data-qa="modal-action-cancel"]',
+            '[data-qa="rate-app"] button[data-qa="modal-action-cancel"]',
+        ):
+            if self._click_if_present(By.CSS_SELECTOR, css):
+                self._settle(0.6)
+                break
         for by, selector in (
             (By.CSS_SELECTOR, "button[aria-label='Close']"),
             (By.CSS_SELECTOR, "button[aria-label='Zavrieť']"),
             (By.XPATH, "//button[contains(., 'Neskôr') or contains(., 'Later') or contains(., 'Not now')]"),
-            (By.XPATH, "//button[contains(., 'Nie, ďakujem') or contains(., 'No thanks')]"),
+            (By.XPATH, "//button[contains(., 'Nie, ďakujem') or contains(., 'No thanks') or contains(., 'Cancel')]"),
             (By.CSS_SELECTOR, "[data-qa='close']"),
         ):
             self._click_if_present(by, selector)
@@ -270,6 +280,40 @@ class BadooClient:
             self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
         except Exception:  # noqa: BLE001
             pass
+
+    def _site_base(self) -> str:
+        """Preserve regional host + locale, e.g. https://fr1.badoo.com/en."""
+        raw = self._current_url() or settings.badoo_home_url
+        try:
+            parsed = urlparse(raw)
+        except Exception:  # noqa: BLE001
+            return "https://badoo.com"
+        if not parsed.scheme or not parsed.netloc or "badoo.com" not in parsed.netloc.lower():
+            return "https://badoo.com"
+        locale = ""
+        parts = [p for p in (parsed.path or "/").split("/") if p]
+        if parts and re.fullmatch(r"[a-z]{2}(-[a-z]{2})?", parts[0], flags=re.I):
+            locale = "/" + parts[0].lower()
+        return f"{parsed.scheme}://{parsed.netloc}{locale}"
+
+    def _click_chats_tab(self) -> bool:
+        """Open Connections/Chats via bottom tabbar (data-qa=connections)."""
+        try:
+            clicked = self.driver.execute_script(
+                """
+                const tab = document.querySelector('button[data-qa="connections"], [data-qa="connections"]');
+                if (!tab) return false;
+                tab.click();
+                return true;
+                """
+            )
+            if clicked:
+                print("[badoo_bot] Clicked Chats tab (data-qa=connections).")
+                self._settle(1.2)
+                return True
+        except WebDriverException:
+            pass
+        return False
 
     def _is_logged_in(self) -> bool:
         url = self._current_url().lower()
@@ -379,20 +423,26 @@ class BadooClient:
         self.driver.get(settings.badoo_home_url)
         self._wait_for_document_ready()
         self._dismiss_cookie_banner()
+        self._dismiss_popups()
         self._settle()
 
         if self._is_logged_in():
-            print("[badoo_bot] Existing Badoo session detected (profile cookies).")
+            print(f"[badoo_bot] Existing Badoo session detected: {self._current_url()}")
+            self._dismiss_cookie_banner()
+            self._dismiss_popups()
             self._navigate_to_inbox(fast=True)
             return
 
         self.driver.get(settings.badoo_login_url)
         self._wait_for_document_ready()
         self._dismiss_cookie_banner()
+        self._dismiss_popups()
         self._settle()
 
         if self._is_logged_in():
-            print("[badoo_bot] Existing Badoo session detected after signin URL.")
+            print(f"[badoo_bot] Existing Badoo session after signin URL: {self._current_url()}")
+            self._dismiss_cookie_banner()
+            self._dismiss_popups()
             self._navigate_to_inbox(fast=True)
             return
 
@@ -415,8 +465,11 @@ class BadooClient:
                 print(f"[badoo_bot] Login wait URL: {url[:120]}")
                 last_url = url
             self._dismiss_cookie_banner()
+            self._dismiss_popups()
             if self._is_logged_in():
-                print("[badoo_bot] Login detected, session saved to BADOO_USER_DATA_DIR.")
+                print(f"[badoo_bot] Login detected: {self._current_url()}")
+                self._dismiss_cookie_banner()
+                self._dismiss_popups()
                 self._navigate_to_inbox(fast=True)
                 return
             time.sleep(2.0)
@@ -429,32 +482,68 @@ class BadooClient:
     # --- Inbox / chat ---
 
     def _inbox_url(self) -> str:
-        # Badoo messenger list lives under /connections (not /messages anchors).
-        return "https://badoo.com/connections"
+        return f"{self._site_base()}/connections"
 
     def _conversation_url(self, match_id: str) -> str:
         cid = (match_id or "").strip().lstrip("/")
         if cid.startswith("http"):
             return cid
-        if cid.startswith("name:"):
+        # Only numeric Badoo user ids deep-link to /messages/{id}.
+        if not re.fullmatch(r"\d{5,}", cid):
             return ""
-        if "/" in cid:
-            return f"https://badoo.com/{cid}"
-        return f"https://badoo.com/messages/{cid}"
+        return f"{self._site_base()}/messages/{cid}"
+
+    def _on_connections_list(self) -> bool:
+        url = self._current_url().lower()
+        if "/messages/" in url:
+            return False
+        try:
+            return bool(
+                self.driver.execute_script(
+                    """
+                    return !!document.querySelector(
+                      'ul.csms-connections-list, [data-qa="connections-item"][data-qa-connections-item-type="user"]'
+                    );
+                    """
+                )
+            )
+        except WebDriverException:
+            return "/connections" in url
 
     def _navigate_to_inbox(self, *, fast: bool = False) -> None:
-        url = self._current_url().lower()
-        on_connections = "/connections" in url and "/messages/" not in url
-        if on_connections and not fast:
-            self._dismiss_popups()
+        self._dismiss_cookie_banner()
+        self._dismiss_popups()
+
+        if self._on_connections_list() and not fast:
             if self._count_conversation_previews() > 0:
                 return
-        self.driver.get(self._inbox_url())
-        self._wait_for_document_ready()
+
+        # Prefer Chats tab from encounters (same SPA session / regional host).
+        if not self._on_connections_list():
+            if not self._click_chats_tab():
+                self.driver.get(self._inbox_url())
+                self._wait_for_document_ready()
+
         self._dismiss_cookie_banner()
         self._dismiss_popups()
         self._settle(1.5 if fast else settings.page_settle_sec)
+
+        if not self._on_connections_list():
+            # Tab may need a second click after encounters hydrate.
+            self._click_chats_tab()
+            self._settle(1.0)
+            if not self._on_connections_list():
+                self.driver.get(self._inbox_url())
+                self._wait_for_document_ready()
+                self._dismiss_cookie_banner()
+                self._dismiss_popups()
+                self._settle(1.5)
+
         self._wait_for_inbox_rows(timeout=20.0 if fast else settings.wait_timeout_sec)
+        print(
+            f"[badoo_bot] Inbox ready url={self._current_url()} "
+            f"rows={self._count_conversation_previews()}"
+        )
 
     def _count_conversation_previews(self) -> int:
         count = self.driver.execute_script(
@@ -501,21 +590,23 @@ class BadooClient:
             self.driver.execute_script(
                 """
                 const sels = [
+                  'ul.csms-connections-list',
                   '.connections__items',
                   '.connections-items',
                   '[class*="connections__items"]',
                   '[class*="connections-items"]',
-                  '[data-qa*="connections"]',
                   'main',
                   '[role="main"]',
                 ];
                 let grid = null;
                 for (const sel of sels) {
                   const el = document.querySelector(sel);
-                  if (el && el.scrollHeight > el.clientHeight + 40) {
-                    grid = el;
-                    break;
-                  }
+                  if (!el) continue;
+                  const scrollParent = el.closest('[class*="scroll"], .csms-modal__scrollable, main') || el.parentElement || el;
+                  const candidate = (scrollParent.scrollHeight > scrollParent.clientHeight + 40)
+                    ? scrollParent
+                    : (el.scrollHeight > el.clientHeight + 40 ? el : null);
+                  if (candidate) { grid = candidate; break; }
                 }
                 if (!grid) grid = document.scrollingElement;
                 if (!grid) return false;
@@ -566,6 +657,14 @@ class BadooClient:
         if not cid:
             raise RuntimeError("Empty Badoo conversation_id")
 
+        # Prefer clicking the Connections row (stable for DOM ids like user-5104cb9d).
+        self._navigate_to_inbox()
+        if self._click_connection_item(cid):
+            self._settle()
+            self._dismiss_popups()
+            self._wait_for_chat_messages()
+            return
+
         deep = self._conversation_url(cid)
         if deep:
             self.driver.get(deep)
@@ -576,12 +675,7 @@ class BadooClient:
                 self._wait_for_chat_messages()
                 return
 
-        self._navigate_to_inbox()
-        if not self._click_connection_item(cid):
-            raise RuntimeError(f"Badoo conversation not found in connections: {cid}")
-        self._settle()
-        self._dismiss_popups()
-        self._wait_for_chat_messages()
+        raise RuntimeError(f"Badoo conversation not found in connections: {cid}")
 
     def _wait_for_chat_messages(self, timeout: float | None = None) -> None:
         deadline = time.time() + (timeout if timeout is not None else settings.wait_timeout_sec)
