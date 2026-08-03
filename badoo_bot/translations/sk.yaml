@@ -18,7 +18,8 @@ configuration:
   poll_enabled:
     name: Automatické sledovanie správ
     description: >-
-      Zatiaľ nechaj VYPNUTÉ — inbox polling príde v ďalšom kroku po overení loginu.
+      ZAPNUTÉ — bot pravidelne (cca 90–180 s) kontroluje nové Badoo správy
+      a posiela ich orchestrátoru (Discord návrhy). VYPNUTÉ len pri ladení.
   login_wait_sec:
     name: Čakanie na prihlásenie (sekundy)
     description: >-
@@ -37,7 +38,8 @@ configuration:
   auto_send:
     name: Auto odoslať odpoveď
     description: >-
-      Zatiaľ neaktívne (odosielanie správ príde neskôr). Nechaj vypnuté.
+      ZAPNUTÉ — keď v Discorde zvolíš 1/2/3, bot text aj ODOŠLE.
+      VYPNUTÉ — len vloží text do poľa (alebo zapni Badoo auto odoslať v Orchestrátore).
 
 network:
   8602/tcp: HTTP API bota — /health, neskôr odoslanie odpovedí

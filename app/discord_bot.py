@@ -154,7 +154,7 @@ class OrchestratorDiscordClient(discord.Client):
             # that contains a known dating-app keyword (e.g. "Elite Date", "Tinder").
             # This prevents any standalone "1"/"2"/"3" message from accidentally
             # hijacking normal LLM routing.
-            from app.tools import elitedate_dispatch, tinder_dispatch
+            from app.tools import badoo_dispatch, elitedate_dispatch, tinder_dispatch
 
             replied_to_message_id: str | None = None
             _is_dating_reply = False
@@ -170,14 +170,16 @@ class OrchestratorDiscordClient(discord.Client):
                     _is_dating_reply = any(kw in ref_content for kw in _DATING_KEYWORDS)
                     LOGGER.info(f"Reply detected to message: {ref_content[:100]}... -> is_dating={_is_dating_reply}")
                     # Prefer the dispatcher for the specific app named in the
-                    # referenced message; fall back to trying both when the
+                    # referenced message; fall back to trying all when the
                     # reference only matched the generic "Vlákno:" marker.
-                    if "Tinder" in ref_content:
+                    if "Badoo" in ref_content:
+                        _dating_dispatchers = (badoo_dispatch,)
+                    elif "Tinder" in ref_content:
                         _dating_dispatchers = (tinder_dispatch,)
                     elif "Elite Date" in ref_content:
                         _dating_dispatchers = (elitedate_dispatch,)
                     elif _is_dating_reply:
-                        _dating_dispatchers = (elitedate_dispatch, tinder_dispatch)
+                        _dating_dispatchers = (elitedate_dispatch, tinder_dispatch, badoo_dispatch)
                 except Exception as exc:  # noqa: BLE001
                     LOGGER.warning(f"Could not fetch referenced message: {exc}")
 
@@ -198,8 +200,12 @@ class OrchestratorDiscordClient(discord.Client):
 
             # Bare "4" / "Navrhni ďalšie odpovede" without Discord Reply:
             # regenerate for the conversation currently awaiting selection.
-            if tinder_dispatch.is_regenerate_request(prompt) or elitedate_dispatch.is_regenerate_request(prompt):
-                for dispatcher in (tinder_dispatch, elitedate_dispatch):
+            if (
+                tinder_dispatch.is_regenerate_request(prompt)
+                or elitedate_dispatch.is_regenerate_request(prompt)
+                or badoo_dispatch.is_regenerate_request(prompt)
+            ):
+                for dispatcher in (tinder_dispatch, elitedate_dispatch, badoo_dispatch):
                     dating_reply = await dispatcher.handle_selection(prompt)
                     if dating_reply is not None:
                         LOGGER.info("Processing bare dating regenerate request via %s", dispatcher.__name__)
@@ -207,7 +213,7 @@ class OrchestratorDiscordClient(discord.Client):
                         self._add_to_history(message.author.id, prompt, dating_reply)
                         return
                 empty_reply = (
-                    "ℹ️ Momentálne nie je vo fronte žiadna Tinder/Elite Date konverzácia, "
+                    "ℹ️ Momentálne nie je vo fronte žiadna Tinder/Elite Date/Badoo konverzácia, "
                     "pre ktorú by som mohol navrhnúť nové odpovede."
                 )
                 await message.channel.send(empty_reply)

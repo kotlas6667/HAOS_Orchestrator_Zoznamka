@@ -12,7 +12,7 @@ configuration:
     description: HAOS Orchestrator add-on URL in HA Docker network.
   poll_enabled:
     name: Message polling
-    description: Keep OFF for now — inbox comes after login is verified.
+    description: ON — bot polls Badoo for new messages and forwards them to the orchestrator.
   login_wait_sec:
     name: Login wait timeout (seconds)
     description: How long to wait for noVNC Google login (default 600).
@@ -27,7 +27,9 @@ configuration:
     description: Geolocation longitude (default Bratislava).
   auto_send:
     name: Auto-send reply
-    description: Not used yet — keep OFF until send is implemented.
+    description: >-
+      ON — Discord choice 1/2/3 also clicks Send.
+      OFF — only inserts text into the input box.
 
 network:
   8602/tcp: Bot HTTP API — /health

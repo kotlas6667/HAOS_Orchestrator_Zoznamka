@@ -46,7 +46,7 @@ BADOO_BOT_PORT=8602
 # GitHub-store DNS = {repo_hash}-haos-orchestrator (nie local- / haos_)
 ORCHESTRATOR_URL=http://8c003d88-haos-orchestrator:8000
 
-BADOO_POLL_ENABLED=false
+BADOO_POLL_ENABLED=true
 BADOO_AUTO_SEND=false
 BADOO_POLL_INTERVAL_MIN_SEC=90
 BADOO_POLL_INTERVAL_MAX_SEC=180

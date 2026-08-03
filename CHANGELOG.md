@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.30] / Badoo [1.1.0] - 2026-08-03
+
+### Added
+- **Badoo inbox + Discord handoff** (ako Tinder): poll → `POST /api/badoo/incoming` → GPT návrhy →
+  Discord `1/2/3/4` → `POST /send`
+- `badoo_dispatch` / `badoo_state.json` / `badoo_reply_provider`; Discord routing podľa „Badoo“ v prompte
+- Default `poll_enabled=true` po overení loginu; Elite Date a Tinder bezo zmeny
+
 ## [1.2.29] / Badoo [1.0.0] - 2026-08-03
 
 ### Added

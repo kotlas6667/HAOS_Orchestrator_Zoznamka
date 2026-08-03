@@ -1,12 +1,12 @@
 # HAOS Badoo Bot
 
-Samostatný Selenium add-on pre [badoo.com](https://badoo.com). Tretia zoznamka popri **Elite Date** (`8600`) a **Tinder** (`8601`/`6080`) — rovnaký model: prvé prihlásenie cez **noVNC + Google**, session v Chrome profile.
+Samostatný Selenium add-on pre [badoo.com](https://badoo.com). Tretia zoznamka popri **Elite Date** (`8600`) a **Tinder** (`8601`/`6080`) — rovnaký model: noVNC login, inbox poll, Discord návrhy odpovedí.
 
 ## Stav
 
 - ✅ Login (noVNC / Google / profile reuse)
-- ⏳ Inbox polling + Discord handoff (ďalší krok)
-- ⏳ `/send` odpovede
+- ✅ Inbox polling → orchestrátor → Discord
+- ✅ `/send` po výbere `1`/`2`/`3`/`4` v Discorde
 
 ## Prvé prihlásenie
 
@@ -19,9 +19,10 @@ Samostatný Selenium add-on pre [badoo.com](https://badoo.com). Tretia zoznamka 
 Súbežne s Elite Date (`8600`) a Tinderom (`8601` / noVNC `6080`) — Badoo ich nenahrádza.
 
 1. `badoo_headless=false` → Uložiť → Štart  
-2. Otvor `http://<IP_HA>:6081/vnc.html`  
+2. Otvor `http://<IP_HA>:6081/vnc.html` (cez Tailscale: `http://<TAILSCALE_IP>:6081/vnc.html`)  
 3. Prihlás sa **cez Google**  
 4. Po `Login detected` v logu: `badoo_headless=true` → Reštart  
+5. Zapni `poll_enabled=true` (default od 1.1.0)
 
 Detail: [HAOS_LOGIN.md](HAOS_LOGIN.md)
 
@@ -29,10 +30,11 @@ Detail: [HAOS_LOGIN.md](HAOS_LOGIN.md)
 
 | HA option | Env | Default |
 |-----------|-----|---------|
-| `badoo_headless` | `BADOO_HEADLESS` | false (first install) |
+| `badoo_headless` | `BADOO_HEADLESS` | true (po prvom logine) |
 | `orchestrator_url` | `ORCHESTRATOR_URL` | `{hash}-haos-orchestrator:8000` |
-| `poll_enabled` | `BADOO_POLL_ENABLED` | **false** (zatiaľ) |
+| `poll_enabled` | `BADOO_POLL_ENABLED` | **true** |
 | `login_wait_sec` | `BADOO_LOGIN_WAIT_SEC` | 600 |
+| `auto_send` | `BADOO_AUTO_SEND` | false |
 | (fixed) | `BADOO_USER_DATA_DIR` | `/data/chrome-profile` |
 | | `BADOO_BOT_PORT` | 8602 |
 
@@ -41,5 +43,8 @@ Detail: [HAOS_LOGIN.md](HAOS_LOGIN.md)
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/health` | `logged_in`, `session_alive` |
-| GET | `/debug/page` | Current URL / body snippet |
-| POST | `/send` | Placeholder (zatiaľ error) |
+| GET | `/debug/page` | Current URL / body |
+| GET | `/debug/inbox` | Inbox snapshot |
+| POST | `/debug/poll` | One inbox check |
+| POST | `/debug/push-discord` | Manual → orchestrator |
+| POST | `/send` | Orchestrator reply insert/send |
