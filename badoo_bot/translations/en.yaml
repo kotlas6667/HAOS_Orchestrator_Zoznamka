@@ -1,0 +1,34 @@
+configuration:
+  log_level:
+    name: Log level
+    description: Log verbosity. Keep info for normal operation.
+  badoo_headless:
+    name: Headless mode (no noVNC)
+    description: >-
+      OFF (false) — first login via noVNC on port 6081 (Google).
+      ON (true) — normal operation after session is saved.
+  orchestrator_url:
+    name: Orchestrator URL
+    description: HAOS Orchestrator add-on URL in HA Docker network.
+  poll_enabled:
+    name: Message polling
+    description: Keep OFF for now — inbox comes after login is verified.
+  login_wait_sec:
+    name: Login wait timeout (seconds)
+    description: How long to wait for noVNC Google login (default 600).
+  geolocation_enabled:
+    name: Geolocation for Badoo
+    description: ON — browser sends GPS coordinates to Badoo.
+  geolocation_lat:
+    name: Latitude
+    description: Geolocation latitude (default Bratislava).
+  geolocation_lon:
+    name: Longitude
+    description: Geolocation longitude (default Bratislava).
+  auto_send:
+    name: Auto-send reply
+    description: Not used yet — keep OFF until send is implemented.
+
+network:
+  8602/tcp: Bot HTTP API — /health
+  6081/tcp: noVNC — first Google login only when headless is off

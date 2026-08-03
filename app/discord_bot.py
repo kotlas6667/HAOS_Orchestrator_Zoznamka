@@ -30,15 +30,21 @@ _ED_WORD_RE = re.compile(
 
 
 def _dating_status_service(prompt: str) -> str | None:
-    """Ak prompt hovorí o Elite Date / ED / Tinder, vráť service pre dating_status."""
+    """Ak prompt hovorí o Elite Date / ED / Tinder / Badoo, vráť service pre dating_status."""
     lowered = prompt.lower().strip()
     has_elite = bool(_ELITE_DATE_RE.search(lowered))
     has_ed = bool(_ED_WORD_RE.search(lowered))
     has_tinder = "tinder" in lowered
+    has_badoo = "badoo" in lowered
+    named = sum(bool(x) for x in (has_elite or has_ed, has_tinder, has_badoo))
+    if named >= 2:
+        return "all"
     if has_elite or has_ed:
-        return "both" if has_tinder else "elitedate"
+        return "elitedate"
     if has_tinder:
         return "tinder"
+    if has_badoo:
+        return "badoo"
     return None
 
 

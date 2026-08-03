@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.29] / Badoo [1.0.0] - 2026-08-03
+
+### Added
+- **HAOS Badoo Bot** (`badoo_bot/`, slug `haos_badoo`): prvé prihlásenie cez noVNC **6081** + Google,
+  Chrome profil `/data/chrome-profile`, API **8602** (`/health`, `/debug/page`)
+- Orchestrátor: `badoo_bot_url` / `badoo_auto_send`, DNS resolve, `dating_status` probe pre Badoo
+- Inbox polling a Discord handoff zatiaľ nie — ďalší krok po overení loginu
+
 ## [1.2.28] / Elite Date [1.3.17] / Tinder [1.2.20] - 2026-07-25
 
 ### Added

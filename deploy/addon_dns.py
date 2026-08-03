@@ -28,12 +28,15 @@ _BROKEN_HOSTS = {
     "haos_orchestrator",
     "haos_elitedate",
     "haos_tinder",
+    "haos_badoo",
     "haos-orchestrator",
     "haos-elitedate",
     "haos-tinder",
+    "haos-badoo",
     "local-haos-orchestrator",
     "local-haos-elitedate",
     "local-haos-tinder",
+    "local-haos-badoo",
 }
 
 _HASH_PREFIX_RE = re.compile(r"^([0-9a-f]{8})-haos-", re.IGNORECASE)

@@ -1,0 +1,44 @@
+configuration:
+  log_level:
+    name: Úroveň logu
+    description: >-
+      Podrobnosť logov add-onu. Pre bežnú prevádzku nechaj info.
+  badoo_headless:
+    name: Headless režim (bez noVNC)
+    description: >-
+      VYPNUTÉ (false) — prvé prihlásenie: spustí noVNC na porte 6081.
+      Otvor http://<IP_HA>:6081/vnc.html, prihlás sa cez Google.
+      Po riadku „Login detected“ v logu ZAPNI (true) a reštartuj add-on.
+      ZAPNUTÉ (true) — bežná prevádzka: Chromium beží na pozadí, port 6081 netreba.
+  orchestrator_url:
+    name: URL orchestrátora
+    description: >-
+      Info orchestrátora → Hostname (napr. http://03146090-haos-orchestrator:8000).
+      Hash prefix závisí od URL tvojho Obchodu. Nie haos_orchestrator.
+  poll_enabled:
+    name: Automatické sledovanie správ
+    description: >-
+      Zatiaľ nechaj VYPNUTÉ — inbox polling príde v ďalšom kroku po overení loginu.
+  login_wait_sec:
+    name: Čakanie na prihlásenie (sekundy)
+    description: >-
+      Koľko sekúnd má bot počkať na dokončenie Google prihlásenia cez noVNC
+      (len keď je headless vypnutý). Pri prvom prihlásení nechaj 600 (10 min).
+  geolocation_enabled:
+    name: Geolokácia pre Badoo
+    description: >-
+      ZAPNUTÉ — Chromium posiela GPS súradnice do Badoo.
+  geolocation_lat:
+    name: Zemepisná šírka (lat)
+    description: Default 48.1486 (Bratislava).
+  geolocation_lon:
+    name: Zemepisná dĺžka (lon)
+    description: Default 17.1077 (Bratislava).
+  auto_send:
+    name: Auto odoslať odpoveď
+    description: >-
+      Zatiaľ neaktívne (odosielanie správ príde neskôr). Nechaj vypnuté.
+
+network:
+  8602/tcp: HTTP API bota — /health, neskôr odoslanie odpovedí
+  6081/tcp: noVNC — otvor /vnc.html len pri prvom prihlásení (headless režim vypnutý)

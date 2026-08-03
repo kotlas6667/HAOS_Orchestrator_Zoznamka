@@ -265,11 +265,12 @@ async def lifespan(app: FastAPI):
 
         print(
             f"[dating] configured URLs: elitedate={settings.elitedate_bot_url} "
-            f"tinder={settings.tinder_bot_url}"
+            f"tinder={settings.tinder_bot_url} badoo={settings.badoo_bot_url}"
         )
         targets = (
             ("Elite Date", settings.elitedate_bot_url, "haos_elitedate", 8600),
             ("Tinder", settings.tinder_bot_url, "haos_tinder", 8601),
+            ("Badoo", settings.badoo_bot_url, "haos_badoo", 8602),
         )
         failures: list[str] = []
         for label, base, slug, port in targets:

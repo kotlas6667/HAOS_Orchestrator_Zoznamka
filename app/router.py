@@ -18,7 +18,7 @@ Available tools:
 - homeassistant: Control smart home devices and automations. Params: {"action": "get_state|list_entities|turn_on|turn_off|toggle|call_service|list_automations|trigger_automation", "search": "<room/device keywords, e.g. 'svetlo pracovna'>", "domain": "<domain, only for call_service>", "service": "<service name, only for call_service>"}
 - todo: Personal task/TODO list. Params: {"action": "add|list|complete|remove|clear_done", "task": "<task text for add>", "id": <task number for complete/remove>}
 - messages: Send a message via Discord/Slack/webhook. Params: {"destination": "<channel>", "message": "<text>"}
-- dating_status: Check Elite Date / Tinder bot online status and pending reply queues. Params: {"service": "elitedate|tinder|both"}
+- dating_status: Check Elite Date / Tinder / Badoo bot online status and pending reply queues. Params: {"service": "elitedate|tinder|badoo|all"}
 - chat: General conversation, questions, help. Params: {}
 
 Rules:
@@ -32,11 +32,12 @@ Rules:
   - If the user names a specific Gmail address / account (e.g. "emaily z tomas@gmail.com", "inbox na práci"), set params.account to that address.
   - "aké mám gmail účty?" / "ktoré emaily sú pripojené?" → action: "accounts".
   - If no account is named, omit "account" — tool aggregates fetch/count across ALL connected Google accounts.
-- If the user asks about Elite Date / Tinder dating bots (status, online, new messages, "správy na ed", "elite date", "elite dáte", "elitedate", "tinder") — use "dating_status", NOT gmail.
+- If the user asks about Elite Date / Tinder / Badoo dating bots (status, online, new messages, "správy na ed", "elite date", "elite dáte", "elitedate", "tinder", "badoo") — use "dating_status", NOT gmail.
   - "Žiadne správy na ed?" / "máme správy na Elite Date?" → service: "elitedate"
   - " Ide Tinder?" / "správy na tinderi" → service: "tinder"
-  - "fungujú zoznamky?" / "ed a tinder" → service: "both"
-  - Keywords: ed (only with správy/elite/date context), elite date, elite dáte, elitedate, tinder, zoznamka bots.
+  - "Ide Badoo?" / "správy na badoo" → service: "badoo"
+  - "fungujú zoznamky?" / "ed a tinder" → service: "all"
+  - Keywords: ed (only with správy/elite/date context), elite date, elite dáte, elitedate, tinder, badoo, zoznamka bots.
 - If the user asks about calendar, schedule, meetings, events, "čo mám dnes", "kedy mám meeting", or wants to create/add an event — use "calendar".
   - Without a named account, today/upcoming merge events from ALL connected Google calendars (each event tagged with account).
   - If the user names an account/email for calendar, set params.account.
