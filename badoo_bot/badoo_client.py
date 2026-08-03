@@ -50,71 +50,79 @@ _LOGGED_OUT_PATH_MARKERS = (
     "accounts.youtube.com",
 )
 
-# Inbox row extraction — Badoo uses /messages/{id} and csms-* classes.
-_INBOX_ROW_JS = """
-function inboxRowFromAnchor(a) {
-    const href = a.href || a.getAttribute('href') || '';
-    let name = '';
-    const nameEl =
-        a.querySelector('[data-qa="conversation-name"]') ||
-        a.querySelector('[class*="name"]') ||
-        a.querySelector('h2, h3, strong') ||
-        a.querySelector('[class*="csms"] span');
-    if (nameEl) name = (nameEl.innerText || nameEl.textContent || '').trim();
-    let preview = '';
-    const previewEl =
-        a.querySelector('[data-qa="conversation-preview"]') ||
-        a.querySelector('[class*="preview"]') ||
-        a.querySelector('[class*="snippet"]') ||
-        a.querySelector('[class*="message-text"]') ||
-        a.querySelector('p');
-    if (previewEl) preview = (previewEl.innerText || previewEl.textContent || '').trim();
-    if (!name || !preview) {
-        const lines = (a.innerText || '').split('\\n').map(s => s.trim()).filter(Boolean);
-        if (!name && lines.length) name = lines[0];
-        if (!preview && lines.length > 1) preview = lines.slice(1).join(' ').trim();
+# Inbox = Connections list: button[data-qa=connections-item] (NOT /messages/ anchors).
+_INBOX_ROW_JS = r"""
+function reactUserId(el) {
+    const key = Object.keys(el || {}).find(k =>
+        k.startsWith('__reactFiber') ||
+        k.startsWith('__reactInternalInstance') ||
+        k.startsWith('__reactProps')
+    );
+    if (!key) return '';
+    let fiber = el[key];
+    // __reactProps may already be props
+    if (fiber && fiber.item && fiber.item.user_id) return String(fiber.item.user_id);
+    if (fiber && fiber.userId) return String(fiber.userId);
+    for (let i = 0; i < 50 && fiber; i++) {
+        const p = fiber.memoizedProps || fiber.pendingProps || fiber;
+        if (!p || typeof p !== 'object') { fiber = fiber.return; continue; }
+        if (p.item && (p.item.user_id || (p.item.user && p.item.user.user_id))) {
+            return String(p.item.user_id || p.item.user.user_id);
+        }
+        if (p.user && (p.user.id || p.user.user_id)) return String(p.user.id || p.user.user_id);
+        if (p.userId) return String(p.userId);
+        if (p.id && /^\d{5,}$/.test(String(p.id))) return String(p.id);
+        fiber = fiber.return;
     }
-    // Drop timestamp-only trailing bits commonly shown in inbox.
-    preview = preview.replace(/\\b\\d{1,2}:\\d{2}\\b\\s*$/, '').trim();
-    return { name, preview, href };
+    return '';
+}
+function isPromoConnection(el) {
+    const type = (el.getAttribute('data-qa-connections-item-type') || '').toLowerCase();
+    if (type === 'liked-you' || type === 'promo-video' || type.includes('promo')) return true;
+    if (el.getAttribute('data-qa-feature-card') !== null) return true;
+    if ((el.className || '').includes('promo')) return true;
+    return false;
+}
+function inboxRowFromItem(el) {
+    const titleEl = el.querySelector('[data-qa="connections-item__title"]');
+    let name = titleEl ? (titleEl.innerText || titleEl.textContent || '').trim() : '';
+    const msgEl = el.querySelector(
+        '[data-qa="connections-item__message"], [data-qa*="display_message"], '
+        + '[class*="display_message"], [class*="connections-item__message"]'
+    );
+    let preview = msgEl ? (msgEl.innerText || msgEl.textContent || '').trim() : '';
+    const lines = (el.innerText || '').split('\n').map(s => s.trim()).filter(Boolean);
+    if (!name && lines.length) name = lines[0];
+    // Preview = remaining text after the title line (display_message).
+    if (!preview && name && lines.length) {
+        const rest = lines.filter(l => l !== name && !/^\d{1,2}:\d{2}$/.test(l));
+        preview = rest.filter(l => !(l === name || l.startsWith(name + ','))).join(' ').trim();
+    }
+    if (!preview && lines.length > 1) {
+        preview = lines.slice(1).join(' ').trim();
+    }
+    preview = preview.replace(/\b\d{1,2}:\d{2}\b\s*$/, '').trim();
+    // Drop lone age crumbs ("25") that are not real message previews.
+    if (/^\d{1,2}$/.test(preview)) preview = '';
+    let matchId = reactUserId(el);
+    if (!matchId) {
+        // Stable fallback so preview cache still works until React fiber exposes id.
+        matchId = 'name:' + name.toLowerCase().replace(/\s+/g, '_').slice(0, 64);
+    }
+    return { name, preview, match_id: matchId };
 }
 function isRealInboxRow(name, preview) {
     if (!name || !preview) return false;
     const pl = preview.toLowerCase();
-    if (pl.includes('start chatting') || pl.includes('začni chat')) return false;
-    if (pl.includes('new connection') || pl.includes('nové spojenie') || pl.includes('nove spojenie')) return false;
+    if (/^\d{1,2}$/.test(preview)) return false;
+    if (pl.includes('start chatting') || pl.includes('začni chat') || pl.includes('zacni chat')) return false;
+    if (pl.includes('liked you') || pl.includes('páčiš sa') || pl.includes('pacis sa')) return false;
     return true;
 }
-function listInboxAnchors() {
-    const sels = [
-        "a[href*='/messages/']",
-        "a[href*='/connections/']",
-        "[data-qa='conversation-item'] a",
-        "[data-qa='conversation'] a",
-        "[class*='csms-conversation'] a",
-        "[class*='conversation-item'] a",
-    ];
-    const seen = new Set();
-    const out = [];
-    for (const sel of sels) {
-        for (const a of document.querySelectorAll(sel)) {
-            const href = (a.href || a.getAttribute('href') || '').split('?')[0];
-            if (!href || seen.has(href)) continue;
-            if (!/\\/(messages|connections)\\//.test(href)) continue;
-            seen.add(href);
-            out.push(a);
-        }
-    }
-    // Fallback: clickable rows that look like conversations
-    if (!out.length) {
-        for (const el of document.querySelectorAll('[data-qa*="conversation"], [class*="csms-conversation"], [role="listitem"] a')) {
-            const href = (el.href || el.getAttribute('href') || '').split('?')[0];
-            if (!href || seen.has(href)) continue;
-            seen.add(href);
-            out.push(el);
-        }
-    }
-    return out;
+function listConnectionItems() {
+    return Array.from(document.querySelectorAll(
+        'button[data-qa="connections-item"], [data-qa="connections-item"]'
+    )).filter(el => !isPromoConnection(el));
 }
 """
 
@@ -378,24 +386,28 @@ class BadooClient:
 
     # --- Inbox / chat ---
 
-    def _messages_url(self) -> str:
-        return "https://badoo.com/messages"
+    def _inbox_url(self) -> str:
+        # Badoo messenger list lives under /connections (not /messages anchors).
+        return "https://badoo.com/connections"
 
     def _conversation_url(self, match_id: str) -> str:
         cid = (match_id or "").strip().lstrip("/")
         if cid.startswith("http"):
             return cid
+        if cid.startswith("name:"):
+            return ""
         if "/" in cid:
             return f"https://badoo.com/{cid}"
         return f"https://badoo.com/messages/{cid}"
 
     def _navigate_to_inbox(self, *, fast: bool = False) -> None:
         url = self._current_url().lower()
-        if "/messages" in url and not fast:
+        on_connections = "/connections" in url and "/messages/" not in url
+        if on_connections and not fast:
             self._dismiss_popups()
             if self._count_conversation_previews() > 0:
                 return
-        self.driver.get(self._messages_url())
+        self.driver.get(self._inbox_url())
         self._wait_for_document_ready()
         self._dismiss_cookie_banner()
         self._dismiss_popups()
@@ -406,8 +418,8 @@ class BadooClient:
         count = self.driver.execute_script(
             _INBOX_ROW_JS
             + """
-            return listInboxAnchors().filter(a => {
-                const row = inboxRowFromAnchor(a);
+            return listConnectionItems().filter(el => {
+                const row = inboxRowFromItem(el);
                 return isRealInboxRow(row.name, row.preview);
             }).length;
             """
@@ -426,17 +438,18 @@ class BadooClient:
         rows = self.driver.execute_script(
             _INBOX_ROW_JS
             + """
-            return listInboxAnchors().map(a => {
-                const row = inboxRowFromAnchor(a);
-                const href = (row.href || '').split('?')[0];
-                const parts = href.replace(/\\/$/, '').split('/');
-                let matchId = parts.pop() || '';
-                // Keep a stable id; prefer last path segment.
-                const top = a.getBoundingClientRect().top;
-                return { match_id: matchId, name: row.name, preview: row.preview, href, top };
+            return listConnectionItems().map(el => {
+                const row = inboxRowFromItem(el);
+                const top = el.getBoundingClientRect().top;
+                return {
+                  match_id: row.match_id,
+                  name: row.name,
+                  preview: row.preview,
+                  top
+                };
             }).filter(row => isRealInboxRow(row.name, row.preview))
               .sort((a, b) => a.top - b.top)
-              .map(({ top, href, ...row }) => row);
+              .map(({ top, ...row }) => row);
             """
         )
         return rows if isinstance(rows, list) else []
@@ -445,12 +458,24 @@ class BadooClient:
         return bool(
             self.driver.execute_script(
                 """
-                const grid =
-                    document.querySelector('[class*="csms-conversation"]') ||
-                    document.querySelector('[data-qa*="conversation-list"]') ||
-                    document.querySelector('[class*="messages-list"]') ||
-                    document.querySelector('main') ||
-                    document.scrollingElement;
+                const sels = [
+                  '.connections__items',
+                  '.connections-items',
+                  '[class*="connections__items"]',
+                  '[class*="connections-items"]',
+                  '[data-qa*="connections"]',
+                  'main',
+                  '[role="main"]',
+                ];
+                let grid = null;
+                for (const sel of sels) {
+                  const el = document.querySelector(sel);
+                  if (el && el.scrollHeight > el.clientHeight + 40) {
+                    grid = el;
+                    break;
+                  }
+                }
+                if (!grid) grid = document.scrollingElement;
                 if (!grid) return false;
                 const before = grid.scrollTop || 0;
                 grid.scrollTop = before + Math.max(300, (grid.clientHeight || 600) * 0.8);
@@ -476,11 +501,45 @@ class BadooClient:
             time.sleep(0.35)
         return merged
 
+    def _click_connection_item(self, match_id: str) -> bool:
+        return bool(
+            self.driver.execute_script(
+                _INBOX_ROW_JS
+                + """
+                const want = String(arguments[0] || '');
+                for (const el of listConnectionItems()) {
+                  const row = inboxRowFromItem(el);
+                  if (row && row.match_id === want) {
+                    el.click();
+                    return true;
+                  }
+                }
+                return false;
+                """,
+                match_id,
+            )
+        )
+
     def _open_conversation(self, match_id: str) -> None:
-        self.driver.get(self._conversation_url(match_id))
-        self._wait_for_document_ready()
-        self._dismiss_popups()
+        cid = (match_id or "").strip()
+        if not cid:
+            raise RuntimeError("Empty Badoo conversation_id")
+
+        deep = self._conversation_url(cid)
+        if deep:
+            self.driver.get(deep)
+            self._wait_for_document_ready()
+            self._dismiss_popups()
+            self._settle()
+            if "/messages/" in self._current_url().lower():
+                self._wait_for_chat_messages()
+                return
+
+        self._navigate_to_inbox()
+        if not self._click_connection_item(cid):
+            raise RuntimeError(f"Badoo conversation not found in connections: {cid}")
         self._settle()
+        self._dismiss_popups()
         self._wait_for_chat_messages()
 
     def _wait_for_chat_messages(self, timeout: float | None = None) -> None:
@@ -490,7 +549,10 @@ class BadooClient:
             count = self.driver.execute_script(
                 """
                 return document.querySelectorAll(
-                  '[data-qa="chat-message"], .csms-chat-messages [data-qa-message-direction], .csms-chat-message-content-text__message'
+                  '[data-qa="message"], [data-qa="chat-message"], '
+                  + '[data-qa-message-direction], [data-message-direction], '
+                  + '.csms-chat-message-content-text__message, '
+                  + '[class*="message-bubble"], [class*="chat-message"]'
                 ).length;
                 """
             )
@@ -499,19 +561,26 @@ class BadooClient:
                 return
             # Composer present = chat open even if empty
             if self.driver.execute_script(
-                "return !!document.querySelector('#chat-composer-input-message, textarea[placeholder*=\"message\" i], [contenteditable=\"true\"]');"
+                "return !!document.querySelector("
+                "'#chat-composer-input-message, [data-qa=\"messenger-chat-input\"], "
+                "textarea[placeholder*=\"message\" i], [contenteditable=\"true\"]');"
             ):
                 return
             time.sleep(self._poll_interval())
 
     def _iter_chat_bubbles(self) -> list[Any]:
-        bubbles = self.driver.find_elements(By.CSS_SELECTOR, '[data-qa="chat-message"]')
-        if bubbles:
-            return bubbles
-        return self.driver.find_elements(
-            By.CSS_SELECTOR,
-            "[data-qa-message-direction], [data-message-direction], .csms-chat-messages [class*='message']",
-        )
+        for css in (
+            '[data-qa="message"]',
+            '[data-qa="chat-message"]',
+            "[data-qa-message-direction]",
+            "[data-message-direction]",
+            ".csms-chat-messages [class*='message']",
+            "[class*='message-bubble']",
+        ):
+            bubbles = self.driver.find_elements(By.CSS_SELECTOR, css)
+            if bubbles:
+                return bubbles
+        return []
 
     def _bubble_direction(self, bubble) -> str:
         try:
@@ -803,6 +872,10 @@ class BadooClient:
 
     def _find_send_button(self):
         selectors = (
+            "button[data-qa='messenger-chat-send-circle']",
+            "[data-qa='messenger-chat-send-circle']",
+            "button[data-qa='action-send']",
+            "[data-qa='action-send']",
             "button[data-qa='chat-composer-send']",
             "button[aria-label*='Send' i]",
             "button[aria-label*='Odoslať' i]",
