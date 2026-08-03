@@ -173,15 +173,22 @@ def resolve_url(
         print(f"{prefix}supervisor discover: {cur or '(empty)'} → {discovered}")
         return discovered
 
+    live = live_repo_hash()
     if cur and not is_broken_url(cur):
-        # No Supervisor list (token missing) — keep user's filled host (e.g. 03146090-…).
+        host = extract_host(cur)
+        m = _HASH_PREFIX_RE.match(host)
+        # Default/options often ship with REPO_HASH (8c003d88) while this HA
+        # install uses a different store URL hash (e.g. 03146090) — rewrite.
+        if live and m and m.group(1).lower() != live.lower():
+            fixed = default_url(slug, port, repo_hash=live)
+            print(f"{prefix}repo-hash rewrite {m.group(1)}→{live}: {cur} → {fixed}")
+            return fixed
         print(f"{prefix}keep URL (no Supervisor discovery): {cur}")
         return cur
 
     if cur:
         print(f"{prefix}BROKEN URL detected: {cur}")
 
-    live = live_repo_hash()
     fallback = default_url(slug, port, repo_hash=live)
     print(f"{prefix}fallback DNS: {cur or '(empty)'} → {fallback} (hash={live or REPO_HASH})")
     return fallback
