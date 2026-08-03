@@ -22,7 +22,7 @@ Súbežne s Elite Date (`8600`) a Tinderom (`8601` / noVNC `6080`) — Badoo ich
 2. Otvor `http://<IP_HA>:6081/vnc.html` (cez Tailscale: `http://<TAILSCALE_IP>:6081/vnc.html`)  
 3. Prihlás sa **cez Google**  
 4. Po `Login detected` v logu: `badoo_headless=true` → Reštart  
-5. Zapni `poll_enabled=true` (default od 1.1.0). Inbox = stránka **Connections** (`button[data-qa=connections-item]`), nie `/messages/` odkazy.
+5. Zapni `poll_enabled=true` (default od 1.1.0). Inbox = **Connections** riadky `data-qa-connections-item-type=user` (`.csms-connections-item__title` / `__message`).
 
 Detail: [HAOS_LOGIN.md](HAOS_LOGIN.md)
 

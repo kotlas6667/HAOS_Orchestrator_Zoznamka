@@ -50,7 +50,9 @@ _LOGGED_OUT_PATH_MARKERS = (
     "accounts.youtube.com",
 )
 
-# Inbox = Connections list: button[data-qa=connections-item] (NOT /messages/ anchors).
+# Inbox = Connections list. Real chats are div[data-qa-connections-item-type=user]
+# (promo/liked-you also use data-qa=connections-item). Title/message use csms-* classes;
+# swipe-menu text ("Unmatch & Block") must NOT be used as the sender name.
 _INBOX_ROW_JS = r"""
 function reactUserId(el) {
     const key = Object.keys(el || {}).find(k =>
@@ -62,6 +64,9 @@ function reactUserId(el) {
     let fiber = el[key];
     // __reactProps may already be props
     if (fiber && fiber.item && fiber.item.user_id) return String(fiber.item.user_id);
+    if (fiber && fiber.user && (fiber.user.id || fiber.user.user_id)) {
+        return String(fiber.user.id || fiber.user.user_id);
+    }
     if (fiber && fiber.userId) return String(fiber.userId);
     for (let i = 0; i < 50 && fiber; i++) {
         const p = fiber.memoizedProps || fiber.pendingProps || fiber;
@@ -76,43 +81,72 @@ function reactUserId(el) {
     }
     return '';
 }
-function isPromoConnection(el) {
+function isJunkName(name) {
+    const n = (name || '').trim().toLowerCase();
+    if (!n) return true;
+    if (n.includes('unmatch') || n.includes('block') || n.includes('report')) return true;
+    if (n.includes('odblok') || n.includes('odpojiť') || n.includes('odpojit')) return true;
+    if (n.includes('liked you') || n.includes('páčiš sa') || n.includes('pacis sa')) return true;
+    return false;
+}
+function isUserConnection(el) {
     const type = (el.getAttribute('data-qa-connections-item-type') || '').toLowerCase();
-    if (type === 'liked-you' || type === 'promo-video' || type.includes('promo')) return true;
-    if (el.getAttribute('data-qa-feature-card') !== null) return true;
-    if ((el.className || '').includes('promo')) return true;
+    if (type === 'user') return true;
+    if (type === 'liked-you' || type === 'promo-video' || type === 'promo' || type.includes('promo')) {
+        return false;
+    }
+    if (el.getAttribute('data-qa-feature-card') !== null) return false;
+    const cls = String(el.className || '');
+    if (cls.includes('csms-connections-item--promo') || cls.includes('--promo')) return false;
+    // Real chat rows always carry js-mw-connections-item (including type=user).
+    if (cls.includes('js-mw-connections-item') && !cls.includes('--promo')) return true;
     return false;
 }
 function inboxRowFromItem(el) {
-    const titleEl = el.querySelector('[data-qa="connections-item__title"]');
-    let name = titleEl ? (titleEl.innerText || titleEl.textContent || '').trim() : '';
-    const msgEl = el.querySelector(
-        '[data-qa="connections-item__message"], [data-qa*="display_message"], '
-        + '[class*="display_message"], [class*="connections-item__message"]'
+    const titleEl = el.querySelector(
+        '.csms-connections-item__title, [data-qa="connections-item__title"]'
     );
-    let preview = msgEl ? (msgEl.innerText || msgEl.textContent || '').trim() : '';
-    const lines = (el.innerText || '').split('\n').map(s => s.trim()).filter(Boolean);
-    if (!name && lines.length) name = lines[0];
-    // Preview = remaining text after the title line (display_message).
-    if (!preview && name && lines.length) {
-        const rest = lines.filter(l => l !== name && !/^\d{1,2}:\d{2}$/.test(l));
-        preview = rest.filter(l => !(l === name || l.startsWith(name + ','))).join(' ').trim();
+    let name = titleEl ? (titleEl.innerText || titleEl.textContent || '').trim() : '';
+    // Name may be "Anna, 25" — keep display name only.
+    if (name.includes(',')) {
+        const left = name.split(',')[0].trim();
+        if (left) name = left;
     }
-    if (!preview && lines.length > 1) {
-        preview = lines.slice(1).join(' ').trim();
+    const msgEl = el.querySelector(
+        '[data-qa="csms-connections-item__message"], .csms-connections-item__message, '
+        + '[data-qa="connections-item__message"]'
+    );
+    let preview = '';
+    if (msgEl) {
+        preview = (msgEl.innerText || msgEl.textContent || '').trim();
+    }
+    const lines = (el.innerText || '').split('\n').map(s => s.trim()).filter(Boolean)
+        .filter(l => !isJunkName(l));
+    if (!name) {
+        for (const l of lines) {
+            if (!/^\d{1,2}$/.test(l) && !/^\d{1,2}:\d{2}$/.test(l)) { name = l; break; }
+        }
+    }
+    if (!preview && name && lines.length) {
+        const rest = lines.filter(l =>
+            l !== name &&
+            !l.startsWith(name + ',') &&
+            !/^\d{1,2}:\d{2}$/.test(l) &&
+            !/^\d{1,2}$/.test(l)
+        );
+        preview = rest.join(' ').trim();
     }
     preview = preview.replace(/\b\d{1,2}:\d{2}\b\s*$/, '').trim();
-    // Drop lone age crumbs ("25") that are not real message previews.
-    if (/^\d{1,2}$/.test(preview)) preview = '';
+    if (/^\d{1,2}$/.test(preview) || isJunkName(preview)) preview = '';
     let matchId = reactUserId(el);
-    if (!matchId) {
-        // Stable fallback so preview cache still works until React fiber exposes id.
+    if (!matchId && name && !isJunkName(name)) {
         matchId = 'name:' + name.toLowerCase().replace(/\s+/g, '_').slice(0, 64);
     }
     return { name, preview, match_id: matchId };
 }
 function isRealInboxRow(name, preview) {
     if (!name || !preview) return false;
+    if (isJunkName(name)) return false;
     const pl = preview.toLowerCase();
     if (/^\d{1,2}$/.test(preview)) return false;
     if (pl.includes('start chatting') || pl.includes('začni chat') || pl.includes('zacni chat')) return false;
@@ -121,8 +155,16 @@ function isRealInboxRow(name, preview) {
 }
 function listConnectionItems() {
     return Array.from(document.querySelectorAll(
-        'button[data-qa="connections-item"], [data-qa="connections-item"]'
-    )).filter(el => !isPromoConnection(el));
+        '[data-qa="connections-item"][data-qa-connections-item-type="user"], '
+        + '.js-mw-connections-item[data-qa="connections-item"], '
+        + '[data-qa="connections-item"]'
+    )).filter((el, idx, arr) => arr.indexOf(el) === idx && isUserConnection(el));
+}
+function clickConnectionItem(el) {
+    if (!el) return false;
+    const target = el.querySelector('.csms-connections-item__content, .csms-connections-item__user, button') || el;
+    target.click();
+    return true;
 }
 """
 
@@ -510,8 +552,7 @@ class BadooClient:
                 for (const el of listConnectionItems()) {
                   const row = inboxRowFromItem(el);
                   if (row && row.match_id === want) {
-                    el.click();
-                    return true;
+                    return clickConnectionItem(el);
                   }
                 }
                 return false;
@@ -852,6 +893,7 @@ class BadooClient:
         selectors = (
             "#chat-composer-input-message",
             "textarea#chat-composer-input-message",
+            "[data-qa='chat-input-textarea']",
             "[data-qa='chat-composer-input']",
             "textarea[placeholder*='message' i]",
             "textarea[placeholder*='správ' i]",
