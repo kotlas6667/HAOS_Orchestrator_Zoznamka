@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.32] - 2026-08-04
+
+### Changed
+- Dating Discord handoff (Elite Date / Tinder / Badoo): **4 AI návrhy** (`1`–`4`),
+  **5** = voľná odpoveď (`5 text`), **6** = nové návrhy od AI (predtým `1/2` + `3` + `4`).
+
 ## [1.2.31] - 2026-08-03
 
 ### Fixed
