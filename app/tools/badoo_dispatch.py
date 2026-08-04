@@ -16,7 +16,7 @@ LOGGER_PREFIX = "[badoo]"
 
 _REGENERATE_RE = re.compile(
     r"(?:"
-    r"^4(?:[.)]|️⃣|⃣|️)?$"
+    r"^6(?:[.)]|️⃣|⃣|️)?$"
     r"|navrhni\s+(?:dalsie|ďalšie)(?:\s+odpovede?)?"
     r"|(?:dalsie|ďalšie)\s+(?:odpovede?|navrhy|návrhy)"
     r"|nove?\s+navrhy"
@@ -34,14 +34,20 @@ def _discord_quote(text: str) -> str:
 
 
 def _format_prompt(entry: dict[str, Any]) -> str:
-    opt1, opt2 = entry["options"][0], entry["options"][1]
+    options = list(entry.get("options") or [])
+    while len(options) < 4:
+        options.append("(prázdna odpoveď)")
+    opt1, opt2, opt3, opt4 = options[0], options[1], options[2], options[3]
     conv_short = entry.get("conversation_id", "")[:8]
     my_last_message = str(entry.get("my_last_message") or "").strip()
     sender = str(entry.get("sender") or "Neznámy").strip()
     their_last_message = str(entry.get("message") or "").strip()
     queue_note = ""
     if entry.get("status") != "awaiting_selection":
-        queue_note = "⏳ Táto konverzácia je momentálne vo fronte. Odpovedz priamo na túto správu, ak chceš vybrať odpoveď práve pre ňu.\n"
+        queue_note = (
+            "⏳ Táto konverzácia je momentálne vo fronte. Odpovedz priamo na túto správu, "
+            "ak chceš vybrať odpoveď práve pre ňu.\n"
+        )
     my_context = ""
     if my_last_message:
         my_context = f"👤 Tvoja posledná otázka/správa:\n{_discord_quote(my_last_message)}\n\n"
@@ -53,11 +59,15 @@ def _format_prompt(entry: dict[str, Any]) -> str:
         f"{their_context}"
         f"{queue_note}"
         f"1️⃣ {opt1}\n"
-        f"2️⃣ {opt2}\n\n"
-        f"3️⃣ vlastný text - pošli ho ako `3 Tvoj text`\n"
-        f"4️⃣ nové návrhy odpovedí\n\n"
-        f"Tip: najbezpečnejšie je kliknúť Reply na túto správu a poslať `1/2/3/4`."
+        f"2️⃣ {opt2}\n"
+        f"3️⃣ {opt3}\n"
+        f"4️⃣ {opt4}\n\n"
+        f"5️⃣ voľná odpoveď — pošli ju ako `5 Tvoj text`\n"
+        f"6️⃣ nové návrhy od AI\n\n"
+        f"Tip: najbezpečnejšie je kliknúť Reply na túto správu a poslať `1/2/3/4/5/6`."
     )
+
+
 
 
 def _decode_photo_payload(
@@ -217,7 +227,7 @@ def is_regenerate_request(choice_text: str) -> bool:
     choice = unicodedata.normalize("NFKC", choice_text or "").strip().strip("`")
     if not choice:
         return False
-    if re.match(r"^4(?:[.)]|️⃣|⃣|️)?$", choice):
+    if re.match(r"^6(?:[.)]|️⃣|⃣|️)?$", choice):
         return True
     # Strip diacritics for fuzzy Slovak matching.
     ascii_choice = "".join(
@@ -233,24 +243,26 @@ def _parse_choice(choice_text: str) -> tuple[str, str | None] | None:
         return ("regenerate", None)
 
     # Accept plain numeric picks and common Discord variants like "2.", "2)", "2️⃣".
-    simple_match = re.match(r"^([123])(?:[.)]|️⃣|⃣|️)?$", choice)
+    simple_match = re.match(r"^([123456])(?:[.)]|️⃣|⃣|️)?$", choice)
     if simple_match:
         picked = simple_match.group(1)
-        if picked == "1":
-            return ("1", None)
-        if picked == "2":
-            return ("2", None)
-        return ("3", None)
+        if picked in {"1", "2", "3", "4"}:
+            return (picked, None)
+        if picked == "5":
+            return ("5", None)
+        return ("regenerate", None)
 
-    custom_match = re.match(r"^3(?:[.)]|️⃣|⃣|️)?\s*[:\-]?\s+(.+)$", choice, flags=re.DOTALL)
+    custom_match = re.match(r"^5(?:[.)]|️⃣|⃣|️)?\s*[:\-]?\s+(.+)$", choice, flags=re.DOTALL)
     if custom_match:
-        return ("3custom", custom_match.group(1).strip())
+        return ("5custom", custom_match.group(1).strip())
 
-    if choice.startswith("3:"):
-        return ("3custom", choice[2:].strip())
-    if choice.startswith("3 "):
-        return ("3custom", choice[2:].strip())
+    if choice.startswith("5:"):
+        return ("5custom", choice[2:].strip())
+    if choice.startswith("5 "):
+        return ("5custom", choice[2:].strip())
     return None
+
+
 
 
 def _resolve_entry(replied_to_message_id: str | None = None) -> dict[str, Any] | None:
@@ -290,7 +302,7 @@ async def regenerate_suggestions(replied_to_message_id: str | None = None) -> st
 
     conv_short = str(updated.get("conversation_id") or "")[:8]
     sender = str(updated.get("sender") or "Neznámy")
-    return f"🔄 Nové návrhy pre `{sender} | {conv_short}` sú vyššie. Vyber `1/2/3` alebo znova `4`."
+    return f"🔄 Nové návrhy pre `{sender} | {conv_short}` sú vyššie. Vyber `1/2/3/4`, voľnú `5 text`, alebo znova `6`."
 
 
 async def handle_selection(choice_text: str, replied_to_message_id: str | None = None) -> str | None:
@@ -308,17 +320,19 @@ async def handle_selection(choice_text: str, replied_to_message_id: str | None =
     entry = _resolve_entry(replied_to_message_id)
     if entry is None:
         return None
-    if choice_kind == "1":
-        chosen_text = entry["options"][0]
-    elif choice_kind == "2":
-        chosen_text = entry["options"][1]
-    elif choice_kind == "3":
-        return "📝 Pošli vlastný text ako `3 tvoj text`, napr. `3 Ahoj, dnes sa mi hodí o 19:00`"
+    if choice_kind in {"1", "2", "3", "4"}:
+        idx = int(choice_kind) - 1
+        options = list(entry.get("options") or [])
+        if idx >= len(options):
+            return "⚠️ Tento návrh nie je k dispozícii. Pošli `6` pre nové návrhy od AI."
+        chosen_text = options[idx]
+    elif choice_kind == "5":
+        return "📝 Pošli voľnú odpoveď ako `5 tvoj text`, napr. `5 Ahoj, dnes sa mi hodí o 19:00`"
     else:
         chosen_text = (custom_text or "").strip()
 
     if not chosen_text:
-        return "⚠️ Vlastný text je prázdny. Pošli napr. `3 Ahoj, ...`"
+        return "⚠️ Voľná odpoveď je prázdna. Pošli napr. `5 Ahoj, ...`"
 
     try:
         send_mode = await _send_via_bot(

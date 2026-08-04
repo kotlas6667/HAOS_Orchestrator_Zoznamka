@@ -20,7 +20,7 @@ from app.schemas import PromptResponse, ToolExecution
 
 LOGGER = logging.getLogger("orchestrator.discord_bot")
 
-_ELITEDATE_CHOICE_RE = re.compile(r"^\s*[1234](?:[.):,]|\uFE0F\u20E3|\u20E3|\uFE0F)?(?:\s.*)?\s*$")
+_ELITEDATE_CHOICE_RE = re.compile(r"^\s*[123456](?:[.):,]|\uFE0F\u20E3|\u20E3|\uFE0F)?(?:\s.*)?\s*$")
 _ELITE_DATE_RE = re.compile(r"elite\s*d[aáä]te|elitedate", re.IGNORECASE)
 # "správy na ed", "ed?", "stav ed" — nie bežné slová obsahujúce "ed"
 _ED_WORD_RE = re.compile(
@@ -152,7 +152,7 @@ class OrchestratorDiscordClient(discord.Client):
         try:
             # Dating-app intercept — ONLY when the user is replying to a message
             # that contains a known dating-app keyword (e.g. "Elite Date", "Tinder").
-            # This prevents any standalone "1"/"2"/"3" message from accidentally
+            # This prevents any standalone "1"/"2"/"3"/"4"/"5"/"6" message from accidentally
             # hijacking normal LLM routing.
             from app.tools import badoo_dispatch, elitedate_dispatch, tinder_dispatch
 
@@ -198,7 +198,7 @@ class OrchestratorDiscordClient(discord.Client):
                 LOGGER.info("Reply to dating-app message had no actionable selection context; suppressing")
                 return
 
-            # Bare "4" / "Navrhni ďalšie odpovede" without Discord Reply:
+            # Bare "6" / "Navrhni ďalšie odpovede" without Discord Reply:
             # regenerate for the conversation currently awaiting selection.
             if (
                 tinder_dispatch.is_regenerate_request(prompt)

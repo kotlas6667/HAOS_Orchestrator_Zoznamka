@@ -14,7 +14,7 @@ _SKILL_FILE = Path(__file__).resolve().with_name("elitedate_reply_skill.md")
 _REPLY_SYSTEM_PROMPT_BASE = """\
 Si ghostwriter pre chat na zoznamke (Elite Date). Píšeš v mene používateľa — ako by to napísal on sám, nie ako AI asistent.
 
-Dostaneš predchádzajúcu konverzáciu (transcript) a jej poslednú správu. Vráť DVE odlišné odpovede.
+Dostaneš predchádzajúcu konverzáciu (transcript) a jej poslednú správu. Vráť ŠTYRI odlišné odpovede.
 
 Ako písať (kvalita ako dobrý ľudský draft, nie generický dating bot):
 - Čítaj CELÚ históriu: nadviaž na témy, vtipy, plány a detaily z predchádzajúcich správ — nielen na posledný riadok.
@@ -25,12 +25,12 @@ Ako písať (kvalita ako dobrý ľudský draft, nie generický dating bot):
 - Jedna prirodzená otázka alebo ľahký next-step (kava / prechádzka / termín) len keď to sedí — nie vždy.
 - Nevymýšľaj fakty o ňom (práca, deti, mesto…), ktoré nie sú v kontexte histórie.
 - Emoji max 0–1; žiadne zoznamy, žiadne úvodzovky okolo celej odpovede.
-- option_1 a option_2 musia byť iný tón (napr. hravejší vs. vecnejší), nie parafráza.
+- option_1 až option_4 musia mať rôzny tón/uhol (napr. hravý, vecný, zvedavý, ľahký next-step), nie parafrázy.
 
 Personalizovaný skill nižšie má prioritu pri persona, tóne a hraniciach.
 
 Odpovedz IBA validným JSON, nič iné:
-{"option_1": "<text>", "option_2": "<text>"}
+{"option_1": "<text>", "option_2": "<text>", "option_3": "<text>", "option_4": "<text>"}
 """
 
 _FALLBACK_SKILL = (
@@ -58,12 +58,10 @@ async def generate_reply_options(
     previous_options: list[str] | None = None,
     history: list | None = None,
 ) -> list[str]:
-    """Ask GPT for two reply drafts using full chat history when available."""
+    """Ask GPT for four reply drafts using full chat history when available."""
     if not settings.openai_api_key:
-        return [
-            "(OPENAI_API_KEY nie je nastavený — doplň vlastnú odpoveď ručne.)",
-            "(OPENAI_API_KEY nie je nastavený — doplň vlastnú odpoveď ručne.)",
-        ]
+        msg = "(OPENAI_API_KEY nie je nastavený — doplň vlastnú odpoveď ručne.)"
+        return [msg, msg, msg, msg]
 
     previous = [str(o).strip() for o in (previous_options or []) if str(o).strip()]
     avoid_block = ""
@@ -115,6 +113,8 @@ async def generate_reply_options(
     fallback = [
         "Hej, super — a čo ty, ako sa máš dnes?",
         "Znie dobre. Keď budeš mať chuť, daj vedieť a nájdeme termín na kávu.",
+        "Cool, vďaka za info — čo plánuješ dnes večer?",
+        "Máš pravdu. Keď ti to vyhovuje, môžeme to posunúť na konkrétny termín.",
     ]
 
     try:
@@ -129,12 +129,18 @@ async def generate_reply_options(
         content = response.json()["choices"][0]["message"]["content"].strip()
         json_match = re.search(r"\{.*\}", content, re.DOTALL)
         if not json_match:
-            return [content, content]
+            return [content, content, content, content]
 
         parsed = json.loads(json_match.group())
-        return [
+        options = [
             parsed.get("option_1", "").strip() or "(prázdna odpoveď)",
             parsed.get("option_2", "").strip() or "(prázdna odpoveď)",
+            parsed.get("option_3", "").strip() or "(prázdna odpoveď)",
+            parsed.get("option_4", "").strip() or "(prázdna odpoveď)",
         ]
+        # If model returned fewer keys, pad from content duplicates rather than crash Discord UI.
+        while len(options) < 4:
+            options.append(options[-1] if options else "(prázdna odpoveď)")
+        return options[:4]
     except Exception:
         return fallback
