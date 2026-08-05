@@ -11,6 +11,7 @@ from app.config import settings
 from app.tools import elitedate_state
 from app.tools.elitedate_reply_provider import generate_reply_options
 from app.tools.discord_notifier import DiscordNotifier
+from app.tools.dating_discord_prompt import format_dating_prompt
 
 LOGGER_PREFIX = "[elitedate]"
 
@@ -27,46 +28,33 @@ _REGENERATE_RE = re.compile(
 )
 
 
-def _discord_quote(text: str) -> str:
-    lines = (text or "").splitlines() or [""]
-    return "\n".join(f"> {line}" if line else ">" for line in lines)
-
-
 def _format_prompt(entry: dict[str, Any]) -> str:
-    options = list(entry.get("options") or [])
-    while len(options) < 4:
-        options.append("(prázdna odpoveď)")
-    opt1, opt2, opt3, opt4 = options[0], options[1], options[2], options[3]
-    conv_short = entry.get("conversation_id", "")[:8]
-    my_last_message = str(entry.get("my_last_message") or "").strip()
-    sender = str(entry.get("sender") or "Neznámy").strip()
-    their_last_message = str(entry.get("message") or "").strip()
-    queue_note = ""
-    if entry.get("status") != "awaiting_selection":
-        queue_note = (
-            "⏳ Táto konverzácia je momentálne vo fronte. Odpovedz priamo na túto správu, "
-            "ak chceš vybrať odpoveď práve pre ňu.\n"
-        )
-    my_context = ""
-    if my_last_message:
-        my_context = f"👤 Tvoja posledná otázka/správa:\n{_discord_quote(my_last_message)}\n\n"
-    their_context = f"👥 Posledná odpoveď od {sender}:\n{_discord_quote(their_last_message)}\n\n"
-    return (
-        f"💌 **Nová správa na Elite Date od {sender}**\n"
-        f"🔒 Vlákno: `{sender} | {conv_short}`\n"
-        f"{my_context}"
-        f"{their_context}"
-        f"{queue_note}"
-        f"1️⃣ {opt1}\n"
-        f"2️⃣ {opt2}\n"
-        f"3️⃣ {opt3}\n"
-        f"4️⃣ {opt4}\n\n"
-        f"5️⃣ voľná odpoveď — pošli ju ako `5 Tvoj text`\n"
-        f"6️⃣ nové návrhy od AI\n\n"
-        f"Tip: najbezpečnejšie je kliknúť Reply na túto správu a poslať `1/2/3/4/5/6`."
+    return format_dating_prompt(entry, app_emoji="💌", app_name="Elite Date")
+
+
+async def _post_prompt(
+    entry: dict[str, Any],
+    *,
+    photo_base64: str = "",
+    photo_content_type: str = "",
+    photo_url: str = "",
+    edit_existing: bool = False,
+) -> str | None:
+    text = _format_prompt(entry)
+    existing_id = str(entry.get("prompt_message_id") or "").strip()
+    if edit_existing and existing_id:
+        try:
+            await DiscordNotifier().edit_message(existing_id, text)
+            return existing_id
+        except Exception as exc:  # noqa: BLE001
+            print(f"{LOGGER_PREFIX} Discord edit failed, posting new prompt: {exc}")
+
+    return await _notify_discord(
+        text,
+        photo_base64=photo_base64,
+        photo_content_type=photo_content_type,
+        photo_url=photo_url or str(entry.get("photo_url") or ""),
     )
-
-
 
 
 def _decode_photo_payload(
@@ -232,8 +220,8 @@ async def handle_incoming(
     if entry.get("prompt_message_id"):
         return entry
 
-    prompt_message_id = await _notify_discord(
-        _format_prompt(entry),
+    prompt_message_id = await _post_prompt(
+        entry,
         photo_base64=photo_base64,
         photo_content_type=photo_content_type,
         photo_url=photo_url or str(entry.get("photo_url") or ""),
@@ -357,13 +345,16 @@ async def regenerate_suggestions(replied_to_message_id: str | None = None) -> st
     if updated is None:
         return "⚠️ Konverzácia už nie je vo fronte — nové návrhy sa nepodarilo uložiť."
 
-    prompt_message_id = await _notify_discord(_format_prompt(updated))
+    prompt_message_id = await _post_prompt(updated, edit_existing=True)
     if prompt_message_id:
         elitedate_state.set_prompt_message_id(updated, prompt_message_id)
 
     conv_short = str(updated.get("conversation_id") or "")[:8]
     sender = str(updated.get("sender") or "Neznámy")
-    return f"🔄 Nové návrhy pre `{sender} | {conv_short}` sú vyššie. Vyber `1/2/3/4`, voľnú `5 text`, alebo znova `6`."
+    return (
+        f"🔄 Nové návrhy pre `{sender} | {conv_short}` boli aktualizované v pôvodnej správe. "
+        f"Vyber `1/2/3/4`, voľnú `5 text`, alebo znova `6`."
+    )
 
 
 async def handle_selection(choice_text: str, replied_to_message_id: str | None = None) -> str | None:
@@ -435,7 +426,7 @@ async def handle_selection(choice_text: str, replied_to_message_id: str | None =
         return reply
 
     if next_entry:
-        next_prompt_message_id = await _notify_discord(_format_prompt(next_entry))
+        next_prompt_message_id = await _post_prompt(next_entry)
         if next_prompt_message_id:
             elitedate_state.set_prompt_message_id(next_entry, next_prompt_message_id)
 

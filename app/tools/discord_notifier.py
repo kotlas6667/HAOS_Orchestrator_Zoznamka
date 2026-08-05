@@ -59,6 +59,22 @@ class DiscordNotifier:
                 "message_id": data.get("id"),
             }
 
+    async def edit_message(self, message_id: str, content: str) -> dict[str, Any]:
+        """Edit an existing webhook message (e.g. refresh dating reply options)."""
+        text = (content or "")[:1900]
+        async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
+            response = await client.patch(
+                f"{self.webhook_url}/messages/{message_id}?wait=true",
+                json={"content": text},
+            )
+            response.raise_for_status()
+            data = response.json()
+            return {
+                "status": "success",
+                "message": "Notification updated on Discord",
+                "message_id": data.get("id") or message_id,
+            }
+
     async def send_email_summary(self, email_data: dict[str, Any]) -> dict[str, Any]:
         """Send a summarized email notification to Discord using GPT (in Slovak)."""
         summary = await self._summarize_email_with_ai(email_data)

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.33] - 2026-08-05
+
+### Fixed
+- Dating Discord: **4 AI návrhy** boli nestabilné — user prompt stále žiadal „dve“ odpovede,
+  chýbajúce `option_3/4` sa dopĺňali `(prázdna odpoveď)` a dlhý kontext sa orezal na 1900 znakov
+  (zmizli 3–4). Návrhy sú teraz hore v správe, GPT retry pri <4 variantách, `6` upraví pôvodnú správu.
+
 ## [1.2.32] - 2026-08-04
 
 ### Changed

@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import json
-import re
 from pathlib import Path
 
 import httpx
 
 from app.config import settings
-from app.tools.dating_skill import format_chat_history_for_prompt, load_reply_skill
+from app.tools.dating_skill import format_chat_history_for_prompt, load_reply_skill, parse_dating_reply_json
 
 _SKILL_FILE = Path(__file__).resolve().with_name("badoo_reply_skill.md")
 
@@ -79,15 +77,15 @@ async def generate_reply_options(
             f"Predchádzajúca konverzácia (od najstaršej po najnovšiu):\n"
             f"{transcript}\n\n"
             f"Jej posledná správa (na ktorú máš reagovať):\n{message}\n\n"
-            "Napíš dve možné odpovede ako reálny chat — zohľadni celú históriu, "
-            "nielen posledný riadok, a dodrž skill."
+            "Napíš **štyri** možné odpovede ako reálny chat — zohľadni celú históriu, "
+            "nielen posledný riadok, a dodrž skill. Každá musí mať iný tón/uhol."
         )
     else:
         context_block = (
             f"Tvoja posledná otázka/správa:\n{my_last_message or '(nie je známa)'}\n\n"
             f"Jej posledná odpoveď:\n{message}\n\n"
-            "Napíš dve možné odpovede ako reálny chat — nadviaž na konkrétny "
-            "detail z jej správy a dodrž skill."
+            "Napíš **štyri** možné odpovede ako reálny chat — nadviaž na konkrétny "
+            "detail z jej správy a dodrž skill. Každá musí mať iný tón/uhol."
         )
 
     headers = {
@@ -127,20 +125,32 @@ async def generate_reply_options(
             response.raise_for_status()
 
         content = response.json()["choices"][0]["message"]["content"].strip()
-        json_match = re.search(r"\{.*\}", content, re.DOTALL)
-        if not json_match:
-            return [content, content, content, content]
-
-        parsed = json.loads(json_match.group())
-        options = [
-            parsed.get("option_1", "").strip() or "(prázdna odpoveď)",
-            parsed.get("option_2", "").strip() or "(prázdna odpoveď)",
-            parsed.get("option_3", "").strip() or "(prázdna odpoveď)",
-            parsed.get("option_4", "").strip() or "(prázdna odpoveď)",
-        ]
-        # If model returned fewer keys, pad from content duplicates rather than crash Discord UI.
-        while len(options) < 4:
-            options.append(options[-1] if options else "(prázdna odpoveď)")
+        options = parse_dating_reply_json(content, fallback)
+        unique = {o for o in options if o != "(prázdna odpoveď)"}
+        if len(unique) < 4:
+            retry_data = {
+                **data,
+                "messages": data["messages"]
+                + [
+                    {
+                        "role": "user",
+                        "content": (
+                            "Predchádzajúca odpoveď nemala 4 rôzne varianty. "
+                            "Vráť IBA JSON s option_1, option_2, option_3, option_4."
+                        ),
+                    }
+                ],
+                "temperature": 0.9,
+            }
+            async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
+                retry_resp = await client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers=headers,
+                    json=retry_data,
+                )
+                retry_resp.raise_for_status()
+            retry_content = retry_resp.json()["choices"][0]["message"]["content"].strip()
+            options = parse_dating_reply_json(retry_content, fallback)
         return options[:4]
     except Exception:
         return fallback

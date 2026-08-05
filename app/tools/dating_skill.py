@@ -100,3 +100,33 @@ def format_chat_history_for_prompt(
         who = "Ty" if role in {"me", "user", "self", "sender"} else (sender or "Ona")
         lines.append(f"{who}: {text}")
     return "\n".join(lines).strip()
+
+
+def parse_dating_reply_json(content: str, fallback: list[str]) -> list[str]:
+    """Parse GPT JSON with option_1..option_4; pad missing slots from fallback."""
+    import json
+    import re
+
+    empty = "(prázdna odpoveď)"
+    json_match = re.search(r"\{.*\}", content or "", re.DOTALL)
+    if not json_match:
+        text = (content or "").strip() or (fallback[0] if fallback else empty)
+        return [text, text, text, text]
+
+    parsed = json.loads(json_match.group())
+    options = [
+        str(parsed.get(f"option_{i}", "") or "").strip() or empty for i in range(1, 5)
+    ]
+    filled = {o for o in options if o != empty}
+    if len(filled) < 4 and fallback:
+        for candidate in fallback:
+            if len(filled) >= 4:
+                break
+            if candidate in filled:
+                continue
+            for idx, current in enumerate(options):
+                if current == empty:
+                    options[idx] = candidate
+                    filled.add(candidate)
+                    break
+    return options[:4]
