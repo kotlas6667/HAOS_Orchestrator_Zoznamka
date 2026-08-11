@@ -106,9 +106,9 @@ async def llm_route(prompt: str, history: list[dict[str, str]] | None = None) ->
     }
 
     messages = [{"role": "system", "content": system_with_date}]
-    # Include last 4 exchanges for routing context (enough to understand references)
+    # Include last ~5 exchanges (10 messages) for routing / follow-up context.
     if history:
-        messages.extend(history[-8:])
+        messages.extend(history[-10:])
     messages.append({"role": "user", "content": prompt})
 
     data = {

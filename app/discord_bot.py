@@ -83,10 +83,9 @@ class OrchestratorDiscordClient(discord.Client):
         self._orchestrator = orchestrator
         # Per-user email browsing state: {user_id: {"offset": int, "query": str}}
         self._email_state: dict[int, dict[str, Any]] = {}
-        # Per-user conversation history: {user_id: [{"role": "user"|"assistant", "content": "..."}]}
-        # Keep last 10 exchanges (20 messages) per user for context
+        # Per-user conversation history fallback when channel history is unavailable.
         self._conversation_history: dict[int, list[dict[str, str]]] = {}
-        self._max_history_pairs = 10  # 10 user+assistant pairs = 20 messages
+        self._max_history_pairs = 5
         self._numeric_fallback_suppression_until: dict[int, float] = {}
 
     async def on_ready(self) -> None:
@@ -253,8 +252,9 @@ class OrchestratorDiscordClient(discord.Client):
                 )
                 reply = build_discord_reply(prompt, result)
             else:
-                # Get conversation history for this user
-                user_history = self._conversation_history.get(message.author.id, [])
+                user_history = await self._load_channel_history(message, max_pairs=self._max_history_pairs)
+                if not user_history:
+                    user_history = self._conversation_history.get(message.author.id, [])
                 result = await self._orchestrator.handle_prompt(prompt, history=user_history)
                 reply = build_discord_reply(prompt, result)
                 if not reply.strip():
@@ -277,7 +277,7 @@ class OrchestratorDiscordClient(discord.Client):
         await message.channel.send(reply)
 
     def _add_to_history(self, user_id: int, user_msg: str, bot_reply: str) -> None:
-        """Add a user/assistant exchange to conversation history, keeping last N pairs."""
+        """Keep a RAM fallback; primary context comes from Discord channel history."""
         if user_id not in self._conversation_history:
             self._conversation_history[user_id] = []
 
@@ -285,10 +285,54 @@ class OrchestratorDiscordClient(discord.Client):
         history.append({"role": "user", "content": user_msg})
         history.append({"role": "assistant", "content": bot_reply})
 
-        # Trim to max pairs (each pair = 2 messages)
         max_messages = self._max_history_pairs * 2
         if len(history) > max_messages:
             self._conversation_history[user_id] = history[-max_messages:]
+
+    async def _load_channel_history(
+        self,
+        message: discord.Message,
+        *,
+        max_pairs: int = 5,
+    ) -> list[dict[str, str]]:
+        """Read recent Discord messages in this channel for this user ↔ bot thread."""
+        if not self.user:
+            return []
+
+        user_id = message.author.id
+        bot_id = self.user.id
+        collected: list[dict[str, str]] = []
+
+        try:
+            async for prior in message.channel.history(limit=max(max_pairs * 6, 24), before=message):
+                if prior.author.bot:
+                    if prior.author.id != bot_id:
+                        continue
+                    text = (prior.content or "").strip()
+                    if not text:
+                        continue
+                    collected.append({"role": "assistant", "content": text[:1500]})
+                    continue
+
+                if prior.author.id != user_id:
+                    continue
+                text = normalize_discord_prompt(
+                    prior.content or "",
+                    prefix=self._settings.discord_bot_prefix,
+                ).strip()
+                if not text:
+                    continue
+                collected.append({"role": "user", "content": text[:1500]})
+        except discord.Forbidden:
+            LOGGER.warning("Missing Read Message History permission — using in-memory history only")
+            return list(self._conversation_history.get(user_id, []))
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("Failed to read Discord channel history: %s", exc)
+            return list(self._conversation_history.get(user_id, []))
+
+        collected.reverse()
+        max_messages = max(1, max_pairs) * 2
+        return collected[-max_messages:]
 
     async def _handle_email_navigation(self, user_id: int, direction: str) -> PromptResponse:
         """Handle next/previous email navigation."""

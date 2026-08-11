@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.34] - 2026-08-11
+
+### Fixed
+- Discord bot: načítava posledných **~5 výmen** priamo z Discord kanála (nie len RAM po
+  reštarte). Router aj chat vidia históriu správ v chate.
+
 ## [1.2.33] - 2026-08-05
 
 ### Fixed

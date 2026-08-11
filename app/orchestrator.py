@@ -29,13 +29,11 @@ class Orchestrator:
 
         tool = self.tools[tool_name]
 
-        # Pass conversation history to chat tool
-        context = params if params else None
-        if tool_name == "chat" and history:
-            context = context or {}
+        context = dict(params) if params else {}
+        if history:
             context["history"] = history
 
-        result = await tool.run(prompt, context=context)
+        result = await tool.run(prompt, context=context or None)
 
         execution = ToolExecution(
             tool=tool.name,
