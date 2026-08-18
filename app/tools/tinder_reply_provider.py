@@ -5,7 +5,15 @@ from pathlib import Path
 import httpx
 
 from app.config import settings
-from app.tools.dating_skill import format_chat_history_for_prompt, load_reply_skill, parse_dating_reply_json
+from app.tools.dating_skill import (
+    DATING_REPLY_RETRY_TEMPERATURE,
+    SLOVAK_REPLY_GRAMMAR_RULES,
+    dating_reply_temperature,
+    format_chat_history_for_prompt,
+    load_reply_skill,
+    parse_dating_reply_json,
+    resolve_dating_reply_model,
+)
 
 _SKILL_FILE = Path(__file__).resolve().with_name("tinder_reply_skill.md")
 
@@ -43,6 +51,7 @@ def _build_system_prompt() -> str:
     skill = load_reply_skill(bundled_path=_SKILL_FILE, fallback=_FALLBACK_SKILL)
     return (
         f"{_REPLY_SYSTEM_PROMPT_BASE}\n\n"
+        f"{SLOVAK_REPLY_GRAMMAR_RULES}\n"
         "Dodrž tento personalizovaný profil štýlu "
         "(skill z dashboardu Orchestrátora / súboru):\n"
         f"{skill}"
@@ -93,7 +102,7 @@ async def generate_reply_options(
         "Content-Type": "application/json",
     }
     data = {
-        "model": (settings.dating_reply_model or settings.openai_model or "gpt-4o").strip(),
+        "model": resolve_dating_reply_model(),
         "messages": [
             {"role": "system", "content": _build_system_prompt()},
             {
@@ -105,7 +114,7 @@ async def generate_reply_options(
                 ),
             },
         ],
-        "temperature": 0.95 if previous else 0.85,
+        "temperature": dating_reply_temperature(regenerate=bool(previous)),
     }
 
     fallback = [
@@ -140,7 +149,7 @@ async def generate_reply_options(
                         ),
                     }
                 ],
-                "temperature": 0.9,
+                "temperature": DATING_REPLY_RETRY_TEMPERATURE,
             }
             async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
                 retry_resp = await client.post(

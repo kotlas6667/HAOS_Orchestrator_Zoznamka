@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.36] - 2026-08-18
+
+### Changed
+- Dating návrhy default **GPT `gpt-4.1`** (starý default `gpt-4o` sa pri generovaní berie ako `gpt-4.1`)
+- Teplota návrhov znížená z 0.85/0.95 na **0.55** (regenerácia 0.65) — stabilnejšie slovenské skloňovanie
+- System prompt: tvrdé pravidlá na pády / predložkové väzby + dodržiavanie skillu z dashboardu
+
 ## [1.2.35] / Badoo [1.1.6] - 2026-08-18
 
 ### Added

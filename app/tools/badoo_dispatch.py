@@ -13,6 +13,7 @@ from app.tools import badoo_state
 from app.tools.badoo_reply_provider import generate_reply_options
 from app.tools.discord_notifier import DiscordNotifier
 from app.tools.dating_discord_prompt import format_dating_prompt
+from app.tools.dating_skill import resolve_dating_reply_model
 
 LOGGER_PREFIX = "[badoo]"
 
@@ -57,7 +58,7 @@ def _provider_model(provider: str) -> str:
     normalized = _normalize_provider_name(provider)
     if normalized == "gemini":
         return str(settings.dating_reply_gemini_model or "gemini-2.5-flash")
-    return str(settings.dating_reply_model or settings.openai_model or "gpt-4o")
+    return resolve_dating_reply_model()
 
 
 async def _post_prompt(
