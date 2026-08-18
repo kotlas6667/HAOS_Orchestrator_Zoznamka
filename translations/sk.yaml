@@ -14,11 +14,23 @@ configuration:
     description: >-
       Lacný model pre routing nástrojov a bežný chat. Default gpt-4o-mini.
   dating_reply_model:
-    name: Model pre AI návrhy (ED + Tinder)
+    name: Model pre AI návrhy (ED + Tinder + Badoo)
     description: >-
-      Silnejší model len pre 2 návrhy odpovedí v Discorde (Elite Date / Tinder).
-      Default gpt-4o — lepší tón a nadväznosť než mini. Alternatívy: gpt-4.1,
-      gpt-4.1-mini. Routing ostáva na poli vyššie.
+      OpenAI model pre 4 návrhy odpovedí v Discorde. Default gpt-4o.
+      Používa sa len keď je provider openai.
+  dating_reply_provider:
+    name: Provider AI návrhov (dating)
+    description: >-
+      openai = GPT (default). gemini = Google Gemini pre Badoo návrhy a prepis audia.
+      V Discorde môžeš prepnúť aj ručne: reply `6 gemini` alebo `6 gpt`.
+  gemini_api_key:
+    name: Gemini API kľúč
+    description: >-
+      Kľúč z Google AI Studio. Potrebný pre Gemini návrhy a prepis Badoo audio správ.
+  dating_reply_gemini_model:
+    name: Gemini model (dating návrhy + audio)
+    description: >-
+      Default gemini-2.5-flash. Používa sa pri provider=gemini alebo pri prepise audia.
   ha_url:
     name: URL Home Assistant
     description: >-

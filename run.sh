@@ -26,6 +26,9 @@ LOG_LEVEL=info
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
 DATING_REPLY_MODEL=gpt-4o
+DATING_REPLY_PROVIDER=openai
+GEMINI_API_KEY=
+DATING_REPLY_GEMINI_MODEL=gemini-2.5-flash
 
 HA_PROVIDER=real
 HA_URL=http://supervisor/core:8123
@@ -82,6 +85,9 @@ if options_path.is_file():
         "openai_api_key": "OPENAI_API_KEY",
         "openai_model": "OPENAI_MODEL",
         "dating_reply_model": "DATING_REPLY_MODEL",
+        "dating_reply_provider": "DATING_REPLY_PROVIDER",
+        "gemini_api_key": "GEMINI_API_KEY",
+        "dating_reply_gemini_model": "DATING_REPLY_GEMINI_MODEL",
         "ha_url": "HA_URL",
         "ha_token": "HA_TOKEN",
         "weather_default_city": "WEATHER_DEFAULT_CITY",

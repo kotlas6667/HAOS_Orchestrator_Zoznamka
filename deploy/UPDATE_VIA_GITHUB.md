@@ -25,9 +25,10 @@ Od Orchestrátor **1.2.9** / ED **1.2.8** / Tinder **1.2.11** sa peer URL berie 
 
 | Add-on | Verzia |
 |--------|--------|
-| Orchestrátor | **1.2.9** |
-| Elite Date | **1.2.8** |
-| Tinder | **1.2.11** |
+| Orchestrátor | **1.2.35** |
+| Elite Date | **1.3.17** |
+| Tinder | **1.2.20** |
+| Badoo | **1.1.6** |
 
 ## Súbeh s webom (Elite Date / Tinder)
 

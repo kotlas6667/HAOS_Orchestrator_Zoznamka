@@ -1,7 +1,7 @@
 {
   "name": "HAOS Badoo Bot",
   "description": "Samostatný Selenium bot pre Badoo. Prvé prihlásenie cez noVNC (port 6081) — Google login, nastav badoo_headless v Nastaveniach.",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "slug": "haos_badoo",
   "init": false,
   "arch": [

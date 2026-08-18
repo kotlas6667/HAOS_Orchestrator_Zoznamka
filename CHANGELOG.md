@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.35] / Badoo [1.1.6] - 2026-08-18
+
+### Added
+- **Badoo audio správy:** bot vytiahne audio z chatu, orchestrátor ho prepíše do textu a pošle do Discordu spolu s AI návrhmi
+- **Gemini pre Badoo návrhy:** `DATING_REPLY_PROVIDER=gemini` + `GEMINI_API_KEY`; v Discorde aj `6 gemini` / `6 gpt`
+- HA Nastavenia orchestrátora: provider, Gemini kľúč a model pre dating návrhy / audio prepis
+
 ## [1.2.34] - 2026-08-11
 
 ### Fixed
