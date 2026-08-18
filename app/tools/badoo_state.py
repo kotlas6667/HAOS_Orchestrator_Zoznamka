@@ -35,6 +35,10 @@ def enqueue(
     my_last_message: str = "",
     submit: bool = False,
     history: list[dict[str, Any]] | None = None,
+    option_provider: str = "",
+    option_model: str = "",
+    message_type: str = "text",
+    transcribed_text: str = "",
 ) -> dict[str, Any]:
     """Add a new incoming message to the queue. Returns the queue entry."""
     state = _load()
@@ -55,6 +59,18 @@ def enqueue(
             if submit and not entry.get("submit"):
                 entry["submit"] = True
                 changed = True
+            if option_provider and str(entry.get("option_provider") or "") != option_provider:
+                entry["option_provider"] = option_provider
+                changed = True
+            if option_model and str(entry.get("option_model") or "") != option_model:
+                entry["option_model"] = option_model
+                changed = True
+            if message_type and str(entry.get("message_type") or "text") != message_type:
+                entry["message_type"] = message_type
+                changed = True
+            if transcribed_text and str(entry.get("transcribed_text") or "") != transcribed_text:
+                entry["transcribed_text"] = transcribed_text
+                changed = True
             if changed:
                 _save(state)
             return entry
@@ -67,8 +83,12 @@ def enqueue(
         "my_last_message": my_last_message,
         "history": history_clean,
         "options": options,
+        "option_provider": option_provider,
+        "option_model": option_model,
         "status": "queued",
         "submit": submit,
+        "message_type": message_type or "text",
+        "transcribed_text": transcribed_text,
         "prompt_message_id": None,
         "created": datetime.now().isoformat(timespec="seconds"),
     }
@@ -116,6 +136,19 @@ def update_options(entry: dict[str, Any], options: list[str]) -> dict[str, Any] 
     for queued in state["queue"]:
         if _entry_identity(queued) == target_identity:
             queued["options"] = list(options)
+            _save(state)
+            return queued
+    return None
+
+
+def update_metadata(entry: dict[str, Any], **updates: Any) -> dict[str, Any] | None:
+    """Update arbitrary metadata fields on a queued entry."""
+    state = _load()
+    target_identity = _entry_identity(entry)
+    for queued in state["queue"]:
+        if _entry_identity(queued) == target_identity:
+            for key, value in updates.items():
+                queued[key] = value
             _save(state)
             return queued
     return None

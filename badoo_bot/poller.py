@@ -40,10 +40,15 @@ async def _notify_orchestrator(msg: dict) -> dict:
         "conversation_id": msg["conversation_id"],
         "sender": msg["sender"],
         "message": msg["message"],
+        "message_type": msg.get("message_type", "text"),
         "my_last_message": msg.get("my_last_message", ""),
         "history": history,
     }
     for key in ("photo_url", "photo_base64", "photo_content_type"):
+        val = msg.get(key)
+        if isinstance(val, str) and val.strip():
+            payload[key] = val.strip()
+    for key in ("audio_base64", "audio_content_type"):
         val = msg.get(key)
         if isinstance(val, str) and val.strip():
             payload[key] = val.strip()

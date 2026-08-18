@@ -7,6 +7,7 @@ Samostatný Selenium add-on pre [badoo.com](https://badoo.com). Tretia zoznamka 
 - ✅ Login (noVNC / Google / profile reuse)
 - ✅ Inbox polling → orchestrátor → Discord
 - ✅ `/send` po výbere `1`/`2`/`3`/`4` v Discorde
+- ✅ Audio správy → prepis do textu v orchestrátore → Discord návrhy
 
 ## Prvé prihlásenie
 
@@ -37,6 +38,9 @@ Detail: [HAOS_LOGIN.md](HAOS_LOGIN.md)
 | `auto_send` | `BADOO_AUTO_SEND` | false |
 | (fixed) | `BADOO_USER_DATA_DIR` | `/data/chrome-profile` |
 | | `BADOO_BOT_PORT` | 8602 |
+| orchestrator AI | `DATING_REPLY_PROVIDER` | `openai` |
+| orchestrator AI | `GEMINI_API_KEY` | empty |
+| orchestrator AI | `DATING_REPLY_GEMINI_MODEL` | `gemini-2.5-flash` |
 
 ## API
 
@@ -48,3 +52,11 @@ Detail: [HAOS_LOGIN.md](HAOS_LOGIN.md)
 | POST | `/debug/poll` | One inbox check |
 | POST | `/debug/push-discord` | Manual → orchestrator |
 | POST | `/send` | Orchestrator reply insert/send |
+
+## Discord ovládanie návrhov
+
+- `1` až `4` — vyber AI draft
+- `5 tvoj text` — vlastná odpoveď
+- `6` — nové návrhy cez default provider
+- `6 gemini` — nové návrhy cez Gemini
+- `6 gpt` — nové návrhy cez OpenAI
