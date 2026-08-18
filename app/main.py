@@ -685,6 +685,9 @@ async def elitedate_incoming(request: Request):
     photo_url = str(data.get("photo_url") or "").strip()
     photo_base64 = str(data.get("photo_base64") or "").strip()
     photo_content_type = str(data.get("photo_content_type") or "").strip()
+    message_type = str(data.get("message_type") or "text").strip()
+    audio_base64 = str(data.get("audio_base64") or "").strip()
+    audio_content_type = str(data.get("audio_content_type") or "").strip()
 
     if not conversation_id or not message:
         return {"status": "error", "error": "conversation_id and message are required"}
@@ -699,6 +702,9 @@ async def elitedate_incoming(request: Request):
         photo_url=photo_url,
         photo_base64=photo_base64,
         photo_content_type=photo_content_type,
+        message_type=message_type,
+        audio_base64=audio_base64,
+        audio_content_type=audio_content_type,
     )
     discord_ok = bool(entry.get("prompt_message_id"))
     return {

@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 
 from app.config import settings
+from app.tools.audio_transcription import transcribe_audio
 from app.tools import badoo_state
 from app.tools.badoo_reply_provider import generate_reply_options
 from app.tools.discord_notifier import DiscordNotifier
@@ -30,6 +31,33 @@ _REGENERATE_RE = re.compile(
 
 def _format_prompt(entry: dict[str, Any]) -> str:
     return format_dating_prompt(entry, app_emoji="💜", app_name="Badoo")
+
+
+def _normalize_provider_name(provider: str) -> str:
+    normalized = unicodedata.normalize("NFKC", provider or "").strip().lower()
+    if normalized in {"gpt", "openai", "chatgpt"}:
+        return "openai"
+    if normalized in {"gemini", "google"}:
+        return "gemini"
+    return ""
+
+
+def _default_provider() -> str:
+    return _normalize_provider_name(settings.dating_reply_provider) or "openai"
+
+
+def _provider_label(provider: str) -> str:
+    normalized = _normalize_provider_name(provider)
+    if normalized == "gemini":
+        return "gemini"
+    return "openai"
+
+
+def _provider_model(provider: str) -> str:
+    normalized = _normalize_provider_name(provider)
+    if normalized == "gemini":
+        return str(settings.dating_reply_gemini_model or "gemini-2.5-flash")
+    return str(settings.dating_reply_model or settings.openai_model or "gpt-4o")
 
 
 async def _post_prompt(
@@ -128,22 +156,60 @@ async def handle_incoming(
     photo_url: str = "",
     photo_base64: str = "",
     photo_content_type: str = "",
+    message_type: str = "text",
+    audio_base64: str = "",
+    audio_content_type: str = "",
 ) -> dict[str, Any]:
     """Called by POST /api/badoo/incoming when the bot finds a new message."""
-    options = await generate_reply_options(
-        message,
-        sender,
-        my_last_message=my_last_message,
-        history=history,
-    )
+    normalized_message_type = str(message_type or "text").strip().lower() or "text"
+    effective_message = message
+    transcribed_text = ""
+    transcription_failed = False
+    if normalized_message_type == "audio":
+        if audio_base64.strip():
+            try:
+                transcript = await transcribe_audio(
+                    audio_base64=audio_base64,
+                    audio_content_type=audio_content_type,
+                )
+                transcribed_text = str(transcript.get("text") or "").strip()
+                if transcribed_text:
+                    effective_message = transcribed_text
+            except Exception as exc:  # noqa: BLE001
+                transcription_failed = True
+                effective_message = f"[Audio správa — prepis zlyhal: {exc}]"
+        else:
+            transcription_failed = True
+            effective_message = "[Audio správa — nepodarilo sa vytiahnuť audio súbor z Badoo DOM]"
+
+    option_provider = _default_provider()
+    if transcription_failed:
+        options = [
+            "Pošli `6 gemini` po doplnení API kľúča a skús nový návrh znova.",
+            "Pošli `5` a napíš vlastnú odpoveď podľa obsahu audio správy.",
+            "Otvor Badoo a vypočuj si správu ručne, potom pošli `5 tvoj text`.",
+            "Skús preposlať túto správu znova cez debug flow, ak bol problém len pri prepise.",
+        ]
+    else:
+        options = await generate_reply_options(
+            effective_message,
+            sender,
+            my_last_message=my_last_message,
+            history=history,
+            provider=option_provider,
+        )
     entry = badoo_state.enqueue(
         conversation_id,
         sender,
-        message,
+        effective_message,
         options,
         my_last_message=my_last_message,
         submit=submit,
         history=history,
+        option_provider=option_provider,
+        option_model=_provider_model(option_provider),
+        message_type=normalized_message_type,
+        transcribed_text=transcribed_text,
     )
     if photo_url:
         entry["photo_url"] = photo_url
@@ -225,9 +291,21 @@ def is_regenerate_request(choice_text: str) -> bool:
 
 def _parse_choice(choice_text: str) -> tuple[str, str | None] | None:
     choice = unicodedata.normalize("NFKC", choice_text or "").strip().strip("`")
+    lowered = choice.lower()
+
+    provider_only = _normalize_provider_name(choice)
+    if provider_only:
+        return ("regenerate_provider", provider_only)
 
     if is_regenerate_request(choice):
         return ("regenerate", None)
+
+    regen_provider_match = re.match(
+        r"^6(?:[.)]|️⃣|⃣|️)?\s+(gemini|gpt|openai|chatgpt|google)$",
+        lowered,
+    )
+    if regen_provider_match:
+        return ("regenerate_provider", _normalize_provider_name(regen_provider_match.group(1)))
 
     # Accept plain numeric picks and common Discord variants like "2.", "2)", "2️⃣".
     simple_match = re.match(r"^([123456])(?:[.)]|️⃣|⃣|️)?$", choice)
@@ -263,11 +341,20 @@ def _resolve_entry(replied_to_message_id: str | None = None) -> dict[str, Any] |
 
 async def regenerate_suggestions(replied_to_message_id: str | None = None) -> str | None:
     """Generate fresh options and re-post the Discord prompt for the same thread."""
+    return await regenerate_suggestions_with_provider(replied_to_message_id=replied_to_message_id)
+
+
+async def regenerate_suggestions_with_provider(
+    replied_to_message_id: str | None = None,
+    provider: str = "",
+) -> str | None:
+    """Generate fresh options and re-post the Discord prompt for the same thread."""
     entry = _resolve_entry(replied_to_message_id)
     if entry is None:
         return None
 
     previous_options = list(entry.get("options") or [])
+    chosen_provider = _normalize_provider_name(provider) or _default_provider()
     try:
         options = await generate_reply_options(
             str(entry.get("message") or ""),
@@ -275,6 +362,7 @@ async def regenerate_suggestions(replied_to_message_id: str | None = None) -> st
             my_last_message=str(entry.get("my_last_message") or ""),
             previous_options=previous_options,
             history=list(entry.get("history") or []),
+            provider=chosen_provider,
         )
     except Exception as exc:  # noqa: BLE001
         return f"⚠️ Nepodarilo sa vygenerovať nové návrhy: {exc}"
@@ -283,6 +371,14 @@ async def regenerate_suggestions(replied_to_message_id: str | None = None) -> st
     if updated is None:
         return "⚠️ Konverzácia už nie je vo fronte — nové návrhy sa nepodarilo uložiť."
 
+    updated = (
+        badoo_state.update_metadata(
+            updated,
+            option_provider=_provider_label(chosen_provider),
+            option_model=_provider_model(chosen_provider),
+        )
+        or updated
+    )
     prompt_message_id = await _post_prompt(updated, edit_existing=True)
     if prompt_message_id:
         badoo_state.set_prompt_message_id(updated, prompt_message_id)
@@ -290,7 +386,8 @@ async def regenerate_suggestions(replied_to_message_id: str | None = None) -> st
     conv_short = str(updated.get("conversation_id") or "")[:8]
     sender = str(updated.get("sender") or "Neznámy")
     return (
-        f"🔄 Nové návrhy pre `{sender} | {conv_short}` boli aktualizované v pôvodnej správe. "
+        f"🔄 Nové návrhy pre `{sender} | {conv_short}` boli aktualizované v pôvodnej správe "
+        f"cez `{_provider_label(chosen_provider)}`. "
         f"Vyber `1/2/3/4`, voľnú `5 text`, alebo znova `6`."
     )
 
@@ -306,6 +403,11 @@ async def handle_selection(choice_text: str, replied_to_message_id: str | None =
     choice_kind, custom_text = parsed
     if choice_kind == "regenerate":
         return await regenerate_suggestions(replied_to_message_id)
+    if choice_kind == "regenerate_provider":
+        return await regenerate_suggestions_with_provider(
+            replied_to_message_id=replied_to_message_id,
+            provider=custom_text or "",
+        )
 
     entry = _resolve_entry(replied_to_message_id)
     if entry is None:

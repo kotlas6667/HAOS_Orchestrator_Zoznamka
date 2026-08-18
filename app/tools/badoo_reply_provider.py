@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import httpx
@@ -55,11 +56,10 @@ async def generate_reply_options(
     my_last_message: str = "",
     previous_options: list[str] | None = None,
     history: list | None = None,
+    provider: str = "",
 ) -> list[str]:
-    """Ask GPT for four reply drafts using full chat history when available."""
-    if not settings.openai_api_key:
-        msg = "(OPENAI_API_KEY nie je nastavený — doplň vlastnú odpoveď ručne.)"
-        return [msg, msg, msg, msg]
+    """Ask the configured LLM for four reply drafts using full chat history."""
+    chosen_provider = (provider or settings.dating_reply_provider or "openai").strip().lower()
 
     previous = [str(o).strip() for o in (previous_options or []) if str(o).strip()]
     avoid_block = ""
@@ -115,6 +115,24 @@ async def generate_reply_options(
         "Máš pravdu. Keď ti to vyhovuje, môžeme to posunúť na konkrétny termín.",
     ]
 
+    if chosen_provider == "gemini":
+        if not settings.gemini_api_key:
+            msg = "(GEMINI_API_KEY nie je nastavený — doplň vlastnú odpoveď ručne.)"
+            return [msg, msg, msg, msg]
+        try:
+            return await _generate_with_gemini(
+                sender=sender,
+                context_block=context_block,
+                avoid_block=avoid_block,
+                fallback=fallback,
+            )
+        except Exception:
+            return fallback
+
+    if not settings.openai_api_key:
+        msg = "(OPENAI_API_KEY nie je nastavený — doplň vlastnú odpoveď ručne.)"
+        return [msg, msg, msg, msg]
+
     try:
         async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
             response = await client.post(
@@ -154,3 +172,89 @@ async def generate_reply_options(
         return options[:4]
     except Exception:
         return fallback
+
+
+async def _generate_with_gemini(
+    *,
+    sender: str,
+    context_block: str,
+    avoid_block: str,
+    fallback: list[str],
+) -> list[str]:
+    model = (settings.dating_reply_gemini_model or "gemini-2.5-flash").strip()
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    payload = {
+        "system_instruction": {
+            "parts": [{"text": _build_system_prompt()}],
+        },
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "text": (
+                            f"Druhá osoba: {sender}\n\n"
+                            f"{context_block}"
+                            f"{avoid_block}"
+                        )
+                    }
+                ],
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.95 if avoid_block else 0.85,
+            "responseMimeType": "application/json",
+        },
+    }
+
+    async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
+        response = await client.post(url, params={"key": settings.gemini_api_key}, json=payload)
+        response.raise_for_status()
+        content = _extract_gemini_text(response.json())
+
+    options = parse_dating_reply_json(content, fallback)
+    unique = {o for o in options if o != "(prázdna odpoveď)"}
+    if len(unique) >= 4:
+        return options[:4]
+
+    retry_payload = {
+        **payload,
+        "contents": payload["contents"]
+        + [
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "text": (
+                            "Predchádzajúca odpoveď nemala 4 rôzne varianty. "
+                            "Vráť IBA JSON s option_1, option_2, option_3, option_4."
+                        )
+                    }
+                ],
+            }
+        ],
+        "generationConfig": {
+            **payload["generationConfig"],
+            "temperature": 0.9,
+        },
+    }
+    async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
+        retry_resp = await client.post(
+            url,
+            params={"key": settings.gemini_api_key},
+            json=retry_payload,
+        )
+        retry_resp.raise_for_status()
+        retry_content = _extract_gemini_text(retry_resp.json())
+    return parse_dating_reply_json(retry_content, fallback)[:4]
+
+
+def _extract_gemini_text(payload: dict) -> str:
+    candidates = payload.get("candidates") or []
+    if not candidates:
+        raise RuntimeError(f"Gemini nevrátil žiadnych kandidátov: {json.dumps(payload)[:500]}")
+    parts = (((candidates[0] or {}).get("content") or {}).get("parts") or [])
+    text = "\n".join(str(part.get("text") or "").strip() for part in parts if isinstance(part, dict)).strip()
+    if not text:
+        raise RuntimeError("Gemini vrátil prázdny obsah.")
+    return text

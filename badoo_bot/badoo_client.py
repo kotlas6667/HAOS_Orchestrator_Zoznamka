@@ -768,6 +768,129 @@ class BadooClient:
         except Exception:  # noqa: BLE001
             return (bubble.text or "").strip()
 
+    def _bubble_audio(self, bubble) -> dict[str, str]:
+        try:
+            return self.driver.execute_script(
+                """
+                const bubble = arguments[0];
+                const result = { has_audio: false, src: '', content_type: '', duration: '' };
+                const audio = bubble.querySelector('audio, audio source');
+                if (audio) {
+                  result.has_audio = true;
+                  result.src = (audio.currentSrc || audio.src || audio.getAttribute('src') || '').trim();
+                  result.content_type = (
+                    audio.getAttribute('type')
+                    || bubble.querySelector('audio source')?.getAttribute('type')
+                    || ''
+                  ).trim();
+                }
+                if (!result.has_audio) {
+                  const link = bubble.querySelector('a[href*=".mp3"], a[href*=".m4a"], a[href*=".aac"], a[href*=".ogg"], a[href*=".opus"], a[href*=".wav"], a[href*=".webm"]');
+                  if (link) {
+                    result.has_audio = true;
+                    result.src = (link.href || link.getAttribute('href') || '').trim();
+                  }
+                }
+                const durationEl = bubble.querySelector(
+                  '[aria-label*="audio" i], [aria-label*="voice" i], [data-qa*="audio"], [data-qa*="voice"], time'
+                );
+                if (durationEl) {
+                  result.duration = (durationEl.innerText || durationEl.textContent || '').trim();
+                }
+                return result;
+                """,
+                bubble,
+            ) or {}
+        except Exception:  # noqa: BLE001
+            return {}
+
+    def _extract_audio_base64_from_src(self, src: str) -> tuple[str, str]:
+        source = (src or "").strip()
+        if not source:
+            return "", ""
+        if source.startswith("data:"):
+            match = re.match(r"^data:([^;,]+)?;base64,(.*)$", source, flags=re.DOTALL)
+            if not match:
+                return "", ""
+            return match.group(2).strip(), (match.group(1) or "").strip()
+
+        if source.startswith("blob:"):
+            try:
+                data_url = self.driver.execute_async_script(
+                    """
+                    const done = arguments[0];
+                    const src = arguments[1];
+                    fetch(src)
+                      .then(resp => resp.blob())
+                      .then(blob => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => done(reader.result || '');
+                        reader.onerror = () => done('');
+                        reader.readAsDataURL(blob);
+                      })
+                      .catch(() => done(''));
+                    """,
+                    source,
+                )
+            except Exception:  # noqa: BLE001
+                return "", ""
+            if not data_url:
+                return "", ""
+            return self._extract_audio_base64_from_src(str(data_url))
+
+        if source.startswith(("http://", "https://")):
+            try:
+                data_url = self.driver.execute_async_script(
+                    """
+                    const done = arguments[0];
+                    const src = arguments[1];
+                    fetch(src, { credentials: 'include' })
+                      .then(resp => {
+                        const ctype = resp.headers.get('content-type') || '';
+                        return resp.blob().then(blob => ({ blob, ctype }));
+                      })
+                      .then(({ blob, ctype }) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => done({
+                          dataUrl: reader.result || '',
+                          contentType: ctype || blob.type || '',
+                        });
+                        reader.onerror = () => done({ dataUrl: '', contentType: '' });
+                        reader.readAsDataURL(blob);
+                      })
+                      .catch(() => done({ dataUrl: '', contentType: '' }));
+                    """,
+                    source,
+                )
+            except Exception:  # noqa: BLE001
+                return "", ""
+            if not isinstance(data_url, dict):
+                return "", ""
+            encoded, inferred = self._extract_audio_base64_from_src(str(data_url.get("dataUrl") or ""))
+            content_type = str(data_url.get("contentType") or inferred or "").strip()
+            return encoded, content_type
+        return "", ""
+
+    def _bubble_message_payload(self, bubble) -> dict[str, str]:
+        text = self._bubble_text(bubble)
+        if text:
+            return {"type": "text", "text": text}
+
+        audio_meta = self._bubble_audio(bubble)
+        if audio_meta.get("has_audio"):
+            audio_base64, extracted_type = self._extract_audio_base64_from_src(str(audio_meta.get("src") or ""))
+            duration = str(audio_meta.get("duration") or "").strip()
+            placeholder = "[Audio správa]"
+            if duration:
+                placeholder = f"[Audio správa {duration}]"
+            return {
+                "type": "audio",
+                "text": placeholder,
+                "audio_base64": audio_base64,
+                "audio_content_type": extracted_type or str(audio_meta.get("content_type") or "").strip(),
+            }
+        return {"type": "unknown", "text": ""}
+
     def _is_received_bubble(self, bubble) -> bool:
         return self._bubble_direction(bubble) == "in"
 
@@ -775,20 +898,38 @@ class BadooClient:
         return self._bubble_direction(bubble) == "out"
 
     def _latest_received_message(self) -> str:
+        return self._latest_received_message_payload().get("message", "")
+
+    def _latest_received_message_payload(self) -> dict[str, str]:
         bubbles = self._iter_chat_bubbles()
         parts: list[str] = []
+        last_type = "text"
+        audio_base64 = ""
+        audio_content_type = ""
         for bubble in reversed(bubbles):
             if not self._is_received_bubble(bubble):
                 if parts:
                     break
                 continue
-            text = self._bubble_text(bubble)
+            payload = self._bubble_message_payload(bubble)
+            text = str(payload.get("text") or "").strip()
             if text:
+                if payload.get("type") == "audio":
+                    last_type = "audio"
+                    if not audio_base64 and payload.get("audio_base64"):
+                        audio_base64 = str(payload.get("audio_base64") or "")
+                    if not audio_content_type and payload.get("audio_content_type"):
+                        audio_content_type = str(payload.get("audio_content_type") or "")
                 parts.append(text)
         if not parts:
-            return ""
+            return {"message": "", "message_type": "text", "audio_base64": "", "audio_content_type": ""}
         parts.reverse()
-        return "\n\n".join(parts).strip()
+        return {
+            "message": "\n\n".join(parts).strip(),
+            "message_type": last_type,
+            "audio_base64": audio_base64,
+            "audio_content_type": audio_content_type,
+        }
 
     def _latest_sent_message(self) -> str:
         bubbles = self._iter_chat_bubbles()
@@ -819,7 +960,8 @@ class BadooClient:
     def _extract_chat_history(self, *, max_messages: int = 24) -> list[dict[str, str]]:
         history: list[dict[str, str]] = []
         for bubble in self._iter_chat_bubbles():
-            text = self._bubble_text(bubble)
+            payload = self._bubble_message_payload(bubble)
+            text = str(payload.get("text") or "").strip()
             if not text:
                 continue
             role = "them" if self._is_received_bubble(bubble) else "me"
@@ -876,11 +1018,18 @@ class BadooClient:
         sender: str,
         message_text: str,
         preview: str,
+        *,
+        message_type: str = "text",
+        audio_base64: str = "",
+        audio_content_type: str = "",
     ) -> dict[str, Any]:
         return {
             "conversation_id": match_id,
             "sender": sender,
             "message": message_text,
+            "message_type": message_type,
+            "audio_base64": audio_base64,
+            "audio_content_type": audio_content_type,
             "my_last_message": self._latest_sent_message(),
             "preview": preview,
             "history": self._extract_chat_history(max_messages=24),
@@ -915,11 +1064,18 @@ class BadooClient:
                     try:
                         self._open_conversation(match_id)
                         if self._last_message_is_received():
-                            message_text = self._latest_received_message() or preview
+                            latest_payload = self._latest_received_message_payload()
+                            message_text = latest_payload.get("message") or preview
                             if message_text:
                                 results.append(
                                     self._build_message_result(
-                                        match_id, sender, message_text, preview
+                                        match_id,
+                                        sender,
+                                        message_text,
+                                        preview,
+                                        message_type=str(latest_payload.get("message_type") or "text"),
+                                        audio_base64=str(latest_payload.get("audio_base64") or ""),
+                                        audio_content_type=str(latest_payload.get("audio_content_type") or ""),
                                     )
                                 )
                                 print(
@@ -949,12 +1105,21 @@ class BadooClient:
                     print(f"[badoo_bot] Preview changed but last bubble is ours: {sender}")
                     continue
 
-                message_text = self._latest_received_message() or preview
+                latest_payload = self._latest_received_message_payload()
+                message_text = latest_payload.get("message") or preview
                 if not message_text:
                     continue
 
                 results.append(
-                    self._build_message_result(match_id, sender, message_text, preview)
+                    self._build_message_result(
+                        match_id,
+                        sender,
+                        message_text,
+                        preview,
+                        message_type=str(latest_payload.get("message_type") or "text"),
+                        audio_base64=str(latest_payload.get("audio_base64") or ""),
+                        audio_content_type=str(latest_payload.get("audio_content_type") or ""),
+                    )
                 )
                 print(
                     f"[badoo_bot] New message from {sender} "

@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     openai_model: str = Field(default="gpt-4o-mini", env="OPENAI_MODEL")
     # Silnejší model len pre ED/Tinder návrhy odpovedí (routing ostáva na openai_model).
     dating_reply_model: str = Field(default="gpt-4o", validation_alias="DATING_REPLY_MODEL")
+    dating_reply_provider: str = Field(default="openai", validation_alias="DATING_REPLY_PROVIDER")
+    gemini_api_key: str = Field(default="", validation_alias="GEMINI_API_KEY")
+    dating_reply_gemini_model: str = Field(
+        default="gemini-2.5-flash",
+        validation_alias="DATING_REPLY_GEMINI_MODEL",
+    )
 
     # Chat
     chat_provider: str = "openai"

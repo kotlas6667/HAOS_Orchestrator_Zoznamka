@@ -31,6 +31,8 @@ def format_dating_prompt(entry: dict[str, Any], *, app_emoji: str, app_name: str
     sender = str(entry.get("sender") or "Neznámy").strip()
     my_last_message = str(entry.get("my_last_message") or "").strip()
     their_last_message = str(entry.get("message") or "").strip()
+    message_type = str(entry.get("message_type") or "text").strip().lower()
+    option_provider = str(entry.get("option_provider") or "").strip().lower()
 
     queue_note = ""
     if entry.get("status") != "awaiting_selection":
@@ -46,12 +48,15 @@ def format_dating_prompt(entry: dict[str, Any], *, app_emoji: str, app_name: str
         f"3️⃣ {opt3}\n"
         f"4️⃣ {opt4}\n\n"
         f"5️⃣ voľná odpoveď — pošli ju ako `5 Tvoj text`\n"
-        f"6️⃣ nové návrhy od AI\n\n"
+        f"6️⃣ nové návrhy od AI (`6 gemini` alebo `6 gpt`)\n\n"
         f"Tip: Reply na túto správu a pošli `1`–`6`."
     )
 
     headline = f"{app_emoji} **Nová správa na {app_name} od {sender}**"
-    header = f"{headline}\n🔒 Vlákno: `{sender} | {conv_short}`\n\n{choices_block}\n"
+    provider_badge = ""
+    if option_provider:
+        provider_badge = f"\n🧠 Návrhy: `{option_provider}`"
+    header = f"{headline}\n🔒 Vlákno: `{sender} | {conv_short}`{provider_badge}\n\n{choices_block}\n"
 
     context_intro = "**Kontext:**\n"
     footer = ""
@@ -61,7 +66,10 @@ def format_dating_prompt(entry: dict[str, Any], *, app_emoji: str, app_name: str
     my_block = ""
     if my_last_message:
         my_block = f"👤 Tvoja posledná otázka/správa:\n{_discord_quote(my_last_message)}\n\n"
-    their_block = f"👥 Posledná odpoveď od {sender}:\n{_discord_quote(their_last_message)}\n"
+    message_label = f"👥 Posledná odpoveď od {sender}:"
+    if message_type == "audio":
+        message_label = f"👥 Posledná audio správa od {sender} (prepísaná do textu):"
+    their_block = f"{message_label}\n{_discord_quote(their_last_message)}\n"
     queue_block = f"\n{queue_note}" if queue_note else ""
 
     context = my_block + their_block + queue_block
