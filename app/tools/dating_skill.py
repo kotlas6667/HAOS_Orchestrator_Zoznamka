@@ -22,6 +22,32 @@ _USER_SKILL_CANDIDATES = (
 _WRITE_PATH = Path("/data/orchestrator/config/dating_reply_skill.md")
 _WRITE_FALLBACK = Path("dating_reply_skill.user.md")
 
+# Keep drafts varied, but low enough that Slovak inflections stay stable.
+DATING_REPLY_TEMPERATURE = 0.55
+DATING_REPLY_REGENERATE_TEMPERATURE = 0.65
+DATING_REPLY_RETRY_TEMPERATURE = 0.5
+
+SLOVAK_REPLY_GRAMMAR_RULES = """\
+Slovenčina (povinné, má prednosť pred „kreatívnym“ tónom):
+- Správne skloňovanie: pád, rod, číslo a predložkové väzby (na + akuzatív, s + inštrumentál, v + lokál).
+- Zakázané lámané tvary, napr. „na káva“, „ísť na kino“, „s tebou stretnúť“, „poď na pivo so mňa“.
+- Hovorový jazyk a skratky OK, ale tvary musia byť ako od rodilého hovorcu.
+- Ak si nie istý tvarom, napíš kratšiu vetu, ktorú vieš skloňovať správne.
+- Skill z dashboardu dodrž presne (persona, hranice, fakty) — nevymýšľaj proti nemu.
+"""
+
+
+def dating_reply_temperature(*, regenerate: bool = False) -> float:
+    return DATING_REPLY_REGENERATE_TEMPERATURE if regenerate else DATING_REPLY_TEMPERATURE
+
+
+def resolve_dating_reply_model() -> str:
+    """Prefer a stronger GPT for drafts; treat the old default gpt-4o as gpt-4.1."""
+    raw = (settings.dating_reply_model or "").strip()
+    if not raw or raw in {"gpt-4o", "gpt-4"}:
+        return "gpt-4.1"
+    return raw
+
 
 def skill_write_path() -> Path:
     """Path used by dashboard PUT — prefer persistent HAOS config dir."""

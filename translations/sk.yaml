@@ -16,8 +16,8 @@ configuration:
   dating_reply_model:
     name: Model pre AI návrhy (ED + Tinder + Badoo)
     description: >-
-      OpenAI model pre 4 návrhy odpovedí v Discorde. Default gpt-4o.
-      Používa sa len keď je provider openai.
+      OpenAI model pre 4 návrhy odpovedí v Discorde. Default gpt-4.1 (silnejší ako gpt-4o).
+      Používa sa keď je provider openai. Routing ostáva na poli vyššie.
   dating_reply_provider:
     name: Provider AI návrhov (dating)
     description: >-
