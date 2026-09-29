@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.37] / Tinder [1.2.21] / Badoo [1.1.7] / Elite Date [1.3.18] - 2026-09-29
+
+### Fixed
+- Discord `1`–`4` na Tinderi: orchestrátor hlásil **timeout po 90s**, hoci Selenium odpoveď
+  medzičasom odoslal (false-negative). Príčina: `_find_message_input` / `_find_send_button`
+  čakali **30 s na každý** CSS selektor namiesto jedného spoločného deadline.
+- Poll teraz **ustúpi** `/send` (`send_waiters`), timeout orchestrátora → bot je **180 s**
+  a chybová hláška upozorní, že odpoveď sa mohla aj tak odoslať (Tinder / Badoo / ED).
+
 ## [1.2.36] - 2026-08-18
 
 ### Changed

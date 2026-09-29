@@ -176,11 +176,12 @@ async def _send_via_bot(
     """Insert chosen reply into Tinder input, optionally submit by config.
 
     Timeout must cover Selenium navigation + optional wait on driver_lock while
-    the poller holds Chrome (10s was too short → empty httpx.ReadTimeout).
+    the poller holds Chrome (90s was still too short when selector waits stacked).
     """
     url = f"{settings.tinder_bot_url.rstrip('/')}/send"
+    timeout_sec = 180.0
     try:
-        async with httpx.AsyncClient(timeout=90.0) as client:
+        async with httpx.AsyncClient(timeout=timeout_sec) as client:
             response = await client.post(
                 url,
                 json={
@@ -196,8 +197,8 @@ async def _send_via_bot(
     except httpx.TimeoutException as exc:
         detail = str(exc).strip() or "ReadTimeout"
         raise RuntimeError(
-            f"timeout po 90s pri volaní {url} ({detail}) — bot asi drží Chrome (poll) "
-            "alebo Selenium dlho otvára chat"
+            f"timeout po {int(timeout_sec)}s pri volaní {url} ({detail}) — bot asi drží Chrome (poll) "
+            "alebo Selenium dlho otvára chat. Skontroluj Tinder: odpoveď sa mohla aj tak odoslať."
         ) from exc
     except httpx.HTTPError as exc:
         detail = str(exc).strip() or type(exc).__name__

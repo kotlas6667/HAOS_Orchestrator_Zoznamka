@@ -101,8 +101,16 @@ async def poll_loop() -> None:
                 print(f"[tinder_bot] poll: session rebuild failed: {exc}")
             continue
 
+        if shared_state.send_waiters > 0:
+            print("[tinder_bot] poll: skipping — /send waiting for Chrome")
+            continue
+
         try:
             async with shared_state.driver_lock:
+                # Re-check after acquire: a /send may have queued while we waited.
+                if shared_state.send_waiters > 0:
+                    print("[tinder_bot] poll: yielding lock to /send")
+                    continue
                 messages = await run_client_method("check_new_messages")
         except Exception as exc:  # noqa: BLE001
             print(f"[tinder_bot] check_new_messages failed: {exc}")

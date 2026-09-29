@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.18
+
+- Poll ustúpi čakajúcemu `/send` (`send_waiters`); orchestrátor timeout na `/send` 180 s
+
 ## 1.3.17
 
 - **DOCS.md** in HA Documentation tab (setup, DNS, GitHub + optional PayPal tip)
