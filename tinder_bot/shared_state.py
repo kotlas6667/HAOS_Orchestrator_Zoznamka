@@ -9,4 +9,7 @@ from tinder_bot.tinder_client import TinderClient
 # browser tab simultaneously). Everything that touches `client` must hold
 # this lock first.
 driver_lock = asyncio.Lock()
+# /send increments this before waiting on driver_lock so the poll loop can
+# skip a cycle instead of starting another long check_new_messages hold.
+send_waiters: int = 0
 client: TinderClient | None = None

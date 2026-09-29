@@ -1148,6 +1148,39 @@ class BadooClient:
                 return row
         return None
 
+    def _find_first_matching(
+        self,
+        selectors: tuple[str, ...],
+        *,
+        require_enabled: bool = False,
+        timeout: float | None = None,
+    ):
+        """Poll all CSS selectors within one shared deadline (not 30s × N)."""
+        deadline = time.time() + (
+            timeout if timeout is not None else float(settings.wait_timeout_sec)
+        )
+        last_exc: Exception | None = None
+        while time.time() < deadline:
+            for css in selectors:
+                try:
+                    for el in self.driver.find_elements(By.CSS_SELECTOR, css):
+                        try:
+                            if not el.is_displayed():
+                                continue
+                            if require_enabled and not el.is_enabled():
+                                continue
+                            return el
+                        except Exception as exc:  # noqa: BLE001
+                            last_exc = exc
+                            continue
+                except Exception as exc:  # noqa: BLE001
+                    last_exc = exc
+                    continue
+            time.sleep(min(0.25, self._poll_interval()))
+        raise TimeoutException(
+            f"element not found for selectors={selectors!r} url={self._current_url()}"
+        ) from last_exc
+
     def _find_message_input(self):
         selectors = (
             "#chat-composer-input-message",
@@ -1160,16 +1193,12 @@ class BadooClient:
             "form textarea",
             "textarea",
         )
-        last_exc: Exception | None = None
-        for css in selectors:
-            try:
-                return self._wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, css)))
-            except Exception as exc:  # noqa: BLE001
-                last_exc = exc
-                continue
-        raise TimeoutException(
-            f"Badoo message input not found. url={self._current_url()}"
-        ) from last_exc
+        try:
+            return self._find_first_matching(selectors)
+        except TimeoutException as exc:
+            raise TimeoutException(
+                f"Badoo message input not found. url={self._current_url()}"
+            ) from exc
 
     def _find_send_button(self):
         selectors = (
@@ -1184,16 +1213,12 @@ class BadooClient:
             "form button[type='submit']",
             "[class*='composer'] button[type='submit']",
         )
-        last_exc: Exception | None = None
-        for css in selectors:
-            try:
-                return self._wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, css)))
-            except Exception as exc:  # noqa: BLE001
-                last_exc = exc
-                continue
-        raise TimeoutException(
-            f"Badoo send button not found. url={self._current_url()}"
-        ) from last_exc
+        try:
+            return self._find_first_matching(selectors, require_enabled=True)
+        except TimeoutException as exc:
+            raise TimeoutException(
+                f"Badoo send button not found. url={self._current_url()}"
+            ) from exc
 
     def send_reply(
         self,

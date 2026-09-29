@@ -138,6 +138,7 @@ async def send(request: Request) -> dict:
     if shared_state.client is None:
         return {"status": "error", "error": "Bot is not logged in yet"}
 
+    shared_state.send_waiters += 1
     try:
         async with shared_state.driver_lock:
             ok = await run_client_method(
@@ -152,6 +153,8 @@ async def send(request: Request) -> dict:
         detail = str(exc).strip() or type(exc).__name__
         print(f"[elitedate_bot] /send failed: {detail}")
         return {"status": "error", "error": detail}
+    finally:
+        shared_state.send_waiters = max(0, shared_state.send_waiters - 1)
 
     if not ok:
         return {

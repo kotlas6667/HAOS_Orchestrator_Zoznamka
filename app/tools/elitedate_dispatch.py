@@ -241,8 +241,9 @@ async def _send_via_bot(
 ) -> str:
     """Insert chosen reply into EliteDate input, optionally submit by config."""
     url = f"{settings.elitedate_bot_url.rstrip('/')}/send"
+    timeout_sec = 180.0
     try:
-        async with httpx.AsyncClient(timeout=90.0) as client:
+        async with httpx.AsyncClient(timeout=timeout_sec) as client:
             response = await client.post(
                 url,
                 json={
@@ -258,8 +259,8 @@ async def _send_via_bot(
     except httpx.TimeoutException as exc:
         detail = str(exc).strip() or "ReadTimeout"
         raise RuntimeError(
-            f"timeout po 90s pri volaní {url} ({detail}) — bot asi drží Chrome (poll) "
-            "alebo Selenium dlho otvára chat"
+            f"timeout po {int(timeout_sec)}s pri volaní {url} ({detail}) — bot asi drží Chrome (poll) "
+            "alebo Selenium dlho otvára chat. Skontroluj Elite Date: odpoveď sa mohla aj tak odoslať."
         ) from exc
     except httpx.HTTPError as exc:
         detail = str(exc).strip() or type(exc).__name__

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.21
+
+- `/send`: hľadanie textarea / send button v **jednom** deadline (nie 30s × selektor)
+- Poll ustúpi čakajúcemu `/send` (`send_waiters`) — menej false-negative timeoutov v Discorde
+
 ## 1.2.20
 
 - **DOCS.md** in HA Documentation tab (first login, DNS, GitHub + optional PayPal tip)

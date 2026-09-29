@@ -9,4 +9,6 @@ from elitedate_bot.elitedate_client import EliteDateClient
 # browser tab simultaneously). Everything that touches `client` must hold
 # this lock first.
 driver_lock = asyncio.Lock()
+# /send increments before waiting on driver_lock so poll can yield.
+send_waiters: int = 0
 client: EliteDateClient | None = None

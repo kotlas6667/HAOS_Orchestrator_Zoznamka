@@ -1021,6 +1021,44 @@ class TinderClient:
                 self.driver.execute_script("arguments[0].click();", send_button)
         return True
 
+    def _find_first_matching(
+        self,
+        selectors: tuple[str, ...],
+        *,
+        require_enabled: bool = False,
+        timeout: float | None = None,
+    ):
+        """Poll all CSS selectors within one shared deadline.
+
+        Sequential ``WebDriverWait(..., wait_timeout)`` per selector used to burn
+        30s × N attempts (often > orchestrator /send timeout) even when a later
+        selector would have matched immediately — Discord then reported failure
+        while Selenium still finished sending.
+        """
+        deadline = time.time() + (timeout if timeout is not None else self._wait_timeout())
+        last_exc: Exception | None = None
+        while time.time() < deadline:
+            for css in selectors:
+                try:
+                    for el in self.driver.find_elements(By.CSS_SELECTOR, css):
+                        try:
+                            if not el.is_displayed():
+                                continue
+                            if require_enabled and not el.is_enabled():
+                                continue
+                            return el
+                        except Exception as exc:  # noqa: BLE001
+                            last_exc = exc
+                            continue
+                except Exception as exc:  # noqa: BLE001
+                    last_exc = exc
+                    continue
+            time.sleep(min(0.25, self._poll_interval()))
+        raise TimeoutException(
+            f"element not found for selectors={selectors!r} "
+            f"url={getattr(self.driver, 'current_url', '?')}"
+        ) from last_exc
+
     def _find_message_input(self):
         """Locate the chat textarea with several Tinder UI variants."""
         selectors = (
@@ -1032,17 +1070,13 @@ class TinderClient:
             "form textarea",
             "textarea",
         )
-        last_exc: Exception | None = None
-        for css in selectors:
-            try:
-                return self._wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, css)))
-            except Exception as exc:  # noqa: BLE001
-                last_exc = exc
-                continue
-        raise TimeoutException(
-            f"Tinder message textarea not found (conversation may not be open). "
-            f"url={getattr(self.driver, 'current_url', '?')}"
-        ) from last_exc
+        try:
+            return self._find_first_matching(selectors)
+        except TimeoutException as exc:
+            raise TimeoutException(
+                f"Tinder message textarea not found (conversation may not be open). "
+                f"url={getattr(self.driver, 'current_url', '?')}"
+            ) from exc
 
     def _find_send_button(self):
         selectors = (
@@ -1052,11 +1086,7 @@ class TinderClient:
             "button[type='submit']",
             "form button[type='submit']",
         )
-        last_exc: Exception | None = None
-        for css in selectors:
-            try:
-                return self._wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, css)))
-            except Exception as exc:  # noqa: BLE001
-                last_exc = exc
-                continue
-        raise TimeoutException("Tinder send button not found") from last_exc
+        try:
+            return self._find_first_matching(selectors, require_enabled=True)
+        except TimeoutException as exc:
+            raise TimeoutException("Tinder send button not found") from exc
