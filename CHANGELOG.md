@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.39] / Badoo [1.1.9] - 2026-10-08
+
+### Fixed
+- Dating Discord (ED / Tinder / Badoo): po výbere `1`–`5` a odoslaní sa znova
+  **postol** prompt pre ďalšiu konverzáciu vo fronte (duplicitná „Nová správa“ /
+  správa z minulosti). Teraz sa existujúca Discord správa len **upraví**
+  (`edit_existing`).
+
+### Changed
+- Badoo incoming (extrakcia správ / Discord Kontext pri príchode) vrátené na stav
+  pred 1.1.8 — pri novej správe ostáva pôvodné správanie; mení sa len post-send.
+
 ## [1.2.38] / Badoo [1.1.8] - 2026-10-08
 
 ### Fixed
@@ -7,6 +19,7 @@
   (join po sebe idúcich bublín / vnorený quote v DOM). Bot berie jednu bublinu
   (preferuje zhodu s inbox preview), odfiltruje vnorené node a orchestrátor
   v Discord prompte ukáže len primárny blok aj pri starom zlepenom payloade.
+  *(1.1.9: incoming časť revertnutá — pozri vyššie.)*
 
 ## [1.2.37] / Tinder [1.2.21] / Badoo [1.1.7] / Elite Date [1.3.18] - 2026-09-29
 
