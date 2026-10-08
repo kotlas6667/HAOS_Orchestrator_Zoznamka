@@ -714,30 +714,8 @@ class BadooClient:
         ):
             bubbles = self.driver.find_elements(By.CSS_SELECTOR, css)
             if bubbles:
-                # Broad selectors can match nested quote/preview nodes inside a
-                # real bubble — keep only outermost elements so we don't treat
-                # an old quoted line as a second "message".
-                return self._outermost_elements(bubbles)
+                return bubbles
         return []
-
-    def _outermost_elements(self, elements: list[Any]) -> list[Any]:
-        if len(elements) <= 1:
-            return list(elements)
-        try:
-            filtered = self.driver.execute_script(
-                """
-                const nodes = Array.from(arguments[0]);
-                return nodes.filter(el =>
-                  !nodes.some(other => other !== el && other.contains(el))
-                );
-                """,
-                elements,
-            )
-            if filtered:
-                return list(filtered)
-        except Exception:  # noqa: BLE001
-            pass
-        return list(elements)
 
     def _bubble_direction(self, bubble) -> str:
         try:
@@ -778,19 +756,11 @@ class BadooClient:
             text = self.driver.execute_script(
                 """
                 const el = arguments[0];
-                const specific = el.querySelector(
-                  '.csms-chat-message-content-text__message, [data-qa-message-content-type="text"]'
+                const preferred = el.querySelector(
+                  '.csms-chat-message-content-text__message, [data-qa-message-content-type="text"], [dir="auto"]'
                 );
-                if (specific) {
-                  return (specific.innerText || specific.textContent || '').trim();
-                }
-                // [dir=auto] often matches quote + body; prefer the last text node
-                // so a reply-quote of an older message is not glued under Kontext.
-                const dirs = Array.from(el.querySelectorAll('[dir="auto"]'))
-                  .map(n => (n.innerText || n.textContent || '').trim())
-                  .filter(Boolean);
-                if (dirs.length) return dirs[dirs.length - 1];
-                return (el.innerText || '').trim();
+                const raw = (preferred && preferred.innerText) || el.innerText || '';
+                return (raw || '').trim();
                 """,
                 bubble,
             )
@@ -930,74 +900,56 @@ class BadooClient:
     def _latest_received_message(self) -> str:
         return self._latest_received_message_payload().get("message", "")
 
-    @staticmethod
-    def _payload_from_bubble(payload: dict[str, Any]) -> dict[str, str]:
-        text = str(payload.get("text") or "").strip()
-        message_type = "audio" if payload.get("type") == "audio" else "text"
-        return {
-            "message": text,
-            "message_type": message_type,
-            "audio_base64": str(payload.get("audio_base64") or "") if message_type == "audio" else "",
-            "audio_content_type": (
-                str(payload.get("audio_content_type") or "") if message_type == "audio" else ""
-            ),
-        }
-
-    @staticmethod
-    def _text_matches_preview(text: str, preview: str) -> bool:
-        msg = (text or "").strip()
-        prev = (preview or "").strip()
-        if not msg or not prev:
-            return False
-        if msg == prev:
-            return True
-        if prev.startswith(msg[:80]) or msg.startswith(prev[:80]):
-            return True
-        return prev in msg or msg in prev
-
-    def _latest_received_message_payload(self, preview: str = "") -> dict[str, str]:
-        """Return a single received bubble for Discord / routing.
-
-        Badoo uses one DOM node per message. Joining consecutive incoming bubbles
-        (copied from Tinder's split-paragraph logic) glued an older leftover into
-        Discord "Posledná odpoveď". Prefer the bubble that matches the inbox
-        preview; otherwise the newest one. Full history still goes via ``history``.
-        """
+    def _latest_received_message_payload(self) -> dict[str, str]:
         bubbles = self._iter_chat_bubbles()
-        consecutive: list[dict[str, str]] = []
+        parts: list[str] = []
+        last_type = "text"
+        audio_base64 = ""
+        audio_content_type = ""
         for bubble in reversed(bubbles):
             if not self._is_received_bubble(bubble):
-                if consecutive:
+                if parts:
                     break
                 continue
             payload = self._bubble_message_payload(bubble)
             text = str(payload.get("text") or "").strip()
-            if not text:
-                continue
-            consecutive.append(self._payload_from_bubble(payload))
-
-        if not consecutive:
+            if text:
+                if payload.get("type") == "audio":
+                    last_type = "audio"
+                    if not audio_base64 and payload.get("audio_base64"):
+                        audio_base64 = str(payload.get("audio_base64") or "")
+                    if not audio_content_type and payload.get("audio_content_type"):
+                        audio_content_type = str(payload.get("audio_content_type") or "")
+                parts.append(text)
+        if not parts:
             return {"message": "", "message_type": "text", "audio_base64": "", "audio_content_type": ""}
-
-        # consecutive is newest-first from the reversed walk
-        if preview.strip() and len(consecutive) > 1:
-            for item in consecutive:
-                if self._text_matches_preview(item["message"], preview):
-                    return item
-        return consecutive[0]
+        parts.reverse()
+        return {
+            "message": "\n\n".join(parts).strip(),
+            "message_type": last_type,
+            "audio_base64": audio_base64,
+            "audio_content_type": audio_content_type,
+        }
 
     def _latest_sent_message(self) -> str:
-        """Return only the newest sent bubble (one Badoo message = one node)."""
         bubbles = self._iter_chat_bubbles()
+        parts: list[str] = []
         for bubble in reversed(bubbles):
             if self._is_received_bubble(bubble):
+                if parts:
+                    break
                 continue
             if not self._is_sent_bubble(bubble):
+                if parts:
+                    break
                 continue
             text = self._bubble_text(bubble)
             if text:
-                return text
-        return ""
+                parts.append(text)
+        if not parts:
+            return ""
+        parts.reverse()
+        return "\n\n".join(parts).strip()
 
     def _last_message_is_received(self) -> bool:
         bubbles = self._iter_chat_bubbles()
@@ -1112,7 +1064,7 @@ class BadooClient:
                     try:
                         self._open_conversation(match_id)
                         if self._last_message_is_received():
-                            latest_payload = self._latest_received_message_payload(preview=preview)
+                            latest_payload = self._latest_received_message_payload()
                             message_text = latest_payload.get("message") or preview
                             if message_text:
                                 results.append(
@@ -1153,7 +1105,7 @@ class BadooClient:
                     print(f"[badoo_bot] Preview changed but last bubble is ours: {sender}")
                     continue
 
-                latest_payload = self._latest_received_message_payload(preview=preview)
+                latest_payload = self._latest_received_message_payload()
                 message_text = latest_payload.get("message") or preview
                 if not message_text:
                     continue

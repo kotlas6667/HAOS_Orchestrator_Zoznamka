@@ -30,22 +30,8 @@ _REGENERATE_RE = re.compile(
 )
 
 
-def _primary_bubble_text(text: str) -> str:
-    """Old Badoo bots joined bubbles oldest-first; Discord shows only the primary reply."""
-    raw = (text or "").strip()
-    if not raw or "\n\n" not in raw:
-        return raw
-    parts = [p.strip() for p in raw.split("\n\n") if p.strip()]
-    return parts[0] if parts else raw
-
-
 def _format_prompt(entry: dict[str, Any]) -> str:
-    # Defense for older Badoo bots that joined consecutive incoming bubbles:
-    # Discord "Kontext" should show only the primary reply, not a leftover quote.
-    cleaned = dict(entry)
-    cleaned["message"] = _primary_bubble_text(str(entry.get("message") or ""))
-    cleaned["my_last_message"] = _primary_bubble_text(str(entry.get("my_last_message") or ""))
-    return format_dating_prompt(cleaned, app_emoji="💜", app_name="Badoo")
+    return format_dating_prompt(entry, app_emoji="💜", app_name="Badoo")
 
 
 def _normalize_provider_name(provider: str) -> str:
