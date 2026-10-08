@@ -483,7 +483,10 @@ async def handle_selection(choice_text: str, replied_to_message_id: str | None =
         return reply
 
     if next_entry:
-        next_prompt_message_id = await _post_prompt(next_entry)
+        # Entry already got a Discord prompt when it arrived (often with "vo fronte").
+        # Edit that message now that it's awaiting — do NOT post a duplicate
+        # "Nová správa" right after the user sends (looked like a leftover from the past).
+        next_prompt_message_id = await _post_prompt(next_entry, edit_existing=True)
         if next_prompt_message_id:
             badoo_state.set_prompt_message_id(next_entry, next_prompt_message_id)
 

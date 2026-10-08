@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.39] - 2026-10-08
+
+### Fixed
+- Dating Discord (ED / Tinder / Badoo): po výbere `1`–`5` a odoslaní sa znova
+  **postol** prompt pre ďalšiu konverzáciu vo fronte (duplicitná „Nová správa“ /
+  správa z minulosti). Teraz sa existujúca Discord správa len **upraví**
+  (`edit_existing`), incoming notifikácie ostávajú bez zmeny.
+
 ## [1.2.38] / Badoo [1.1.8] - 2026-10-08
 
 ### Fixed
