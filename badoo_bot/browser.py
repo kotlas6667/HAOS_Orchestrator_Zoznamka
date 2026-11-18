@@ -50,7 +50,11 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
             options.add_argument("--disable-gpu")
             options.add_argument("--disable-software-rasterizer")
 
-    prefs: dict[str, object] = {"profile.managed_default_content_settings.images": 2}
+    # Headless poll: block images (bandwidth). noVNC login: force-allow so
+    # CAPTCHA works even if an older profile still has images=block saved.
+    prefs: dict[str, object] = {
+        "profile.managed_default_content_settings.images": 2 if settings.headless else 1,
+    }
     if settings.geolocation_enabled:
         prefs["profile.default_content_setting_values.geolocation"] = 1
         prefs["profile.managed_default_content_settings.geolocation"] = 1
