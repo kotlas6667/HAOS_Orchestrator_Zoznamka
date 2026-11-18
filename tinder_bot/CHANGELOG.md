@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.22
+
+- noVNC login: obrázky povolené (CAPTCHA); v headless poll režime ostanú vypnuté
+
 ## 1.2.21
 
 - `/send`: hľadanie textarea / send button v **jednom** deadline (nie 30s × selektor)

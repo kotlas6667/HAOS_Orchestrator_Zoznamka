@@ -60,9 +60,11 @@ def build_driver() -> webdriver.Chrome | webdriver.Edge:
             options.add_argument("--disable-gpu")
             options.add_argument("--disable-software-rasterizer")
 
-    # Skip loading images: cuts per-page memory a lot and this bot only reads
-    # text (messages, sender names), never needs rendered images.
-    prefs: dict[str, object] = {"profile.managed_default_content_settings.images": 2}
+    # Headless poll: block images. noVNC login: force-allow (overrides older
+    # profile prefs) so CAPTCHA puzzles render.
+    prefs: dict[str, object] = {
+        "profile.managed_default_content_settings.images": 2 if settings.headless else 1,
+    }
     if settings.geolocation_enabled:
         prefs["profile.default_content_setting_values.geolocation"] = 1
         prefs["profile.managed_default_content_settings.geolocation"] = 1

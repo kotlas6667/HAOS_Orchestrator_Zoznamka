@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.40] / Badoo [1.1.10] / Tinder [1.2.22] - 2026-11-18
+
+### Fixed
+- Badoo / Tinder noVNC login: CAPTCHA puzzle bez obrázkov — Chrome mal
+  `images: block` aj pri `headless=false`. Obrázky sa blokujú len v headless poll režime.
+
 ## [1.2.39] / Badoo [1.1.9] - 2026-10-08
 
 ### Fixed
